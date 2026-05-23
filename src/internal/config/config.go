@@ -148,7 +148,7 @@ func configCreation() (Config, *ConfigError) {
 	}
 
 	// Ask for database path
-	dbPath := askDBPath()
+	dbPath := utils.ExpandPath(askDBPath())
 	currency := askCurrency()
 	accountName := askAccountName()
 	dateFormat := askDateFormat()
@@ -191,7 +191,7 @@ func InitConfig() (Config, *ConfigError) {
 				Code:    ErrorConfigFileExistsButDir,
 				Message: "config file is a directory"}
 		}
-		config, err := LoadConfig(DefaultConfigFile)
+		config, err := LoadConfig(utils.ExpandPath(DefaultConfigFile))
 		if err != nil {
 			return Config{}, &ConfigError{
 				Code:    ErrorConfigInvalidFile,
@@ -208,7 +208,7 @@ func InitConfig() (Config, *ConfigError) {
 	}
 
 	// Save it
-	cErr := SaveConfig(DefaultConfigFile, config)
+	cErr := SaveConfig(utils.ExpandPath(DefaultConfigFile), config)
 	if cErr != nil {
 		return Config{}, &ConfigError{
 			Code:    ErrorConfigInvalidFile,

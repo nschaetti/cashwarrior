@@ -1,13 +1,14 @@
 package cmd
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
-func By(parsed parser.ParsedCmdLine, _ config.Config) error {
+func By(parsed parser.ParsedCmdLine, _ config.Config, db *sql.DB) error {
 	fmt.Println("by")
 	return nil
 }
