@@ -3,26 +3,36 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/nschaetti/cashwarrior/cmd"
+	"github.com/nschaetti/cashwarrior/internal/config"
+	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: cash <command>")
+	// Check configuration exists
+	cfg, err := config.InitConfig()
+	if err != nil {
+		fmt.Println("Error creating config file:", err)
+		os.Exit(1)
 	}
+	fmt.Println(cfg)
 
-	cmd := os.Args[1]
-
-	switch cmd {
-	case "add":
-		amount := os.Args[2]
-		currency := os.Args[3]
-		product := os.Args[4]
-		var shop string
-		if len(os.Args) > 5 {
-			shop = os.Args[5]
+	// Parse the command line and call the appropriate command.
+	parsedCmd, parseErr := parser.ParseAndValidateCmdLine(os.Args[1:])
+	if parseErr != nil && parseErr.Code != parser.ParseErrorNoCommand {
+		// Just call "list" if there is no command.
+		parsedCmd = parser.ParsedCmdLine{
+			Command: "list",
+			Filters: []parser.Token{},
+			Args:    []parser.Token{},
 		}
-		fmt.Println("Adding money")
-	default:
-		fmt.Println("Unknown command")
+	} else if parseErr != nil {
+		fmt.Println("Error:", parseErr.Message)
+		os.Exit(1)
+	}
+	dispatchErr := cmd.Dispatch(parsedCmd, cfg)
+	if dispatchErr != nil {
+		fmt.Println(dispatchErr)
 	}
 }
