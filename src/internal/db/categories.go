@@ -8,6 +8,7 @@ import (
 type Category struct {
 	ID        int64
 	Name      string
+	ParentID  *int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -19,27 +20,36 @@ type CategoryListFilter struct {
 }
 
 type CreateCategoryInput struct {
-	Name string
+	Name     string
+	ParentID *int64
 }
+
+const rootCategoryName = "root"
 
 func GetCategoryByID(db *sql.DB, id int64) (Category, error) {
 	var category Category
+	var parentID sql.NullInt64
 	err := db.QueryRow(`
-SELECT id, name, created_at, updated_at
+SELECT id, name, parent_id, created_at, updated_at
 FROM categories
 WHERE id = ?
 `, id).Scan(
 		&category.ID,
 		&category.Name,
+		&parentID,
 		&category.CreatedAt,
 		&category.UpdatedAt,
 	)
+	if parentID.Valid {
+		v := parentID.Int64
+		category.ParentID = &v
+	}
 	return category, err
 }
 
 func ListCategories(db *sql.DB, filter CategoryListFilter) ([]Category, error) {
 	query := `
-SELECT id, name, created_at, updated_at
+SELECT id, name, parent_id, created_at, updated_at
 FROM categories
 `
 	args := make([]interface{}, 0)
@@ -68,14 +78,20 @@ FROM categories
 	categories := make([]Category, 0)
 	for rows.Next() {
 		var category Category
+		var parentID sql.NullInt64
 		err = rows.Scan(
 			&category.ID,
 			&category.Name,
+			&parentID,
 			&category.CreatedAt,
 			&category.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if parentID.Valid {
+			v := parentID.Int64
+			category.ParentID = &v
 		}
 		categories = append(categories, category)
 	}
@@ -98,13 +114,36 @@ SELECT EXISTS(
 }
 
 func InsertCategory(db *sql.DB, input CreateCategoryInput) (int64, error) {
+	parentID := input.ParentID
+	if parentID == nil && input.Name != rootCategoryName {
+		rootID, err := getCategoryIDByName(db, rootCategoryName)
+		if err != nil {
+			return 0, err
+		}
+		parentID = &rootID
+	}
+
 	result, err := db.Exec(`
-INSERT INTO categories (name)
-VALUES (?)
-`, input.Name)
+INSERT INTO categories (name, parent_id)
+VALUES (?, ?)
+`, input.Name, parentID)
 	if err != nil {
 		return 0, err
 	}
 
 	return result.LastInsertId()
+}
+
+func getCategoryIDByName(db *sql.DB, name string) (int64, error) {
+	var categoryID int64
+	err := db.QueryRow(`
+SELECT id
+FROM categories
+WHERE name = ?
+`, name).Scan(&categoryID)
+	if err != nil {
+		return 0, err
+	}
+
+	return categoryID, nil
 }

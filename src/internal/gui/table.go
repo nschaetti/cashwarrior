@@ -21,6 +21,8 @@ type Table struct {
 	commentColor    lipgloss.Color
 	titleTextColor  lipgloss.Color
 	headerTextColor lipgloss.Color
+	marginLeft      int
+	marginBottom    int
 }
 
 func NewTable() *Table {
@@ -37,6 +39,8 @@ func NewTable() *Table {
 		headerTextColor: theme.TableHeaderText,
 		headers:         make([]string, 0),
 		rows:            make([][]string, 0),
+		marginLeft:      4,
+		marginBottom:    2,
 	}
 }
 
@@ -71,13 +75,23 @@ func (t *Table) AddRows(rows [][]string) *Table {
 	return t
 }
 
+func (t *Table) WithMarginLeft(margin int) *Table {
+	t.marginLeft = margin
+	return t
+}
+
+func (t *Table) WithMarginBottom(margin int) *Table {
+	t.marginBottom = margin
+	return t
+}
+
 func (t *Table) Render() string {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.titleTextColor).
 		Background(t.titleBgColor).
 		Padding(0, 3).
-		MarginTop(1)
+		MarginTop(2)
 
 	subtitleStyle := lipgloss.NewStyle().
 		Foreground(t.subtitleColor).
@@ -139,7 +153,10 @@ func (t *Table) Render() string {
 	}
 	output += renderedTable
 
-	return output
+	return lipgloss.NewStyle().
+		MarginLeft(t.marginLeft).
+		MarginBottom(t.marginBottom).
+		Render(output)
 }
 
 func (t *Table) Print() {

@@ -8,6 +8,7 @@ import (
 type TransactionDBEntry struct {
 	ID int64 // primary key
 
+	Identifier  string    // Unique identifier for the transaction
 	Type        string    // expense, income, transfer_out, transfer_in
 	Amount      float64   // positive for income, negative for expense
 	Description string    // free-form text
@@ -24,6 +25,15 @@ type TransactionDBEntry struct {
 	UpdatedAt time.Time // last update datetime of the DB entry
 }
 
+type TransactionIDFilter struct {
+	ID int64
+}
+
+func (f TransactionIDFilter) GenerateSQL() (string, []any) {
+	return "id = ?", []any{f.ID}
+}
+
+/*
 type TransactionDBListFilter struct {
 	ID *int64
 
@@ -40,9 +50,10 @@ type TransactionDBListFilter struct {
 
 	Limit  int
 	Offset int
-}
+}*/
 
 type CreateTransactionDBInput struct {
+	Identifier  string
 	Type        string
 	Amount      float64
 	Description string
@@ -61,11 +72,12 @@ func GetTransactionByID(db *sql.DB, id int64) (TransactionDBEntry, error) {
 	var groupID sql.NullInt64
 
 	err := db.QueryRow(`
-SELECT id, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
+SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
 FROM transactions
 WHERE id = ?
 `, id).Scan(
 		&transaction.ID,
+		&transaction.Identifier,
 		&transaction.Type,
 		&transaction.Amount,
 		&transaction.Description,
@@ -101,48 +113,21 @@ WHERE id = ?
 	return transaction, nil
 }
 
-func ListTransactions(db *sql.DB, filter TransactionDBListFilter) ([]TransactionDBEntry, error) {
+func ListTransactions(db *sql.DB, filters []Filter) ([]TransactionDBEntry, error) {
 	query := `
-SELECT id, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
+SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
 FROM transactions
 WHERE 1 = 1
 `
 	args := make([]interface{}, 0)
 
-	if filter.AccountID != nil {
-		query += "AND account_id = ?\n"
-		args = append(args, *filter.AccountID)
-	}
-	if filter.CategoryID != nil {
-		query += "AND category_id = ?\n"
-		args = append(args, *filter.CategoryID)
-	}
-	if filter.PlaceID != nil {
-		query += "AND place_id = ?\n"
-		args = append(args, *filter.PlaceID)
-	}
-	if filter.GroupID != nil {
-		query += "AND group_id = ?\n"
-		args = append(args, *filter.GroupID)
-	}
-	if !filter.DateFrom.IsZero() {
-		query += "AND datetime >= ?\n"
-		args = append(args, filter.DateFrom)
-	}
-	if !filter.DateTo.IsZero() {
-		query += "AND datetime <= ?\n"
-		args = append(args, filter.DateTo)
+	for _, filter := range filters {
+		filterSQL, filterArgs := filter.GenerateSQL()
+		query += "AND " + filterSQL + "\n"
+		args = append(args, filterArgs...)
 	}
 
 	query += "ORDER BY id\n"
-	if filter.Limit > 0 {
-		query += "LIMIT ?\n"
-		args = append(args, filter.Limit)
-	}
-	if filter.Offset > 0 {
-		query += "OFFSET ?\n"
-		args = append(args, filter.Offset)
-	}
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
@@ -160,6 +145,7 @@ WHERE 1 = 1
 
 		err = rows.Scan(
 			&transaction.ID,
+			&transaction.Identifier,
 			&transaction.Type,
 			&transaction.Amount,
 			&transaction.Description,
@@ -219,9 +205,9 @@ func InsertTransaction(db *sql.DB, input CreateTransactionDBInput) (int64, error
 	}
 
 	result, err := db.Exec(`
-INSERT INTO transactions (type, amount, description, datetime, account_id, category_id, place_id, group_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`, transactionType, input.Amount, input.Description, input.Datetime, input.AccountID, input.CategoryID, input.PlaceID, input.GroupID)
+INSERT INTO transactions (identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, input.Identifier, transactionType, input.Amount, input.Description, input.Datetime, input.AccountID, input.CategoryID, input.PlaceID, input.GroupID)
 	if err != nil {
 		return 0, err
 	}

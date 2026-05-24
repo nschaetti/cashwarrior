@@ -12,7 +12,7 @@ import (
 )
 
 func List(parsed parser.ParsedCmdLine, config config.Config, cashDb *sql.DB) error {
-	transactions, err := db.ListTransactions(cashDb, db.TransactionDBListFilter{})
+	transactions, err := db.ListTransactions(cashDb, []db.Filter{})
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func List(parsed parser.ParsedCmdLine, config config.Config, cashDb *sql.DB) err
 		}
 		vendorName = vendor.Name
 		rows = append(rows, []string{
-			strconv.FormatInt(transaction.ID, 10),
+			transaction.Identifier,
 			transaction.Type,
 			strconv.FormatFloat(transaction.Amount, 'f', 2, 64),
 			vendorName,
