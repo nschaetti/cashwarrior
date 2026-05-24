@@ -2,9 +2,9 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 
+	"github.com/pterm/pterm"
 	_ "modernc.org/sqlite"
 
 	"github.com/nschaetti/cashwarrior/cmd"
@@ -17,7 +17,7 @@ func main() {
 	// Check configuration exists
 	cfg, err := config.InitConfig()
 	if err != nil {
-		fmt.Println("Error creating config file:", err)
+		pterm.Error.Println("Error creating config file: ", err, "\n")
 		os.Exit(1)
 	}
 
@@ -31,15 +31,15 @@ func main() {
 			Args:    []parser.Token{},
 		}
 	} else if parseErr != nil {
-		fmt.Println("Error:", parseErr.Message)
+		pterm.Error.Println("Error: ", parseErr.Message, "\n")
 		os.Exit(1)
 	}
 
 	// Open the database
-	fmt.Println("Opening database:", cfg.Database)
+	pterm.Info.Println("Using SQLite database ", cfg.Database)
 	cashDb, dErr := db.Open(cfg.Database)
 	if dErr != nil {
-		fmt.Println("Error opening database:", dErr)
+		pterm.Error.Println("Error opening database: ", dErr, "\n")
 		os.Exit(1)
 	}
 	defer func(mdb *sql.DB) {
@@ -52,6 +52,8 @@ func main() {
 	// Dispatch the command
 	dispatchErr := cmd.Dispatch(parsedCmd, cfg, cashDb)
 	if dispatchErr != nil {
-		fmt.Println(dispatchErr)
+		pterm.Error.Println("Command error: ", dispatchErr, "\n")
+		os.Exit(1)
 	}
+	os.Exit(0)
 }

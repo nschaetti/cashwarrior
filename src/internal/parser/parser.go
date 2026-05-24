@@ -32,13 +32,6 @@ func (e *ParseError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Message, e.Token)
 }
 
-// ParsedCmdLine contains the parsed command, filters, and command arguments.
-type ParsedCmdLine struct {
-	Command string
-	Filters []Token
-	Args    []Token
-}
-
 // Token is a classified lexical unit extracted from the command line.
 type Token struct {
 	Raw     string
