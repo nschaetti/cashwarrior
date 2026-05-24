@@ -10,6 +10,7 @@ import (
 	"github.com/nschaetti/cashwarrior/cmd"
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
+	"github.com/nschaetti/cashwarrior/internal/gui"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
@@ -20,6 +21,7 @@ func main() {
 		pterm.Error.Println("Error creating config file: ", err, "\n")
 		os.Exit(1)
 	}
+	gui.SetTheme(cfg.Display.Theme)
 
 	// Parse the command line
 	parsedCmd, parseErr := parser.ParseAndValidateCmdLine(os.Args[1:])
@@ -37,7 +39,7 @@ func main() {
 
 	// Open the database
 	pterm.Info.Println("Using SQLite database ", cfg.Database)
-	cashDb, dErr := db.Open(cfg.Database)
+	cashDb, dErr := db.Open(cfg)
 	if dErr != nil {
 		pterm.Error.Println("Error opening database: ", dErr, "\n")
 		os.Exit(1)

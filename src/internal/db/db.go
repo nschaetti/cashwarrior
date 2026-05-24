@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+
+	"github.com/nschaetti/cashwarrior/internal/config"
 )
 
 func checkTableExists(db *sql.DB, tableName string) (bool, error) {
@@ -20,27 +22,15 @@ func checkTableExists(db *sql.DB, tableName string) (bool, error) {
 	return true, nil
 }
 
-func checkDatabaseTables(db *sql.DB) error {
-	// Check tables exist
-	exists, err := checkTableExists(db, "entries")
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return createEntriesTable(db)
-	}
-	return nil
-}
-
-func Open(dbPath string) (*sql.DB, error) {
+func Open(config config.Config) (*sql.DB, error) {
 	// Create directory if it doesn't exist
-	dir := filepath.Dir(dbPath)
+	dir := filepath.Dir(config.Database)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, err
 	}
 
 	// Open the database
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite", config.Database)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +41,7 @@ func Open(dbPath string) (*sql.DB, error) {
 	}
 
 	// If not initialized, initialize it
-	err = Init(db)
+	err = Init(db, config)
 	if err != nil {
 		return nil, err
 	}

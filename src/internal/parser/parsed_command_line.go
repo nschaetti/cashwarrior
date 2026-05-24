@@ -25,6 +25,26 @@ func (p *ParsedCmdLine) GetTokenKindCount(filter bool) map[TokenKind]int {
 	return GetTokenKindCount(*p, filter)
 }
 
+func (p *ParsedCmdLine) GetAttributesCount(filter bool) map[string]int {
+	count := make(map[string]int)
+	if !filter {
+		for _, parsedToken := range p.Args {
+			if parsedToken.Kind != TokenAttribute {
+				continue
+			}
+			count[parsedToken.Key]++
+		}
+		return count
+	}
+	for _, parsedToken := range p.Filters {
+		if parsedToken.Kind != TokenAttribute {
+			continue
+		}
+		count[parsedToken.Key]++
+	}
+	return count
+}
+
 func (p *ParsedCmdLine) GetAmount() []*Token {
 	var amounts []*Token
 	for i := range p.Args {
@@ -36,7 +56,7 @@ func (p *ParsedCmdLine) GetAmount() []*Token {
 }
 
 func (p *ParsedCmdLine) RemoveByKind(kind TokenKind) {
-	dst := p.Args[:0]
+	dst := make([]Token, 0, len(p.Args))
 	for _, token := range p.Args {
 		if token.Kind != kind {
 			dst = append(dst, token)

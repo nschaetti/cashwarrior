@@ -19,6 +19,7 @@ var CommandValidations = []func(
 	validateAtLeastTwoArgs,
 	validateNoFilters,
 	validateAmount,
+	validateAttributes,
 }
 
 func validateAtLeastTwoArgs(
@@ -85,7 +86,7 @@ func validateAmount(
 			Amount: sumAmount,
 			Kind:   parser.TokenAmount,
 		}, false)
-		pterm.Info.Println("Summing up amounts...", parsed)
+
 		return parsed, nil
 	}
 
@@ -100,10 +101,54 @@ func validateAmount(
 	return parsed, nil
 }
 
+func checkAttribute(counts map[string]int, attr string, threshold int) error {
+	if counts[attr] > threshold {
+		return fmt.Errorf("only %d attributes %s allowed", threshold, attr)
+	}
+	return nil
+}
+
+func validateAttributes(
+	parsed parser.ParsedCmdLine,
+	config config.Config,
+	db *sql.DB,
+	counts map[parser.TokenKind]int,
+) (parser.ParsedCmdLine, error) {
+	// Get count of attributes
+	attrsCount := parsed.GetAttributesCount(false)
+
+	// Date
+	if err := checkAttribute(attrsCount, "date", 1); err != nil {
+		return parsed, err
+	}
+
+	// Time
+	if err := checkAttribute(attrsCount, "time", 1); err != nil {
+		return parsed, err
+	}
+
+	// Account
+	if err := checkAttribute(attrsCount, "account", 1); err != nil {
+		return parsed, err
+	}
+
+	// Category
+	if err := checkAttribute(attrsCount, "category", 1); err != nil {
+		return parsed, err
+	}
+
+	// Currency
+	if err := checkAttribute(attrsCount, "currency", 1); err != nil {
+		return parsed, err
+	}
+
+	return parsed, nil
+}
+
 func runCommandLineValidation(parsed parser.ParsedCmdLine, config config.Config, db *sql.DB, counts map[parser.TokenKind]int) (parser.ParsedCmdLine, error) {
 	for _, check := range CommandValidations {
 		var err error
-		parsed, err := check(parsed, config, db, counts)
+		parsed, err = check(parsed, config, db, counts)
 		if err != nil {
 			return parsed, err
 		}

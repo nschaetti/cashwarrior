@@ -32,7 +32,7 @@ func (e ConfigError) Error() string {
 type Config struct {
 	Database string        `toml:"database"`
 	Default  AccountConfig `toml:"default"`
-	Display  DisplayConfig `toml:"display"`
+	Display  DisplayConfig `toml:"gui"`
 }
 
 type AccountConfig struct {
@@ -43,6 +43,7 @@ type AccountConfig struct {
 type DisplayConfig struct {
 	DateFormat   string `toml:"date_format"`
 	ShowCurrency bool   `toml:"show_currency"`
+	Theme        string `toml:"theme"`
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -67,6 +68,7 @@ func GetDefaultConfig() Config {
 		Display: DisplayConfig{
 			DateFormat:   "2006-01-02",
 			ShowCurrency: true,
+			Theme:        "dracula",
 		},
 	}
 }
@@ -162,6 +164,7 @@ func configCreation() (Config, *ConfigError) {
 		Display: DisplayConfig{
 			DateFormat:   dateFormat,
 			ShowCurrency: true,
+			Theme:        "dracula",
 		},
 	}, nil
 }
