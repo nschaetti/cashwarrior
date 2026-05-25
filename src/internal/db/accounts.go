@@ -128,3 +128,31 @@ VALUES (?, ?)
 
 	return result.LastInsertId()
 }
+
+func ListAccountCurrencies(db *sql.DB) ([]string, error) {
+	rows, err := db.Query(`
+SELECT DISTINCT currency
+FROM accounts
+ORDER BY currency
+`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	currencies := make([]string, 0)
+	for rows.Next() {
+		var currency string
+		err = rows.Scan(&currency)
+		if err != nil {
+			return nil, err
+		}
+		currencies = append(currencies, currency)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return currencies, nil
+}

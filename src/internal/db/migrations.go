@@ -249,6 +249,19 @@ CREATE TABLE IF NOT EXISTS places (
 	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 `)
+	if err != nil {
+		return err
+	}
+
+	exists, err := PlaceExists(db, "transfer")
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	_, err = InsertPlace(db, CreatePlaceInput{Name: "transfer"})
 	return err
 }
 

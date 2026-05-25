@@ -1,0 +1,9 @@
+database = '~/.cashwarrior/cash.db'
+
+[default]
+currency = 'USD'
+account = 'main'
+
+[display]
+date_format = 'YYYY-MM-DD'
+show_currency = true

@@ -126,6 +126,7 @@ var Commands = map[string]bool{
 	"set-balance": true,
 	"budget":      true,
 	"config":      true,
+	"theme":       true,
 }
 
 // TokenRule classifies a raw token and reports whether it matched.

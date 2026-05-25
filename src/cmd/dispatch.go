@@ -28,6 +28,7 @@ var Commands = map[string]CommandFunc{
 	"set-balance": SetBalance,
 	"budget":      Budget,
 	"config":      Config,
+	"theme":       Theme,
 	"sum":         Sum,
 }
 

@@ -14,10 +14,12 @@ type Transaction struct {
 	Description string    // free-form text
 	Datetime    time.Time // date and time of the transaction
 
-	AccountID  *int64 // foreign key to accounts
-	CategoryID *int64 // foreign key to categories
-	PlaceID    *int64 // foreign key to places
-	GroupID    *int64 // foreign key to groups
+	AccountID   *int64 // foreign key to accounts
+	AccountName string
+	Currency    string
+	CategoryID  *int64 // foreign key to categories
+	PlaceID     *int64 // foreign key to places
+	GroupID     *int64 // foreign key to groups
 
 	Notes *string // free-form text
 
@@ -30,7 +32,7 @@ type TransactionIDFilter struct {
 }
 
 func (f TransactionIDFilter) GenerateSQL() (string, []any) {
-	return "id = ?", []any{f.ID}
+	return "transactions.id = ?", []any{f.ID}
 }
 
 type CreateTransactionInput struct {
@@ -39,18 +41,22 @@ type CreateTransactionInput struct {
 	Amount      float64
 	Description string
 	Datetime    time.Time
-	AccountID   *int64
+	AccountID   int64
 	CategoryID  *int64
-	PlaceID     int64
+	PlaceID     *int64
 	GroupID     *int64
 }
 
 func GetLastTransaction(db *sql.DB) (Transaction, error) {
 	var transaction Transaction
 	return getTransactionFromQueryRow(db.QueryRow(`
-SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
+SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
+       transactions.account_id, COALESCE(accounts.name, ''), COALESCE(accounts.currency, ''),
+       transactions.category_id, transactions.place_id, transactions.group_id,
+       transactions.created_at, transactions.updated_at
 FROM transactions
-ORDER BY id DESC
+LEFT JOIN accounts ON accounts.id = transactions.account_id
+ORDER BY transactions.id DESC
 LIMIT 1
 `), transaction)
 }
@@ -58,18 +64,26 @@ LIMIT 1
 func GetTransactionByID(db *sql.DB, id int64) (Transaction, error) {
 	var transaction Transaction
 	return getTransactionFromQueryRow(db.QueryRow(`
-SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
+SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
+       transactions.account_id, COALESCE(accounts.name, ''), COALESCE(accounts.currency, ''),
+       transactions.category_id, transactions.place_id, transactions.group_id,
+       transactions.created_at, transactions.updated_at
 FROM transactions
-WHERE id = ?
+LEFT JOIN accounts ON accounts.id = transactions.account_id
+WHERE transactions.id = ?
 `, id), transaction)
 }
 
 func GetTransactionByIdentifier(db *sql.DB, identifier string) (Transaction, error) {
 	var transaction Transaction
 	return getTransactionFromQueryRow(db.QueryRow(`
-SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
+SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
+       transactions.account_id, COALESCE(accounts.name, ''), COALESCE(accounts.currency, ''),
+       transactions.category_id, transactions.place_id, transactions.group_id,
+       transactions.created_at, transactions.updated_at
 FROM transactions
-WHERE identifier = ?
+LEFT JOIN accounts ON accounts.id = transactions.account_id
+WHERE transactions.identifier = ?
 `, identifier), transaction)
 }
 
@@ -87,6 +101,8 @@ func getTransactionFromQueryRow(row *sql.Row, transaction Transaction) (Transact
 		&transaction.Description,
 		&transaction.Datetime,
 		&accountID,
+		&transaction.AccountName,
+		&transaction.Currency,
 		&categoryID,
 		&placeID,
 		&groupID,
@@ -119,9 +135,9 @@ func getTransactionFromQueryRow(row *sql.Row, transaction Transaction) (Transact
 	return transaction, nil
 }
 
-func ListTransactions(db *sql.DB, filters []Filter) ([]Transaction, error) {
+func GetSumOfTransactions(db *sql.DB, filters []Filter) (float64, error) {
 	query := `
-SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
+SELECT SUM(amount)
 FROM transactions
 WHERE 1 = 1
 `
@@ -133,7 +149,40 @@ WHERE 1 = 1
 		args = append(args, filterArgs...)
 	}
 
-	query += "ORDER BY id\n"
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	rows.Next()
+	var sum float64
+	err = rows.Scan(&sum)
+	if err != nil {
+		return 0, err
+	}
+	return sum, nil
+}
+
+func ListTransactions(db *sql.DB, filters []Filter) ([]Transaction, error) {
+	query := `
+SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
+       transactions.account_id, COALESCE(accounts.name, ''), COALESCE(accounts.currency, ''),
+       transactions.category_id, transactions.place_id, transactions.group_id,
+       transactions.created_at, transactions.updated_at
+FROM transactions
+LEFT JOIN accounts ON accounts.id = transactions.account_id
+WHERE 1 = 1
+`
+	args := make([]interface{}, 0)
+
+	for _, filter := range filters {
+		filterSQL, filterArgs := filter.GenerateSQL()
+		query += "AND " + filterSQL + "\n"
+		args = append(args, filterArgs...)
+	}
+
+	query += "ORDER BY transactions.id\n"
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
@@ -145,6 +194,8 @@ WHERE 1 = 1
 	for rows.Next() {
 		var transaction Transaction
 		var accountID sql.NullInt64
+		var accountName string
+		var currency string
 		var categoryID sql.NullInt64
 		var placeID sql.NullInt64
 		var groupID sql.NullInt64
@@ -157,6 +208,8 @@ WHERE 1 = 1
 			&transaction.Description,
 			&transaction.Datetime,
 			&accountID,
+			&accountName,
+			&currency,
 			&categoryID,
 			&placeID,
 			&groupID,
@@ -171,6 +224,8 @@ WHERE 1 = 1
 			v := accountID.Int64
 			transaction.AccountID = &v
 		}
+		transaction.AccountName = accountName
+		transaction.Currency = currency
 		if categoryID.Valid {
 			v := categoryID.Int64
 			transaction.CategoryID = &v

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -151,8 +152,10 @@ func getTransactionDescription(parsed parser.ParsedCmdLine, counts map[parser.To
 func getNextIdentifier(cashDb *sql.DB) (domain.TransactionID, error) {
 	// Get next transaction identifier
 	lastTransaction, err := db.GetLastTransaction(cashDb)
-	if err != nil {
-		return domain.TransactionID{}, err
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.CurrentTransactionID(1), nil
+	} else if err != nil {
+		return domain.CurrentTransactionID(0), err
 	}
 
 	// Parse identifier
@@ -163,34 +166,14 @@ func getNextIdentifier(cashDb *sql.DB) (domain.TransactionID, error) {
 
 	// Same year-month -> increment sequence number
 	if id.Month == int(time.Now().Month()) && id.Year == int(time.Now().Year()) {
-		return domain.TransactionID{
-			Year:  id.Year,
-			Month: id.Month,
-			Num:   id.Num + 1,
-		}, nil
+		return domain.CurrentTransactionID(id.Num + 1), nil
 	}
 
-	return domain.TransactionID{
-		Year:  time.Now().Year(),
-		Month: int(time.Now().Month()),
-		Num:   0,
-	}, nil
+	return domain.CurrentTransactionID(0), nil
 }
 
 func getTransactionAmount(parsed parser.ParsedCmdLine, counts map[parser.TokenKind]int) float32 {
 	return parsed.GetAmounts()[0].Amount
-}
-
-func getAttributeValue(parsed parser.ParsedCmdLine, attr string) string {
-	for _, arg := range parsed.Args {
-		if arg.Kind != parser.TokenAttribute {
-			continue
-		}
-		if arg.Key == attr {
-			return arg.Value
-		}
-	}
-	return ""
 }
 
 func getTransactionDatetime(
@@ -211,7 +194,7 @@ func getTransactionDatetime(
 			timeExists = true
 		}
 	}
-	fmt.Println(dateTimeExists, dateExists, timeExists)
+
 	// Can be specified by datetime, or date alone (time 00:00:00), or date+time
 	if dateTimeExists && dateExists {
 		return time.Time{}, fmt.Errorf("datetime and date specified, only one allowed")
@@ -252,6 +235,89 @@ func getAttributes(parsed parser.ParsedCmdLine) map[string]string {
 	return attributes
 }
 
+func getTransactionStore(cashDb *sql.DB, attributes map[string]string) (sql.NullInt64, error) {
+	var storeID sql.NullInt64
+	if _, ok := attributes["store"]; ok {
+		store, err := db.GetPlaceByName(cashDb, attributes["store"])
+		if errors.Is(err, sql.ErrNoRows) {
+			// Create new store
+			newStoreID, cErr := db.InsertPlace(cashDb, db.CreatePlaceInput{Name: attributes["store"]})
+			if cErr != nil {
+				return storeID, cErr
+			}
+			storeID = sql.NullInt64{Int64: newStoreID, Valid: true}
+			return storeID, nil
+		} else if err != nil {
+			// SQL Error
+			return storeID, err
+		}
+		storeID = sql.NullInt64{Int64: store.ID, Valid: true}
+	} else {
+		return storeID, fmt.Errorf("no store specified")
+	}
+	return storeID, nil
+}
+
+func getTransactionAccount(cashDb *sql.DB, attributes map[string]string, config config.Config) (int64, error) {
+	var accountName string
+	if _, ok := attributes["account"]; ok {
+		accountName = attributes["account"]
+	} else {
+		accountName = config.Default.Account
+	}
+	// Get account
+	transactionAccount, err := db.GetAccountByName(cashDb, accountName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("account %s does not exist, create it first", accountName)
+	} else if err != nil {
+		return 0, err
+	}
+	return transactionAccount.ID, nil
+}
+
+func getTransactionCategory(cashDb *sql.DB, attributes map[string]string) (sql.NullInt64, error) {
+	var categoryID sql.NullInt64
+	// Category given
+	if _, ok := attributes["category"]; ok {
+		attrCategory := attributes["category"]
+		category, err := db.GetCategoryByName(cashDb, attrCategory)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Create new category with root as parent
+			parentID := int64(1)
+			newCategoryID, cErr := db.InsertCategory(
+				cashDb,
+				db.CreateCategoryInput{Name: attrCategory, ParentID: &parentID},
+			)
+			if cErr != nil {
+				return sql.NullInt64{}, cErr
+			}
+			return sql.NullInt64{Int64: newCategoryID, Valid: true}, nil
+		} else if err != nil {
+			return categoryID, err
+		}
+		return sql.NullInt64{Int64: category.ID, Valid: true}, nil
+	}
+	return categoryID, nil
+}
+
+func getTransactionGroup(cashDb *sql.DB, attributes map[string]string) (sql.NullInt64, error) {
+	if _, ok := attributes["group"]; ok {
+		attrGroup := attributes["group"]
+		group, err := db.GetTransactionGroupByName(cashDb, attrGroup)
+		if errors.Is(err, sql.ErrNoRows) {
+			newGroupID, cErr := db.InsertTransactionGroup(cashDb, db.CreateTransactionGroupInput{Name: attrGroup})
+			if cErr != nil {
+				return sql.NullInt64{}, cErr
+			}
+			return sql.NullInt64{Int64: newGroupID, Valid: true}, nil
+		} else if err != nil {
+			return sql.NullInt64{}, err
+		}
+		return sql.NullInt64{Int64: group.ID, Valid: true}, nil
+	}
+	return sql.NullInt64{}, nil
+}
+
 func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb *sql.DB) error {
 	// Get count by token kind for validation
 	tokenKindsCount := parsed.GetTokenKindCount(false)
@@ -265,16 +331,15 @@ func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb *sql.DB) erro
 	// Get attributes
 	attributes := getAttributes(parsed)
 
-	fmt.Println("add")
-	fmt.Println(parsed)
-	fmt.Println(attributes)
-
 	// Get transaction description (merge it if necessary) & amount
 	desc := getTransactionDescription(parsed, tokenKindsCount)
 	amount := getTransactionAmount(parsed, tokenKindsCount)
 
 	// Get next transaction identifier
 	nextIdentifier, err := getNextIdentifier(cashDb)
+	if err != nil {
+		return err
+	}
 
 	// Transaction type
 	var transactionType string
@@ -291,13 +356,50 @@ func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb *sql.DB) erro
 	}
 
 	// Get store
-	//transactionStore := getTransactionStore(parsed)
+	transactionStore, err := getTransactionStore(cashDb, attributes)
+	if err != nil {
+		return err
+	}
 
-	fmt.Println(desc)
-	fmt.Println(nextIdentifier)
-	fmt.Println(amount)
-	fmt.Println(transactionType)
-	fmt.Println(transactionTime)
+	// Get account
+	transactionAccount, err := getTransactionAccount(cashDb, attributes, config)
+	if err != nil {
+		return err
+	}
+
+	// Get category
+	transactionCategory, err := getTransactionCategory(cashDb, attributes)
+	if err != nil {
+		return err
+	}
+
+	// Get group
+	transactionGroup, err := getTransactionGroup(cashDb, attributes)
+	if err != nil {
+		return err
+	}
+
+	// Insert transaction
+	transactionID, err := db.InsertTransaction(
+		cashDb,
+		db.CreateTransactionInput{
+			Identifier:  fmt.Sprintf("%s", nextIdentifier),
+			Type:        transactionType,
+			Amount:      float64(amount),
+			Description: desc,
+			Datetime:    transactionTime,
+			AccountID:   transactionAccount,
+			CategoryID:  db.NullInt64ToPtr(transactionCategory),
+			PlaceID:     db.NullInt64ToPtr(transactionStore),
+			GroupID:     db.NullInt64ToPtr(transactionGroup),
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// Show success message
+	pterm.Success.Println("Transaction added with id: " + strconv.FormatInt(transactionID, 10) + "")
 
 	return nil
 }
