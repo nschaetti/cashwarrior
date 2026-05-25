@@ -20,7 +20,7 @@ import (
 func printLogo(theme gui.Theme) {
 	titleColor, err := gui.HexToRGB(theme.CashWarriorTitle)
 	if err != nil {
-		pterm.Error.Println("Error parsing theme color: ", err, "\n")
+		pterm.Error.Println("Error parsing theme color: ", err)
 		os.Exit(1)
 	}
 	srender, err2 := pterm.DefaultBigText.WithLetters(
@@ -33,12 +33,20 @@ func printLogo(theme gui.Theme) {
 	fmt.Println(srender)
 }
 
-func main() {
+func closeAndRollback(cashDb *sql.DB, tx *sql.Tx) {
+	if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+		fmt.Println("Error rolling back transaction: ", err)
+	}
+	if err := cashDb.Close(); err != nil {
+		fmt.Println("Error closing database: ", err)
+	}
+}
+
+func run() error {
 	// Check configuration exists
 	cfg, err := config.InitConfig()
 	if err != nil {
-		pterm.Error.Println("Error creating config file: ", err, "\n")
-		os.Exit(1)
+		return fmt.Errorf("error creating config file: %w", err)
 	}
 
 	// Theme
@@ -63,32 +71,43 @@ func main() {
 			Args:    []parser.Token{},
 		}
 	} else if parseErr != nil {
-		pterm.Error.Println("Error: ", parseErr.Message, "\n")
-		os.Exit(1)
+		return fmt.Errorf("error: %s", parseErr.Message)
 	}
 
 	// Open the database
 	pterm.Info.Println("Using SQLite database ", cfg.Database)
 	cashDb, dErr := db.Open(cfg)
 	if dErr != nil {
-		pterm.Error.Println("Error opening database: ", dErr, "\n")
-		os.Exit(1)
+		return fmt.Errorf("error opening database: %w", dErr)
 	}
-	defer func(mdb *sql.DB) {
-		err := db.Close(mdb)
-		if err != nil {
 
-		}
-	}(cashDb)
+	// Now we can begin SQL
+	tx, berr := cashDb.Begin()
+	if berr != nil {
+		_ = cashDb.Close()
+		return fmt.Errorf("error opening transaction: %w", berr)
+	}
+	defer closeAndRollback(cashDb, tx)
 
 	// Dispatch the command
-	dispatchErr := cmd.Dispatch(parsedCmd, cfg, cashDb)
+	dispatchErr := cmd.Dispatch(parsedCmd, cfg, tx)
 	if dispatchErr != nil {
-		pterm.Error.Println("Command error: ", dispatchErr, "\n")
-		os.Exit(1)
+		return fmt.Errorf("command error: %w", dispatchErr)
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction: %w", err)
 	}
 
 	elapsed := time.Since(start)
-	pterm.Success.Println("Command success, done in ", elapsed, "\n")
-	os.Exit(0)
+	pterm.Success.Println("Command success, done in ", elapsed)
+	return nil
+}
+
+func main() {
+	if err := run(); err != nil {
+		pterm.Error.Println(err)
+		os.Exit(1)
+	}
 }

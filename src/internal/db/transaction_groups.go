@@ -1,9 +1,6 @@
 package db
 
-import (
-	"database/sql"
-	"time"
-)
+import "time"
 
 type TransactionGroup struct {
 	ID        int64
@@ -23,7 +20,7 @@ type CreateTransactionGroupInput struct {
 	Description string
 }
 
-func GetTransactionGroupByID(db *sql.DB, id int64) (TransactionGroup, error) {
+func GetTransactionGroupByID(db DBTX, id int64) (TransactionGroup, error) {
 	var transactionGroup TransactionGroup
 
 	err := db.QueryRow(`
@@ -43,7 +40,7 @@ WHERE id = ?
 	return transactionGroup, nil
 }
 
-func GetTransactionGroupByName(db *sql.DB, name string) (TransactionGroup, error) {
+func GetTransactionGroupByName(db DBTX, name string) (TransactionGroup, error) {
 	var transactionGroup TransactionGroup
 
 	err := db.QueryRow(`
@@ -63,7 +60,7 @@ WHERE name = ?
 	return transactionGroup, nil
 }
 
-func ListTransactionGroups(db *sql.DB, filter TransactionGroupListFilter) ([]TransactionGroup, error) {
+func ListTransactionGroups(db DBTX, filter TransactionGroupListFilter) ([]TransactionGroup, error) {
 	query := `
 SELECT id, name, created_at, updated_at
 FROM transaction_groups
@@ -113,7 +110,7 @@ WHERE 1 = 1
 	return transactionGroups, nil
 }
 
-func TransactionGroupExists(db *sql.DB, name string) (bool, error) {
+func TransactionGroupExists(db DBTX, name string) (bool, error) {
 	var exists bool
 	err := db.QueryRow(`
 SELECT EXISTS(
@@ -125,7 +122,7 @@ SELECT EXISTS(
 	return exists, err
 }
 
-func InsertTransactionGroup(db *sql.DB, input CreateTransactionGroupInput) (int64, error) {
+func InsertTransactionGroup(db DBTX, input CreateTransactionGroupInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO transaction_groups (name)
 VALUES (?)

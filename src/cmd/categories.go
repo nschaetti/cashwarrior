@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"database/sql"
 	"fmt"
 	"sort"
 	"strconv"
@@ -13,13 +12,13 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
-func Categories(parsed parser.ParsedCmdLine, config config.Config, cashDb *sql.DB) error {
+func Categories(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
 	categories, err := db.ListCategories(cashDb, db.CategoryListFilter{})
 	if err != nil {
 		return err
 	}
 
-	transactions, err := db.ListTransactions(cashDb, []db.Filter{})
+	transactions, err := db.ListTransactions(cashDb, []db.SQLFilter{}, []db.Filter[db.Transaction]{})
 	if err != nil {
 		return err
 	}

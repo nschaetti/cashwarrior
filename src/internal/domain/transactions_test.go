@@ -4,8 +4,8 @@ import "testing"
 
 func TestTransactionIDString(t *testing.T) {
 	id := TransactionID{Year: 2026, Month: 5, Num: 2}
-	if got := id.String(); got != "2026.5.2" {
-		t.Fatalf("TransactionID.String() = %q, want %q", got, "2026.5.2")
+	if got := id.String(); got != "2026.05.2" {
+		t.Fatalf("TransactionID.String() = %q, want %q", got, "2026.05.2")
 	}
 }
 

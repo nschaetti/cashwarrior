@@ -1,18 +1,27 @@
 package cmd
 
 import (
-	"database/sql"
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
+	"github.com/nschaetti/cashwarrior/internal/domain"
 	"github.com/nschaetti/cashwarrior/internal/gui"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
-func printTransactionTable(cashDb *sql.DB, transactions []db.Transaction, config config.Config) error {
+const (
+	FilterUnknown = iota
+	FilterTypeTransactionID
+	FilterTypeAccountName
+	FilterTypeDatetime
+)
+
+func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config config.Config) error {
 	rows := make([][]string, 0, len(transactions))
 	types := make([]string, 0, len(transactions))
 
@@ -69,7 +78,7 @@ func printTransactionTable(cashDb *sql.DB, transactions []db.Transaction, config
 	return nil
 }
 
-func PrintExpensesIncomeByCurrency(cashDb *sql.DB, transactions []db.Transaction) error {
+func PrintExpensesIncomeByCurrency(cashDb db.DBTX, transactions []db.Transaction) error {
 	type currencySummary struct {
 		Income   float64
 		Expenses float64
@@ -202,9 +211,105 @@ func PrintExpensesIncomeByCurrency(cashDb *sql.DB, transactions []db.Transaction
 	return nil
 }
 
-func List(parsed parser.ParsedCmdLine, config config.Config, cashDb *sql.DB) error {
+func classifyFilter(tokenFilter parser.Token) int {
+	switch tokenFilter.Kind {
+	case parser.TokenText:
+		if tokenFilter.Raw[0] == 'T' {
+			return FilterTypeTransactionID
+		}
+	case parser.TokenAttribute:
+		if tokenFilter.Key == "account" {
+			return FilterTypeAccountName
+		} else if tokenFilter.Key == "date" {
+			return FilterTypeDatetime
+		} else if tokenFilter.Key == "period" {
+			return FilterTypeDatetime
+		} else if tokenFilter.Key == "time" {
+			return FilterTypeDatetime
+		}
+	default:
+		return FilterUnknown
+	}
+	return FilterUnknown
+}
+
+func createTransactionIDFilter(token parser.Token) (db.SQLFilter, error) {
+	var transactionID string = token.Raw[1:]
+	_, err := domain.ParseTransactionID(transactionID)
+	if err != nil {
+		return nil, err
+	}
+	return db.TransactionIDFilter{ID: transactionID}, nil
+}
+
+func createAccountNameFilter(token parser.Token) (db.SQLFilter, error) {
+	return db.TransactionAccountNameFilter{Name: token.Value}, nil
+}
+
+func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilter, error) {
+	if domain.IsTimeShortcut(token.Value) {
+		from, to, err := domain.GetTimeShortcut(token.Value)
+		if err != nil {
+			return nil, err
+		}
+		return db.TransactionDatetimeFilter{From: from, To: to}, nil
+	} else if strings.Contains(token.Value, "-") {
+		datetimeRange := strings.SplitN(token.Value, "-", 2)
+		datetimeFrom, err := time.Parse(config.Display.DateFormat, datetimeRange[0])
+		if err != nil {
+			return nil, err
+		}
+		datetimeTo, err := time.Parse(config.Display.DateFormat, datetimeRange[1])
+		if err != nil {
+			return nil, err
+		}
+		return db.TransactionDatetimeFilter{From: datetimeFrom, To: datetimeTo}, nil
+	}
+	return nil, fmt.Errorf("unknown datetime format: %s. Must be given as shortcuts or from-to", token.Value)
+}
+
+func createFilters(
+	parsed parser.ParsedCmdLine,
+	cashDb db.DBTX,
+	config config.Config,
+) ([]db.SQLFilter, []db.Filter[db.Transaction], error) {
+	var dbFilters []db.SQLFilter = make([]db.SQLFilter, 0, len(parsed.Filters))
+	var runFilters []db.Filter[db.Transaction] = make([]db.Filter[db.Transaction], 0, len(parsed.Filters))
+	for _, filter := range parsed.Filters {
+		filterType := classifyFilter(filter)
+		if filterType == FilterUnknown {
+			return nil, nil, fmt.Errorf("unknown filter: %s", filter.Raw)
+		} else if filterType == FilterTypeTransactionID {
+			newFilter, err := createTransactionIDFilter(filter)
+			if err != nil {
+				return nil, nil, err
+			}
+			dbFilters = append(dbFilters, newFilter)
+		} else if filterType == FilterTypeAccountName {
+			newFilter, err := createAccountNameFilter(filter)
+			if err != nil {
+				return nil, nil, err
+			}
+			dbFilters = append(dbFilters, newFilter)
+		} else if filterType == FilterTypeDatetime {
+			newFilter, err := createDatetimeFilter(filter, config)
+			if err != nil {
+				return nil, nil, err
+			}
+			dbFilters = append(dbFilters, newFilter)
+		}
+	}
+	return dbFilters, runFilters, nil
+}
+
+func List(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
+	dbFilters, runFilters, err := createFilters(parsed, cashDb, config)
+	if err != nil {
+		return err
+	}
+	
 	// Get list of transactions
-	transactions, err := db.ListTransactions(cashDb, []db.Filter{})
+	transactions, err := db.ListTransactions(cashDb, dbFilters, runFilters)
 	if err != nil {
 		return err
 	}

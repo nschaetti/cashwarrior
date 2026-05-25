@@ -1,9 +1,6 @@
 package db
 
-import (
-	"database/sql"
-	"time"
-)
+import "time"
 
 type Budget struct {
 	ID          int64
@@ -33,7 +30,7 @@ type CreateBudgetInput struct {
 	Period      string
 }
 
-func GetBudgetByID(db *sql.DB, id int64) (Budget, error) {
+func GetBudgetByID(db DBTX, id int64) (Budget, error) {
 	var budget Budget
 	err := db.QueryRow(`
 SELECT id, category_id, name, description, amount, currency, period, created_at, updated_at
@@ -53,7 +50,7 @@ WHERE id = ?
 	return budget, err
 }
 
-func ListBudgets(db *sql.DB, filter BudgetListFilter) ([]Budget, error) {
+func ListBudgets(db DBTX, filter BudgetListFilter) ([]Budget, error) {
 	query := `
 SELECT id, category_id, name, description, amount, currency, period, created_at, updated_at
 FROM budgets
@@ -113,7 +110,7 @@ WHERE 1 = 1
 	return budgets, nil
 }
 
-func BudgetExists(db *sql.DB, name string) (bool, error) {
+func BudgetExists(db DBTX, name string) (bool, error) {
 	var exists bool
 	err := db.QueryRow(`
 SELECT EXISTS(
@@ -123,7 +120,7 @@ SELECT EXISTS(
 	return exists, err
 }
 
-func InsertBudget(db *sql.DB, input CreateBudgetInput) (int64, error) {
+func InsertBudget(db DBTX, input CreateBudgetInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO budgets (category_id, name, description, amount, currency, period)
 VALUES (?, ?, ?, ?, ?, ?)
@@ -135,7 +132,7 @@ VALUES (?, ?, ?, ?, ?, ?)
 	return result.LastInsertId()
 }
 
-func GetBudgetByName(db *sql.DB, name string) (Budget, error) {
+func GetBudgetByName(db DBTX, name string) (Budget, error) {
 	var budget Budget
 	err := db.QueryRow(`
 SELECT id, category_id, name, description, amount, currency, period, created_at, updated_at
@@ -155,7 +152,7 @@ WHERE name = ?
 	return budget, err
 }
 
-func (b Budget) GetCategory(db *sql.DB) (*Category, error) {
+func (b Budget) GetCategory(db DBTX) (*Category, error) {
 	category, err := GetCategoryByID(db, b.CategoryID)
 	if err != nil {
 		return nil, err

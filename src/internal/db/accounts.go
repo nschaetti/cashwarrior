@@ -1,9 +1,6 @@
 package db
 
-import (
-	"database/sql"
-	"time"
-)
+import "time"
 
 type Account struct {
 	ID        int64
@@ -24,7 +21,7 @@ type CreateAccountInput struct {
 	Currency string
 }
 
-func GetAccountByID(db *sql.DB, id int64) (Account, error) {
+func GetAccountByID(db DBTX, id int64) (Account, error) {
 	var account Account
 	err := db.QueryRow(`
 SELECT id, name, currency, created_at, updated_at
@@ -40,7 +37,7 @@ WHERE id = ?
 	return account, err
 }
 
-func GetAccountByName(db *sql.DB, name string) (Account, error) {
+func GetAccountByName(db DBTX, name string) (Account, error) {
 	var account Account
 	err := db.QueryRow(`
 SELECT id, name, currency, created_at, updated_at
@@ -56,7 +53,7 @@ WHERE name = ?
 	return account, err
 }
 
-func ListAccounts(db *sql.DB, filter AccountListFilter) ([]Account, error) {
+func ListAccounts(db DBTX, filter AccountListFilter) ([]Account, error) {
 	query := `
 SELECT id, name, currency, created_at, updated_at
 FROM accounts
@@ -107,7 +104,7 @@ FROM accounts
 	return accounts, nil
 }
 
-func AccountExists(db *sql.DB, name string) (bool, error) {
+func AccountExists(db DBTX, name string) (bool, error) {
 	var exists bool
 	err := db.QueryRow(`
 SELECT EXISTS(
@@ -117,7 +114,7 @@ SELECT EXISTS(
 	return exists, err
 }
 
-func InsertAccount(db *sql.DB, input CreateAccountInput) (int64, error) {
+func InsertAccount(db DBTX, input CreateAccountInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO accounts (name, currency)
 VALUES (?, ?)
@@ -129,7 +126,7 @@ VALUES (?, ?)
 	return result.LastInsertId()
 }
 
-func ListAccountCurrencies(db *sql.DB) ([]string, error) {
+func ListAccountCurrencies(db DBTX) ([]string, error) {
 	rows, err := db.Query(`
 SELECT DISTINCT currency
 FROM accounts

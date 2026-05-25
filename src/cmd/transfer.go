@@ -14,7 +14,7 @@ import (
 	"github.com/pterm/pterm"
 )
 
-func Transfer(parsed parser.ParsedCmdLine, cfg config.Config, cashDb *sql.DB) error {
+func Transfer(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
 	counts := parsed.GetTokenKindCount(false)
 	if len(parsed.Filters) != 0 {
 		return fmt.Errorf("no filters allowed")
@@ -92,52 +92,40 @@ func Transfer(parsed parser.ParsedCmdLine, cfg config.Config, cashDb *sql.DB) er
 		}
 	}
 
-	tx, err := cashDb.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
-	fromResult, err := tx.Exec(`
-INSERT INTO transactions (identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`, nextIdentifier.String(), "transfer_out", -float64(amount), description, transactionTime, fromAccount.ID, nil, transferPlace.ID, nil)
-	if err != nil {
-		return err
-	}
-	fromTransactionID, err := fromResult.LastInsertId()
+	fromTransactionID, err := db.InsertTransaction(cashDb, db.CreateTransactionInput{
+		Identifier:  nextIdentifier.String(),
+		Type:        "transfer_out",
+		Amount:      -float64(amount),
+		Description: description,
+		Datetime:    transactionTime,
+		AccountID:   fromAccount.ID,
+		PlaceID:     &transferPlace.ID,
+	})
 	if err != nil {
 		return err
 	}
 
-	toResult, err := tx.Exec(`
-INSERT INTO transactions (identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`, secondIdentifier.String(), "transfer_in", float64(amount), description, transactionTime, toAccount.ID, nil, transferPlace.ID, nil)
-	if err != nil {
-		return err
-	}
-	toTransactionID, err := toResult.LastInsertId()
-	if err != nil {
-		return err
-	}
-
-	transferResult, err := tx.Exec(`
-INSERT INTO transfers (from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount)
-VALUES (?, ?, ?, ?, ?)
-`, fromTransactionID, toTransactionID, fromAccount.ID, toAccount.ID, float64(amount))
+	toTransactionID, err := db.InsertTransaction(cashDb, db.CreateTransactionInput{
+		Identifier:  secondIdentifier.String(),
+		Type:        "transfer_in",
+		Amount:      float64(amount),
+		Description: description,
+		Datetime:    transactionTime,
+		AccountID:   toAccount.ID,
+		PlaceID:     &transferPlace.ID,
+	})
 	if err != nil {
 		return err
 	}
 
-	transferID, err := transferResult.LastInsertId()
+	transferID, err := db.InsertTransfer(cashDb, db.CreateTransferInput{
+		FromTransactionID: fromTransactionID,
+		ToTransactionID:   toTransactionID,
+		FromAccountID:     fromAccount.ID,
+		ToAccountID:       toAccount.ID,
+		Amount:            float64(amount),
+	})
 	if err != nil {
-		return err
-	}
-
-	if err = tx.Commit(); err != nil {
 		return err
 	}
 

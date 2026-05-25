@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"sort"
@@ -31,7 +30,7 @@ func printConfigHelp() {
 	fmt.Println()
 }
 
-func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb *sql.DB) error {
+func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
 	if len(parsed.Filters) != 0 {
 		return fmt.Errorf("no filters allowed")
 	}

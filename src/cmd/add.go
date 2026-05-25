@@ -18,7 +18,7 @@ import (
 var CommandValidations = []func(
 	parser.ParsedCmdLine,
 	config.Config,
-	*sql.DB,
+	db.DBTX,
 	map[parser.TokenKind]int,
 ) (parser.ParsedCmdLine, error){
 	validateAtLeastTwoArgs,
@@ -30,7 +30,7 @@ var CommandValidations = []func(
 func validateAtLeastTwoArgs(
 	parsed parser.ParsedCmdLine,
 	config config.Config,
-	db *sql.DB,
+	db db.DBTX,
 	counts map[parser.TokenKind]int,
 ) (parser.ParsedCmdLine, error) {
 	if len(parsed.Args) < 2 {
@@ -42,7 +42,7 @@ func validateAtLeastTwoArgs(
 func validateNoFilters(
 	parsed parser.ParsedCmdLine,
 	config config.Config,
-	db *sql.DB,
+	db db.DBTX,
 	counts map[parser.TokenKind]int,
 ) (parser.ParsedCmdLine, error) {
 	if len(parsed.Filters) != 0 {
@@ -54,7 +54,7 @@ func validateNoFilters(
 func validateAmount(
 	parsed parser.ParsedCmdLine,
 	config config.Config,
-	db *sql.DB,
+	db db.DBTX,
 	counts map[parser.TokenKind]int,
 ) (parser.ParsedCmdLine, error) {
 	// Zero or multiple amounts => problem
@@ -109,7 +109,7 @@ func validateAmount(
 func validateAttributes(
 	parsed parser.ParsedCmdLine,
 	config config.Config,
-	db *sql.DB,
+	db db.DBTX,
 	counts map[parser.TokenKind]int,
 ) (parser.ParsedCmdLine, error) {
 	// Get count of attributes
@@ -124,7 +124,7 @@ func validateAttributes(
 	return parsed, nil
 }
 
-func runCommandLineValidation(parsed parser.ParsedCmdLine, config config.Config, db *sql.DB, counts map[parser.TokenKind]int) (parser.ParsedCmdLine, error) {
+func runCommandLineValidation(parsed parser.ParsedCmdLine, config config.Config, db db.DBTX, counts map[parser.TokenKind]int) (parser.ParsedCmdLine, error) {
 	for _, check := range CommandValidations {
 		var err error
 		parsed, err = check(parsed, config, db, counts)
@@ -149,7 +149,7 @@ func getTransactionDescription(parsed parser.ParsedCmdLine, counts map[parser.To
 	return desc[0 : len(desc)-1]
 }
 
-func getNextIdentifier(cashDb *sql.DB) (domain.TransactionID, error) {
+func getNextIdentifier(cashDb db.DBTX) (domain.TransactionID, error) {
 	// Get next transaction identifier
 	lastTransaction, err := db.GetLastTransaction(cashDb)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -235,7 +235,7 @@ func getAttributes(parsed parser.ParsedCmdLine) map[string]string {
 	return attributes
 }
 
-func getTransactionStore(cashDb *sql.DB, attributes map[string]string) (sql.NullInt64, error) {
+func getTransactionStore(cashDb db.DBTX, attributes map[string]string) (sql.NullInt64, error) {
 	var storeID sql.NullInt64
 	if _, ok := attributes["store"]; ok {
 		store, err := db.GetPlaceByName(cashDb, attributes["store"])
@@ -258,7 +258,7 @@ func getTransactionStore(cashDb *sql.DB, attributes map[string]string) (sql.Null
 	return storeID, nil
 }
 
-func getTransactionAccount(cashDb *sql.DB, attributes map[string]string, config config.Config) (int64, error) {
+func getTransactionAccount(cashDb db.DBTX, attributes map[string]string, config config.Config) (int64, error) {
 	var accountName string
 	if _, ok := attributes["account"]; ok {
 		accountName = attributes["account"]
@@ -275,7 +275,7 @@ func getTransactionAccount(cashDb *sql.DB, attributes map[string]string, config 
 	return transactionAccount.ID, nil
 }
 
-func getTransactionCategory(cashDb *sql.DB, attributes map[string]string) (sql.NullInt64, error) {
+func getTransactionCategory(cashDb db.DBTX, attributes map[string]string) (sql.NullInt64, error) {
 	var categoryID sql.NullInt64
 	// Category given
 	if _, ok := attributes["category"]; ok {
@@ -300,7 +300,7 @@ func getTransactionCategory(cashDb *sql.DB, attributes map[string]string) (sql.N
 	return categoryID, nil
 }
 
-func getTransactionGroup(cashDb *sql.DB, attributes map[string]string) (sql.NullInt64, error) {
+func getTransactionGroup(cashDb db.DBTX, attributes map[string]string) (sql.NullInt64, error) {
 	if _, ok := attributes["group"]; ok {
 		attrGroup := attributes["group"]
 		group, err := db.GetTransactionGroupByName(cashDb, attrGroup)
@@ -318,7 +318,7 @@ func getTransactionGroup(cashDb *sql.DB, attributes map[string]string) (sql.Null
 	return sql.NullInt64{}, nil
 }
 
-func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb *sql.DB) error {
+func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
 	// Get count by token kind for validation
 	tokenKindsCount := parsed.GetTokenKindCount(false)
 

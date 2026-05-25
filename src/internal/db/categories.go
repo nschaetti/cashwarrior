@@ -26,7 +26,7 @@ type CreateCategoryInput struct {
 
 const rootCategoryName = "root"
 
-func GetCategoryByID(db *sql.DB, id int64) (Category, error) {
+func GetCategoryByID(db DBTX, id int64) (Category, error) {
 	var category Category
 	var parentID sql.NullInt64
 	err := db.QueryRow(`
@@ -47,7 +47,7 @@ WHERE id = ?
 	return category, err
 }
 
-func GetCategoryByName(db *sql.DB, name string) (Category, error) {
+func GetCategoryByName(db DBTX, name string) (Category, error) {
 	var category Category
 	var parentID sql.NullInt64
 	err := db.QueryRow(`
@@ -68,7 +68,7 @@ WHERE name = ?
 	return category, err
 }
 
-func ListCategories(db *sql.DB, filter CategoryListFilter) ([]Category, error) {
+func ListCategories(db DBTX, filter CategoryListFilter) ([]Category, error) {
 	query := `
 SELECT id, name, parent_id, created_at, updated_at
 FROM categories
@@ -124,7 +124,7 @@ FROM categories
 	return categories, nil
 }
 
-func CategoryExists(db *sql.DB, name string) (bool, error) {
+func CategoryExists(db DBTX, name string) (bool, error) {
 	var exists bool
 	err := db.QueryRow(`
 SELECT EXISTS(
@@ -134,7 +134,7 @@ SELECT EXISTS(
 	return exists, err
 }
 
-func InsertCategory(db *sql.DB, input CreateCategoryInput) (int64, error) {
+func InsertCategory(db DBTX, input CreateCategoryInput) (int64, error) {
 	parentID := input.ParentID
 	if parentID == nil && input.Name != rootCategoryName {
 		rootID, err := getCategoryIDByName(db, rootCategoryName)
@@ -155,7 +155,7 @@ VALUES (?, ?)
 	return result.LastInsertId()
 }
 
-func getCategoryIDByName(db *sql.DB, name string) (int64, error) {
+func getCategoryIDByName(db DBTX, name string) (int64, error) {
 	var categoryID int64
 	err := db.QueryRow(`
 SELECT id
@@ -169,7 +169,7 @@ WHERE name = ?
 	return categoryID, nil
 }
 
-func (c Category) GetParent(db *sql.DB) (*Category, error) {
+func (c Category) GetParent(db DBTX) (*Category, error) {
 	if c.ParentID == nil {
 		return nil, nil
 	}

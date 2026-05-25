@@ -1,9 +1,6 @@
 package db
 
-import (
-	"database/sql"
-	"time"
-)
+import "time"
 
 type Transfer struct {
 	ID int64
@@ -38,7 +35,7 @@ type CreateTransferInput struct {
 	Amount            float64
 }
 
-func GetTransferByID(db *sql.DB, id int64) (Transfer, error) {
+func GetTransferByID(db DBTX, id int64) (Transfer, error) {
 	var transfer Transfer
 
 	err := db.QueryRow(`
@@ -62,7 +59,7 @@ WHERE id = ?
 	return transfer, nil
 }
 
-func ListTransfers(db *sql.DB, filter TransferListFilter) ([]Transfer, error) {
+func ListTransfers(db DBTX, filter TransferListFilter) ([]Transfer, error) {
 	query := `
 SELECT id, from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, created_at, updated_at
 FROM transfers
@@ -133,7 +130,7 @@ WHERE 1 = 1
 	return transfers, nil
 }
 
-func TransferExists(db *sql.DB, id int64) (bool, error) {
+func TransferExists(db DBTX, id int64) (bool, error) {
 	var exists bool
 	err := db.QueryRow(`
 SELECT EXISTS(
@@ -143,7 +140,7 @@ SELECT EXISTS(
 	return exists, err
 }
 
-func InsertTransfer(db *sql.DB, input CreateTransferInput) (int64, error) {
+func InsertTransfer(db DBTX, input CreateTransferInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO transfers (from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount)
 VALUES (?, ?, ?, ?, ?)
@@ -155,7 +152,7 @@ VALUES (?, ?, ?, ?, ?)
 	return result.LastInsertId()
 }
 
-func (t Transfer) GetFromTransaction(db *sql.DB) (*Transaction, error) {
+func (t Transfer) GetFromTransaction(db DBTX) (*Transaction, error) {
 	transaction, err := GetTransactionByID(db, t.FromTransactionID)
 	if err != nil {
 		return nil, err
@@ -164,7 +161,7 @@ func (t Transfer) GetFromTransaction(db *sql.DB) (*Transaction, error) {
 	return &transaction, nil
 }
 
-func (t Transfer) GetToTransaction(db *sql.DB) (*Transaction, error) {
+func (t Transfer) GetToTransaction(db DBTX) (*Transaction, error) {
 	transaction, err := GetTransactionByID(db, t.ToTransactionID)
 	if err != nil {
 		return nil, err
@@ -173,7 +170,7 @@ func (t Transfer) GetToTransaction(db *sql.DB) (*Transaction, error) {
 	return &transaction, nil
 }
 
-func (t Transfer) GetFromAccount(db *sql.DB) (*Account, error) {
+func (t Transfer) GetFromAccount(db DBTX) (*Account, error) {
 	account, err := GetAccountByID(db, t.FromAccountID)
 	if err != nil {
 		return nil, err
@@ -182,7 +179,7 @@ func (t Transfer) GetFromAccount(db *sql.DB) (*Account, error) {
 	return &account, nil
 }
 
-func (t Transfer) GetToAccount(db *sql.DB) (*Account, error) {
+func (t Transfer) GetToAccount(db DBTX) (*Account, error) {
 	account, err := GetAccountByID(db, t.ToAccountID)
 	if err != nil {
 		return nil, err

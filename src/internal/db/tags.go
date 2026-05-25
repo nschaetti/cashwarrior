@@ -1,9 +1,6 @@
 package db
 
-import (
-	"database/sql"
-	"time"
-)
+import "time"
 
 type Tag struct {
 	ID        int64
@@ -22,7 +19,7 @@ type CreateTagInput struct {
 	Name string
 }
 
-func GetTagByID(db *sql.DB, id int64) (Tag, error) {
+func GetTagByID(db DBTX, id int64) (Tag, error) {
 	var tag Tag
 	err := db.QueryRow(`
 SELECT id, name, created_at, updated_at
@@ -37,7 +34,7 @@ WHERE id = ?
 	return tag, err
 }
 
-func ListTags(db *sql.DB, filter TagListFilter) ([]Tag, error) {
+func ListTags(db DBTX, filter TagListFilter) ([]Tag, error) {
 	query := `
 SELECT id, name, created_at, updated_at
 FROM tags
@@ -87,7 +84,7 @@ FROM tags
 	return tags, nil
 }
 
-func TagExists(db *sql.DB, name string) (bool, error) {
+func TagExists(db DBTX, name string) (bool, error) {
 	var exists bool
 	err := db.QueryRow(`
 SELECT EXISTS(
@@ -97,7 +94,7 @@ SELECT EXISTS(
 	return exists, err
 }
 
-func InsertTag(db *sql.DB, input CreateTagInput) (int64, error) {
+func InsertTag(db DBTX, input CreateTagInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO tags (name)
 VALUES (?)

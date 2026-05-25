@@ -1,18 +1,19 @@
 package cmd
 
 import (
-	"database/sql"
 	"fmt"
 	"sort"
 
 	"github.com/nschaetti/cashwarrior/internal/config"
+	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 	"github.com/nschaetti/cashwarrior/internal/utils"
 	"github.com/pterm/pterm"
 )
 
-func Theme(parsed parser.ParsedCmdLine, _ config.Config, _ *sql.DB) error {
+func Theme(parsed parser.ParsedCmdLine, _ config.Config, query db.DBTX) error {
+	_ = query
 	if len(parsed.Filters) != 0 {
 		return fmt.Errorf("no filters allowed")
 	}

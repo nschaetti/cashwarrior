@@ -1,13 +1,12 @@
 package cmd
 
 import (
-	"database/sql"
-
+	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 import "github.com/nschaetti/cashwarrior/internal/config"
 
-type CommandFunc func(parsed parser.ParsedCmdLine, config config.Config, db *sql.DB) error
+type CommandFunc func(parsed parser.ParsedCmdLine, config config.Config, db db.DBTX) error
 
 var Commands = map[string]CommandFunc{
 	"init":        Init,
@@ -32,10 +31,10 @@ var Commands = map[string]CommandFunc{
 	"sum":         Sum,
 }
 
-func Dispatch(parsed parser.ParsedCmdLine, cfg config.Config, cashDb *sql.DB) error {
+func Dispatch(parsed parser.ParsedCmdLine, cfg config.Config, tx db.DBTX) error {
 	fn, ok := Commands[parsed.Command]
 	if !ok {
 		return &parser.ParseError{Code: parser.ParseErrorNoCommand, Message: "unknown command"}
 	}
-	return fn(parsed, cfg, cashDb)
+	return fn(parsed, cfg, tx)
 }

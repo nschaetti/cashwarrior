@@ -19,7 +19,7 @@ func TestTokenString(t *testing.T) {
 	if got := (Token{Kind: TokenAmount, Amount: -12.5}).String(); got != "<Token amount: -12.500000>" {
 		t.Fatalf("amount token string = %q", got)
 	}
-	if got := (Token{Kind: TokenID, TransID: domain.TransactionID{Year: 2026, Month: 5, Num: 2}}).String(); got != "<Token id: 2026.5.2>" {
+	if got := (Token{Kind: TokenID, TransID: domain.TransactionID{Year: 2026, Month: 5, Num: 2}}).String(); got != "<Token id: 2026.05.2>" {
 		t.Fatalf("id token string = %q", got)
 	}
 	if got := (Token{Kind: TokenAttribute, Key: "account", Value: "cash"}).String(); got != "<Token attribute: account:cash>" {

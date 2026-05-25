@@ -2,8 +2,12 @@ package db
 
 import "fmt"
 
-type Filter interface {
+type SQLFilter interface {
 	GenerateSQL() (condition string, args []any)
+}
+
+type Filter[T any] interface {
+	Matches(T) bool
 }
 
 type IDFilter struct {

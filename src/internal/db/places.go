@@ -1,9 +1,6 @@
 package db
 
-import (
-	"database/sql"
-	"time"
-)
+import "time"
 
 type Place struct {
 	ID        int64
@@ -24,7 +21,7 @@ type CreatePlaceInput struct {
 	Kind string
 }
 
-func GetPlaceByID(db *sql.DB, id int64) (Place, error) {
+func GetPlaceByID(db DBTX, id int64) (Place, error) {
 	var place Place
 	err := db.QueryRow(`
 SELECT id, name, created_at, updated_at
@@ -43,7 +40,7 @@ WHERE id = ?
 	return place, nil
 }
 
-func GetPlaceByName(db *sql.DB, name string) (Place, error) {
+func GetPlaceByName(db DBTX, name string) (Place, error) {
 	var place Place
 	err := db.QueryRow(`
 SELECT id, name, created_at, updated_at
@@ -61,7 +58,7 @@ WHERE name = ?
 	return place, nil
 }
 
-func ListPlaces(db *sql.DB, filter PlaceListFilter) ([]Place, error) {
+func ListPlaces(db DBTX, filter PlaceListFilter) ([]Place, error) {
 	query := `
 SELECT id, name, created_at, updated_at
 FROM places
@@ -112,7 +109,7 @@ FROM places
 	return places, nil
 }
 
-func InsertPlace(db *sql.DB, input CreatePlaceInput) (int64, error) {
+func InsertPlace(db DBTX, input CreatePlaceInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO places (name)
 VALUES (?)
@@ -123,7 +120,7 @@ VALUES (?)
 	return result.LastInsertId()
 }
 
-func PlaceExists(db *sql.DB, name string) (bool, error) {
+func PlaceExists(db DBTX, name string) (bool, error) {
 	var exists bool
 	err := db.QueryRow(`
 SELECT EXISTS(

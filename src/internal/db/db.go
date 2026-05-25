@@ -8,6 +8,12 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 )
 
+type DBTX interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
 func checkTableExists(db *sql.DB, tableName string) (bool, error) {
 	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name=?", tableName)
 	if err != nil {

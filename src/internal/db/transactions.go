@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 )
 
@@ -28,11 +29,40 @@ type Transaction struct {
 }
 
 type TransactionIDFilter struct {
-	ID int64
+	ID string
 }
 
 func (f TransactionIDFilter) GenerateSQL() (string, []any) {
-	return "transactions.id = ?", []any{f.ID}
+	return "transactions.identifier = ?", []any{f.ID}
+}
+
+func (f TransactionIDFilter) String() string {
+	return fmt.Sprintf("<TransactionIDFilter: %s>", f.ID)
+}
+
+type TransactionAccountNameFilter struct {
+	Name string
+}
+
+func (f TransactionAccountNameFilter) GenerateSQL() (string, []any) {
+	return "accounts.name = ?", []any{f.Name}
+}
+
+func (f TransactionAccountNameFilter) String() string {
+	return fmt.Sprintf("<TransactionAccountNameFilter: %s>", f.Name)
+}
+
+type TransactionDatetimeFilter struct {
+	From time.Time
+	To   time.Time
+}
+
+func (f TransactionDatetimeFilter) GenerateSQL() (string, []any) {
+	return "transactions.datetime BETWEEN ? AND ?", []any{f.From, f.To}
+}
+
+func (f TransactionDatetimeFilter) String() string {
+	return fmt.Sprintf("<TransactionDatetimeFilter: %s - %s>", f.From, f.To)
 }
 
 type CreateTransactionInput struct {
@@ -47,7 +77,7 @@ type CreateTransactionInput struct {
 	GroupID     *int64
 }
 
-func GetLastTransaction(db *sql.DB) (Transaction, error) {
+func GetLastTransaction(db DBTX) (Transaction, error) {
 	var transaction Transaction
 	return getTransactionFromQueryRow(db.QueryRow(`
 SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
@@ -61,7 +91,7 @@ LIMIT 1
 `), transaction)
 }
 
-func GetTransactionByID(db *sql.DB, id int64) (Transaction, error) {
+func GetTransactionByID(db DBTX, id int64) (Transaction, error) {
 	var transaction Transaction
 	return getTransactionFromQueryRow(db.QueryRow(`
 SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
@@ -74,7 +104,7 @@ WHERE transactions.id = ?
 `, id), transaction)
 }
 
-func GetTransactionByIdentifier(db *sql.DB, identifier string) (Transaction, error) {
+func GetTransactionByIdentifier(db DBTX, identifier string) (Transaction, error) {
 	var transaction Transaction
 	return getTransactionFromQueryRow(db.QueryRow(`
 SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
@@ -135,7 +165,7 @@ func getTransactionFromQueryRow(row *sql.Row, transaction Transaction) (Transact
 	return transaction, nil
 }
 
-func GetSumOfTransactions(db *sql.DB, filters []Filter) (float64, error) {
+func GetSumOfTransactions(db DBTX, filters []SQLFilter) (float64, error) {
 	query := `
 SELECT SUM(amount)
 FROM transactions
@@ -164,7 +194,11 @@ WHERE 1 = 1
 	return sum, nil
 }
 
-func ListTransactions(db *sql.DB, filters []Filter) ([]Transaction, error) {
+func ListTransactions(
+	db DBTX,
+	dbFilters []SQLFilter,
+	runFilters []Filter[Transaction],
+) ([]Transaction, error) {
 	query := `
 SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
        transactions.account_id, COALESCE(accounts.name, ''), COALESCE(accounts.currency, ''),
@@ -176,7 +210,7 @@ WHERE 1 = 1
 `
 	args := make([]interface{}, 0)
 
-	for _, filter := range filters {
+	for _, filter := range dbFilters {
 		filterSQL, filterArgs := filter.GenerateSQL()
 		query += "AND " + filterSQL + "\n"
 		args = append(args, filterArgs...)
@@ -249,7 +283,7 @@ WHERE 1 = 1
 	return transactions, nil
 }
 
-func TransactionExists(db *sql.DB, id int64) (bool, error) {
+func TransactionExists(db DBTX, id int64) (bool, error) {
 	var exists bool
 	err := db.QueryRow(`
 SELECT EXISTS(
@@ -259,7 +293,7 @@ SELECT EXISTS(
 	return exists, err
 }
 
-func InsertTransaction(db *sql.DB, input CreateTransactionInput) (int64, error) {
+func InsertTransaction(db DBTX, input CreateTransactionInput) (int64, error) {
 	transactionType := input.Type
 	if transactionType == "" {
 		transactionType = "expense"
@@ -276,7 +310,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	return result.LastInsertId()
 }
 
-func (t Transaction) GetAccount(db *sql.DB) (*Account, error) {
+func (t Transaction) GetAccount(db DBTX) (*Account, error) {
 	if t.AccountID == nil {
 		return nil, nil
 	}
@@ -289,7 +323,7 @@ func (t Transaction) GetAccount(db *sql.DB) (*Account, error) {
 	return &account, nil
 }
 
-func (t Transaction) GetCategory(db *sql.DB) (*Category, error) {
+func (t Transaction) GetCategory(db DBTX) (*Category, error) {
 	if t.CategoryID == nil {
 		return nil, nil
 	}
@@ -302,7 +336,7 @@ func (t Transaction) GetCategory(db *sql.DB) (*Category, error) {
 	return &category, nil
 }
 
-func (t Transaction) GetPlace(db *sql.DB) (*Place, error) {
+func (t Transaction) GetPlace(db DBTX) (*Place, error) {
 	if t.PlaceID == nil {
 		return nil, nil
 	}
@@ -315,7 +349,7 @@ func (t Transaction) GetPlace(db *sql.DB) (*Place, error) {
 	return &place, nil
 }
 
-func (t Transaction) GetGroup(db *sql.DB) (*TransactionGroup, error) {
+func (t Transaction) GetGroup(db DBTX) (*TransactionGroup, error) {
 	if t.GroupID == nil {
 		return nil, nil
 	}
