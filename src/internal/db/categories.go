@@ -47,6 +47,27 @@ WHERE id = ?
 	return category, err
 }
 
+func GetCategoryByName(db *sql.DB, name string) (Category, error) {
+	var category Category
+	var parentID sql.NullInt64
+	err := db.QueryRow(`
+SELECT id, name, parent_id, created_at, updated_at
+FROM categories
+WHERE name = ?
+`, name).Scan(
+		&category.ID,
+		&category.Name,
+		&parentID,
+		&category.CreatedAt,
+		&category.UpdatedAt,
+	)
+	if parentID.Valid {
+		v := parentID.Int64
+		category.ParentID = &v
+	}
+	return category, err
+}
+
 func ListCategories(db *sql.DB, filter CategoryListFilter) ([]Category, error) {
 	query := `
 SELECT id, name, parent_id, created_at, updated_at
@@ -146,4 +167,17 @@ WHERE name = ?
 	}
 
 	return categoryID, nil
+}
+
+func (c Category) GetParent(db *sql.DB) (*Category, error) {
+	if c.ParentID == nil {
+		return nil, nil
+	}
+
+	parent, err := GetCategoryByID(db, *c.ParentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &parent, nil
 }

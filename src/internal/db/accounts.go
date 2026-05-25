@@ -40,6 +40,22 @@ WHERE id = ?
 	return account, err
 }
 
+func GetAccountByName(db *sql.DB, name string) (Account, error) {
+	var account Account
+	err := db.QueryRow(`
+SELECT id, name, currency, created_at, updated_at
+FROM accounts
+WHERE name = ?
+`, name).Scan(
+		&account.ID,
+		&account.Name,
+		&account.Currency,
+		&account.CreatedAt,
+		&account.UpdatedAt,
+	)
+	return account, err
+}
+
 func ListAccounts(db *sql.DB, filter AccountListFilter) ([]Account, error) {
 	query := `
 SELECT id, name, currency, created_at, updated_at

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type TransferDBEntry struct {
+type Transfer struct {
 	ID int64
 
 	FromTransactionID int64
@@ -20,7 +20,7 @@ type TransferDBEntry struct {
 	UpdatedAt time.Time
 }
 
-type TransferDBListFilter struct {
+type TransferListFilter struct {
 	ID                *int64
 	FromTransactionID *int64
 	ToTransactionID   *int64
@@ -30,7 +30,7 @@ type TransferDBListFilter struct {
 	Offset            int
 }
 
-type CreateTransferDBInput struct {
+type CreateTransferInput struct {
 	FromTransactionID int64
 	ToTransactionID   int64
 	FromAccountID     int64
@@ -38,8 +38,8 @@ type CreateTransferDBInput struct {
 	Amount            float64
 }
 
-func GetTransferByID(db *sql.DB, id int64) (TransferDBEntry, error) {
-	var transfer TransferDBEntry
+func GetTransferByID(db *sql.DB, id int64) (Transfer, error) {
+	var transfer Transfer
 
 	err := db.QueryRow(`
 SELECT id, from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, created_at, updated_at
@@ -62,7 +62,7 @@ WHERE id = ?
 	return transfer, nil
 }
 
-func ListTransfers(db *sql.DB, filter TransferDBListFilter) ([]TransferDBEntry, error) {
+func ListTransfers(db *sql.DB, filter TransferListFilter) ([]Transfer, error) {
 	query := `
 SELECT id, from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, created_at, updated_at
 FROM transfers
@@ -107,9 +107,9 @@ WHERE 1 = 1
 	}
 	defer rows.Close()
 
-	transfers := make([]TransferDBEntry, 0)
+	transfers := make([]Transfer, 0)
 	for rows.Next() {
-		var transfer TransferDBEntry
+		var transfer Transfer
 		err = rows.Scan(
 			&transfer.ID,
 			&transfer.FromTransactionID,
@@ -143,7 +143,7 @@ SELECT EXISTS(
 	return exists, err
 }
 
-func InsertTransfer(db *sql.DB, input CreateTransferDBInput) (int64, error) {
+func InsertTransfer(db *sql.DB, input CreateTransferInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO transfers (from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount)
 VALUES (?, ?, ?, ?, ?)
@@ -153,4 +153,40 @@ VALUES (?, ?, ?, ?, ?)
 	}
 
 	return result.LastInsertId()
+}
+
+func (t Transfer) GetFromTransaction(db *sql.DB) (*Transaction, error) {
+	transaction, err := GetTransactionByID(db, t.FromTransactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &transaction, nil
+}
+
+func (t Transfer) GetToTransaction(db *sql.DB) (*Transaction, error) {
+	transaction, err := GetTransactionByID(db, t.ToTransactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &transaction, nil
+}
+
+func (t Transfer) GetFromAccount(db *sql.DB) (*Account, error) {
+	account, err := GetAccountByID(db, t.FromAccountID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &account, nil
+}
+
+func (t Transfer) GetToAccount(db *sql.DB) (*Account, error) {
+	account, err := GetAccountByID(db, t.ToAccountID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &account, nil
 }

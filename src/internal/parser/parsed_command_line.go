@@ -45,7 +45,7 @@ func (p *ParsedCmdLine) GetAttributesCount(filter bool) map[string]int {
 	return count
 }
 
-func (p *ParsedCmdLine) GetAmount() []*Token {
+func (p *ParsedCmdLine) GetAmounts() []*Token {
 	var amounts []*Token
 	for i := range p.Args {
 		if p.Args[i].Kind == TokenAmount {

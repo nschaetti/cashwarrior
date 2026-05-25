@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type TransactionDBEntry struct {
+type Transaction struct {
 	ID int64 // primary key
 
 	Identifier  string    // Unique identifier for the transaction
@@ -33,26 +33,7 @@ func (f TransactionIDFilter) GenerateSQL() (string, []any) {
 	return "id = ?", []any{f.ID}
 }
 
-/*
-type TransactionDBListFilter struct {
-	ID *int64
-
-	AccountID  *int64
-	CategoryID *int64
-	PlaceID    *int64
-	GroupID    *int64
-
-	AmountFrom *float64
-	AmountTo   *float64
-
-	DateFrom time.Time // DateFrom <= datetime <= DateTo
-	DateTo   time.Time // DateFrom <= datetime <= DateTo
-
-	Limit  int
-	Offset int
-}*/
-
-type CreateTransactionDBInput struct {
+type CreateTransactionInput struct {
 	Identifier  string
 	Type        string
 	Amount      float64
@@ -64,18 +45,41 @@ type CreateTransactionDBInput struct {
 	GroupID     *int64
 }
 
-func GetTransactionByID(db *sql.DB, id int64) (TransactionDBEntry, error) {
-	var transaction TransactionDBEntry
+func GetLastTransaction(db *sql.DB) (Transaction, error) {
+	var transaction Transaction
+	return getTransactionFromQueryRow(db.QueryRow(`
+SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
+FROM transactions
+ORDER BY id DESC
+LIMIT 1
+`), transaction)
+}
+
+func GetTransactionByID(db *sql.DB, id int64) (Transaction, error) {
+	var transaction Transaction
+	return getTransactionFromQueryRow(db.QueryRow(`
+SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
+FROM transactions
+WHERE id = ?
+`, id), transaction)
+}
+
+func GetTransactionByIdentifier(db *sql.DB, identifier string) (Transaction, error) {
+	var transaction Transaction
+	return getTransactionFromQueryRow(db.QueryRow(`
+SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
+FROM transactions
+WHERE identifier = ?
+`, identifier), transaction)
+}
+
+func getTransactionFromQueryRow(row *sql.Row, transaction Transaction) (Transaction, error) {
 	var accountID sql.NullInt64
 	var categoryID sql.NullInt64
 	var placeID sql.NullInt64
 	var groupID sql.NullInt64
 
-	err := db.QueryRow(`
-SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
-FROM transactions
-WHERE id = ?
-`, id).Scan(
+	err := row.Scan(
 		&transaction.ID,
 		&transaction.Identifier,
 		&transaction.Type,
@@ -97,14 +101,16 @@ WHERE id = ?
 		v := accountID.Int64
 		transaction.AccountID = &v
 	}
+
 	if categoryID.Valid {
-		v := categoryID.Int64
-		transaction.CategoryID = &v
+		transaction.CategoryID = &categoryID.Int64
 	}
+
 	if placeID.Valid {
 		v := placeID.Int64
 		transaction.PlaceID = &v
 	}
+
 	if groupID.Valid {
 		v := groupID.Int64
 		transaction.GroupID = &v
@@ -113,7 +119,7 @@ WHERE id = ?
 	return transaction, nil
 }
 
-func ListTransactions(db *sql.DB, filters []Filter) ([]TransactionDBEntry, error) {
+func ListTransactions(db *sql.DB, filters []Filter) ([]Transaction, error) {
 	query := `
 SELECT id, identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id, created_at, updated_at
 FROM transactions
@@ -135,9 +141,9 @@ WHERE 1 = 1
 	}
 	defer rows.Close()
 
-	transactions := make([]TransactionDBEntry, 0)
+	transactions := make([]Transaction, 0)
 	for rows.Next() {
-		var transaction TransactionDBEntry
+		var transaction Transaction
 		var accountID sql.NullInt64
 		var categoryID sql.NullInt64
 		var placeID sql.NullInt64
@@ -198,7 +204,7 @@ SELECT EXISTS(
 	return exists, err
 }
 
-func InsertTransaction(db *sql.DB, input CreateTransactionDBInput) (int64, error) {
+func InsertTransaction(db *sql.DB, input CreateTransactionInput) (int64, error) {
 	transactionType := input.Type
 	if transactionType == "" {
 		transactionType = "expense"
@@ -213,4 +219,56 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	}
 
 	return result.LastInsertId()
+}
+
+func (t Transaction) GetAccount(db *sql.DB) (*Account, error) {
+	if t.AccountID == nil {
+		return nil, nil
+	}
+
+	account, err := GetAccountByID(db, *t.AccountID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &account, nil
+}
+
+func (t Transaction) GetCategory(db *sql.DB) (*Category, error) {
+	if t.CategoryID == nil {
+		return nil, nil
+	}
+
+	category, err := GetCategoryByID(db, *t.CategoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &category, nil
+}
+
+func (t Transaction) GetPlace(db *sql.DB) (*Place, error) {
+	if t.PlaceID == nil {
+		return nil, nil
+	}
+
+	place, err := GetPlaceByID(db, *t.PlaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &place, nil
+}
+
+func (t Transaction) GetGroup(db *sql.DB) (*TransactionGroup, error) {
+	if t.GroupID == nil {
+		return nil, nil
+	}
+
+	group, err := GetTransactionGroupByID(db, *t.GroupID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &group, nil
 }

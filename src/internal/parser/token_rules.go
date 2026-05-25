@@ -51,14 +51,14 @@ func classifyAttribute(raw string) (Token, bool) {
 		if strings.HasSuffix(raw, ":") {
 			return Token{
 				Raw:  raw,
-				Key:  strings.Split(raw, ":")[0],
+				Key:  strings.SplitN(raw, ":", 2)[0],
 				Kind: TokenAttributeClear,
 			}, true
 		}
 		return Token{
 			Raw:   raw,
-			Key:   strings.Split(raw, ":")[0],
-			Value: strings.Split(raw, ":")[1],
+			Key:   strings.SplitN(raw, ":", 2)[0],
+			Value: strings.SplitN(raw, ":", 2)[1],
 			Kind:  TokenAttribute,
 		}, true
 	}

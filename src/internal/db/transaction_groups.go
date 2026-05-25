@@ -5,26 +5,26 @@ import (
 	"time"
 )
 
-type TransactionGroupDBEntry struct {
+type TransactionGroup struct {
 	ID        int64
 	Name      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-type TransactionGroupDBListFilter struct {
+type TransactionGroupListFilter struct {
 	ID     *int64
 	Limit  int
 	Offset int
 }
 
-type CreateTransactionGroupDBInput struct {
+type CreateTransactionGroupInput struct {
 	Name        string
 	Description string
 }
 
-func GetTransactionGroupByID(db *sql.DB, id int64) (TransactionGroupDBEntry, error) {
-	var transactionGroup TransactionGroupDBEntry
+func GetTransactionGroupByID(db *sql.DB, id int64) (TransactionGroup, error) {
+	var transactionGroup TransactionGroup
 
 	err := db.QueryRow(`
 SELECT id, name, created_at, updated_at
@@ -43,7 +43,27 @@ WHERE id = ?
 	return transactionGroup, nil
 }
 
-func ListTransactionGroups(db *sql.DB, filter TransactionGroupDBListFilter) ([]TransactionGroupDBEntry, error) {
+func GetTransactionGroupByName(db *sql.DB, name string) (TransactionGroup, error) {
+	var transactionGroup TransactionGroup
+
+	err := db.QueryRow(`
+SELECT id, name, created_at, updated_at
+FROM transaction_groups
+WHERE name = ?
+`, name).Scan(
+		&transactionGroup.ID,
+		&transactionGroup.Name,
+		&transactionGroup.CreatedAt,
+		&transactionGroup.UpdatedAt,
+	)
+	if err != nil {
+		return transactionGroup, err
+	}
+
+	return transactionGroup, nil
+}
+
+func ListTransactionGroups(db *sql.DB, filter TransactionGroupListFilter) ([]TransactionGroup, error) {
 	query := `
 SELECT id, name, created_at, updated_at
 FROM transaction_groups
@@ -72,9 +92,9 @@ WHERE 1 = 1
 	}
 	defer rows.Close()
 
-	transactionGroups := make([]TransactionGroupDBEntry, 0)
+	transactionGroups := make([]TransactionGroup, 0)
 	for rows.Next() {
-		var transactionGroup TransactionGroupDBEntry
+		var transactionGroup TransactionGroup
 		err = rows.Scan(
 			&transactionGroup.ID,
 			&transactionGroup.Name,
@@ -105,7 +125,7 @@ SELECT EXISTS(
 	return exists, err
 }
 
-func InsertTransactionGroup(db *sql.DB, input CreateTransactionGroupDBInput) (int64, error) {
+func InsertTransactionGroup(db *sql.DB, input CreateTransactionGroupInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO transaction_groups (name)
 VALUES (?)

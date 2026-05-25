@@ -134,3 +134,32 @@ VALUES (?, ?, ?, ?, ?, ?)
 
 	return result.LastInsertId()
 }
+
+func GetBudgetByName(db *sql.DB, name string) (Budget, error) {
+	var budget Budget
+	err := db.QueryRow(`
+SELECT id, category_id, name, description, amount, currency, period, created_at, updated_at
+FROM budgets
+WHERE name = ?
+`, name).Scan(
+		&budget.ID,
+		&budget.CategoryID,
+		&budget.Name,
+		&budget.Description,
+		&budget.Amount,
+		&budget.Currency,
+		&budget.Period,
+		&budget.CreatedAt,
+		&budget.UpdatedAt,
+	)
+	return budget, err
+}
+
+func (b Budget) GetCategory(db *sql.DB) (*Category, error) {
+	category, err := GetCategoryByID(db, b.CategoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &category, nil
+}

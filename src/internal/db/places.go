@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type PlaceDBEntry struct {
+type Place struct {
 	ID        int64
 	Name      string
 	CreatedAt time.Time
@@ -19,13 +19,13 @@ type PlaceListFilter struct {
 	Offset   int
 }
 
-type CreatePlaceDBInput struct {
+type CreatePlaceInput struct {
 	Name string
 	Kind string
 }
 
-func GetPlaceByID(db *sql.DB, id int64) (PlaceDBEntry, error) {
-	var place PlaceDBEntry
+func GetPlaceByID(db *sql.DB, id int64) (Place, error) {
+	var place Place
 	err := db.QueryRow(`
 SELECT id, name, created_at, updated_at
 FROM places
@@ -43,14 +43,17 @@ WHERE id = ?
 	return place, nil
 }
 
-func GetPlaceByName(db *sql.DB, name string) (PlaceDBEntry, error) {
-	var place PlaceDBEntry
+func GetPlaceByName(db *sql.DB, name string) (Place, error) {
+	var place Place
 	err := db.QueryRow(`
 SELECT id, name, created_at, updated_at
 FROM places
 WHERE name = ?
 `, name).Scan(
+		&place.ID,
 		&place.Name,
+		&place.CreatedAt,
+		&place.UpdatedAt,
 	)
 	if err != nil {
 		return place, err
@@ -58,7 +61,7 @@ WHERE name = ?
 	return place, nil
 }
 
-func ListPlaces(db *sql.DB, filter PlaceListFilter) ([]PlaceDBEntry, error) {
+func ListPlaces(db *sql.DB, filter PlaceListFilter) ([]Place, error) {
 	query := `
 SELECT id, name, created_at, updated_at
 FROM places
@@ -68,6 +71,9 @@ FROM places
 	if filter.ID != nil {
 		query += "WHERE id = ?\n"
 		args = append(args, *filter.ID)
+	} else if filter.NameLike != "" {
+		query += "WHERE name LIKE ?\n"
+		args = append(args, "%"+filter.NameLike+"%")
 	}
 
 	query += "ORDER BY id\n"
@@ -86,12 +92,14 @@ FROM places
 	}
 	defer rows.Close()
 
-	places := make([]PlaceDBEntry, 0)
+	places := make([]Place, 0)
 	for rows.Next() {
-		var place PlaceDBEntry
+		var place Place
 		err = rows.Scan(
 			&place.ID,
 			&place.Name,
+			&place.CreatedAt,
+			&place.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -102,6 +110,17 @@ FROM places
 		return nil, err
 	}
 	return places, nil
+}
+
+func InsertPlace(db *sql.DB, input CreatePlaceInput) (int64, error) {
+	result, err := db.Exec(`
+INSERT INTO places (name)
+VALUES (?)
+`, input.Name)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 
 func PlaceExists(db *sql.DB, name string) (bool, error) {
@@ -116,15 +135,4 @@ SELECT EXISTS(
 		return false, err
 	}
 	return exists, nil
-}
-
-func InsertPlace(db *sql.DB, input CreatePlaceDBInput) (int64, error) {
-	result, err := db.Exec(`
-INSERT INTO places (name)
-VALUES (?)
-`, input.Name)
-	if err != nil {
-		return 0, err
-	}
-	return result.LastInsertId()
 }

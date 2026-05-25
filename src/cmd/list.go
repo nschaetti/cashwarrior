@@ -20,13 +20,13 @@ func List(parsed parser.ParsedCmdLine, config config.Config, cashDb *sql.DB) err
 	rows := make([][]string, 0, len(transactions))
 
 	for _, transaction := range transactions {
-		account, err := db.GetAccountByID(cashDb, *transaction.AccountID)
+		account, err := transaction.GetAccount(cashDb)
 		if err != nil {
 			return err
 		}
 		var categoryName string
 		if transaction.CategoryID != nil {
-			category, err := db.GetCategoryByID(cashDb, *transaction.CategoryID)
+			category, err := transaction.GetCategory(cashDb)
 			if err != nil {
 				return err
 			}
@@ -35,7 +35,7 @@ func List(parsed parser.ParsedCmdLine, config config.Config, cashDb *sql.DB) err
 			categoryName = "none"
 		}
 		var vendorName string
-		vendor, err := db.GetPlaceByID(cashDb, *transaction.PlaceID)
+		vendor, err := transaction.GetPlace(cashDb)
 		if err != nil {
 			return err
 		}

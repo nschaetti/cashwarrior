@@ -20,7 +20,7 @@ func (t TransactionID) String() string {
 
 // ParseTransactionID parses a transaction ID in the form YYYY.MM.NN.
 func ParseTransactionID(s string) (TransactionID, error) {
-	var publicIDRegex = regexp.MustCompile(`^\d{4}\.\d{2}\.\d{2}$`)
+	var publicIDRegex = regexp.MustCompile(`^\d{4}\.\d{2}\.\d$`)
 	if publicIDRegex.MatchString(s) {
 		year, month, num := s[:4], s[5:7], s[8:]
 
