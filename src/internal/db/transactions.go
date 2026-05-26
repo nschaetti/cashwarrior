@@ -52,6 +52,42 @@ func (f TransactionAccountNameFilter) String() string {
 	return fmt.Sprintf("<TransactionAccountNameFilter: %s>", f.Name)
 }
 
+type TransactionCurrencyFilter struct {
+	Currency string
+}
+
+func (f TransactionCurrencyFilter) GenerateSQL() (string, []any) {
+	return "UPPER(accounts.currency) = UPPER(?)", []any{f.Currency}
+}
+
+func (f TransactionCurrencyFilter) String() string {
+	return fmt.Sprintf("<TransactionCurrencyFilter: %s>", f.Currency)
+}
+
+type TransactionStoreNameFilter struct {
+	Store string
+}
+
+func (f TransactionStoreNameFilter) GenerateSQL() (string, []any) {
+	return "places.name LIKE ?", []any{f.Store}
+}
+
+func (f TransactionStoreNameFilter) String() string {
+	return fmt.Sprintf("<TransactionStoreNameFilter: %s>", f.Store)
+}
+
+type TransactionDescriptionFilter struct {
+	Description string
+}
+
+func (f TransactionDescriptionFilter) GenerateSQL() (string, []any) {
+	return "transactions.description LIKE ?", []any{f.Description}
+}
+
+func (f TransactionDescriptionFilter) String() string {
+	return fmt.Sprintf("<TransactionDescriptionFilter: %s>", f.Description)
+}
+
 type TransactionDatetimeFilter struct {
 	From time.Time
 	To   time.Time
@@ -206,6 +242,7 @@ SELECT transactions.id, transactions.identifier, transactions.type, transactions
        transactions.created_at, transactions.updated_at
 FROM transactions
 LEFT JOIN accounts ON accounts.id = transactions.account_id
+LEFT JOIN places ON places.id = transactions.place_id
 WHERE 1 = 1
 `
 	args := make([]interface{}, 0)
