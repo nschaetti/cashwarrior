@@ -18,6 +18,9 @@ const (
 	FilterUnknown = iota
 	FilterTypeTransactionID
 	FilterTypeAccountName
+	FilterTypeCurrency
+	FilterTypeStore
+	FilterTypeDescription
 	FilterTypeDatetime
 )
 
@@ -224,6 +227,12 @@ func classifyFilter(tokenFilter parser.Token) int {
 	case parser.TokenAttribute:
 		if tokenFilter.Key == "account" {
 			return FilterTypeAccountName
+		} else if tokenFilter.Key == "currency" {
+			return FilterTypeCurrency
+		} else if tokenFilter.Key == "store" {
+			return FilterTypeStore
+		} else if tokenFilter.Key == "desc" {
+			return FilterTypeDescription
 		} else if tokenFilter.Key == "date" {
 			return FilterTypeDatetime
 		} else if tokenFilter.Key == "period" {
@@ -248,6 +257,18 @@ func createTransactionIDFilter(token parser.Token) (db.SQLFilter, error) {
 
 func createAccountNameFilter(token parser.Token) (db.SQLFilter, error) {
 	return db.TransactionAccountNameFilter{Name: token.Value}, nil
+}
+
+func createCurrencyFilter(token parser.Token) (db.SQLFilter, error) {
+	return db.TransactionCurrencyFilter{Currency: token.Value}, nil
+}
+
+func createStoreFilter(token parser.Token) (db.SQLFilter, error) {
+	return db.TransactionStoreNameFilter{Store: token.Value}, nil
+}
+
+func createDescriptionFilter(token parser.Token) (db.SQLFilter, error) {
+	return db.TransactionDescriptionFilter{Description: token.Value}, nil
 }
 
 func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilter, error) {
@@ -291,6 +312,24 @@ func createFilters(
 			dbFilters = append(dbFilters, newFilter)
 		} else if filterType == FilterTypeAccountName {
 			newFilter, err := createAccountNameFilter(filter)
+			if err != nil {
+				return nil, nil, err
+			}
+			dbFilters = append(dbFilters, newFilter)
+		} else if filterType == FilterTypeCurrency {
+			newFilter, err := createCurrencyFilter(filter)
+			if err != nil {
+				return nil, nil, err
+			}
+			dbFilters = append(dbFilters, newFilter)
+		} else if filterType == FilterTypeStore {
+			newFilter, err := createStoreFilter(filter)
+			if err != nil {
+				return nil, nil, err
+			}
+			dbFilters = append(dbFilters, newFilter)
+		} else if filterType == FilterTypeDescription {
+			newFilter, err := createDescriptionFilter(filter)
 			if err != nil {
 				return nil, nil, err
 			}

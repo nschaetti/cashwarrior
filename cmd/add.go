@@ -136,17 +136,15 @@ func runCommandLineValidation(parsed parser.ParsedCmdLine, config config.Config,
 }
 
 func getTransactionDescription(parsed parser.ParsedCmdLine, counts map[parser.TokenKind]int) string {
-	if counts[parser.TokenText] == 1 {
-		return parsed.Args[0].Raw
-	}
-	var desc string
+	_ = counts
+	textParts := make([]string, 0)
 	for _, arg := range parsed.Args {
 		if arg.Kind != parser.TokenText {
 			continue
 		}
-		desc += arg.Raw + " "
+		textParts = append(textParts, arg.Raw)
 	}
-	return desc[0 : len(desc)-1]
+	return strings.Join(textParts, " ")
 }
 
 func getNextIdentifier(cashDb db.DBTX) (domain.TransactionID, error) {
