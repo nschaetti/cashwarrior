@@ -22,6 +22,7 @@ const (
 	FilterTypeStore
 	FilterTypeDescription
 	FilterTypeDatetime
+	FilterTypeGroup
 )
 
 type listSortOptions struct {
@@ -48,6 +49,16 @@ func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config
 		} else {
 			categoryName = "none"
 		}
+		groupName := ""
+		if transaction.GroupID != nil {
+			group, err := transaction.GetGroup(cashDb)
+			if err != nil {
+				return err
+			}
+			if group != nil {
+				groupName = group.Name
+			}
+		}
 		var vendorName string
 		vendor, err := transaction.GetPlace(cashDb)
 		if err != nil {
@@ -63,6 +74,7 @@ func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config
 			transaction.Description,
 			transaction.Datetime.Format(config.Display.DateFormat),
 			categoryName,
+			groupName,
 		})
 		types = append(types, transaction.Type)
 	}
@@ -73,7 +85,7 @@ func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config
 		WithTitle("Transactions", theme.TransactionListTitleBackground).
 		WithSubtitle("Configured transactions").
 		WithHeaderBackground(theme.TransactionListHeaderBackground).
-		WithHeaders("ID", "Account", "Amount", "Currency", "Vendor", "Description", "Datetime", "Category")
+		WithHeaders("ID", "Account", "Amount", "Currency", "Vendor", "Description", "Datetime", "Category", "Group")
 
 	for i, row := range rows {
 		t.AddRowWithMetadata(row, map[string]string{"type": types[i]})
@@ -239,6 +251,8 @@ func classifyFilter(tokenFilter parser.Token) int {
 			return FilterTypeDatetime
 		} else if tokenFilter.Key == "time" {
 			return FilterTypeDatetime
+		} else if tokenFilter.Key == "group" {
+			return FilterTypeGroup
 		}
 	default:
 		return FilterUnknown
@@ -293,6 +307,10 @@ func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilte
 	return nil, fmt.Errorf("unknown datetime format: %s. Must be given as shortcuts or from-to", token.Value)
 }
 
+func createGroupFilter(token parser.Token) (db.SQLFilter, error) {
+	return db.TransactionGroupNameFilter{Name: token.Value}, nil
+}
+
 func createFilters(
 	parsed parser.ParsedCmdLine,
 	cashDb db.DBTX,
@@ -336,6 +354,12 @@ func createFilters(
 			dbFilters = append(dbFilters, newFilter)
 		} else if filterType == FilterTypeDatetime {
 			newFilter, err := createDatetimeFilter(filter, config)
+			if err != nil {
+				return nil, nil, err
+			}
+			dbFilters = append(dbFilters, newFilter)
+		} else if filterType == FilterTypeGroup {
+			newFilter, err := createGroupFilter(filter)
 			if err != nil {
 				return nil, nil, err
 			}

@@ -64,3 +64,10 @@ func TestParseListSortOptionsRejectsUnsupportedField(t *testing.T) {
 		t.Fatal("parseListSortOptions expected error, got nil")
 	}
 }
+
+func TestClassifyFilterGroup(t *testing.T) {
+	token := parser.Token{Kind: parser.TokenAttribute, Key: "group", Value: "ticket_0001"}
+	if got := classifyFilter(token); got != FilterTypeGroup {
+		t.Fatalf("classifyFilter(group) = %d, want %d", got, FilterTypeGroup)
+	}
+}

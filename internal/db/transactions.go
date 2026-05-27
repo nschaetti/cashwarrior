@@ -101,6 +101,18 @@ func (f TransactionDatetimeFilter) String() string {
 	return fmt.Sprintf("<TransactionDatetimeFilter: %s - %s>", f.From, f.To)
 }
 
+type TransactionGroupNameFilter struct {
+	Name string
+}
+
+func (f TransactionGroupNameFilter) GenerateSQL() (string, []any) {
+	return "transaction_groups.name = ?", []any{f.Name}
+}
+
+func (f TransactionGroupNameFilter) String() string {
+	return fmt.Sprintf("<TransactionGroupNameFilter: %s>", f.Name)
+}
+
 type CreateTransactionInput struct {
 	Identifier  string
 	Type        string
@@ -243,6 +255,7 @@ SELECT transactions.id, transactions.identifier, transactions.type, transactions
 FROM transactions
 LEFT JOIN accounts ON accounts.id = transactions.account_id
 LEFT JOIN places ON places.id = transactions.place_id
+LEFT JOIN transaction_groups ON transaction_groups.id = transactions.group_id
 WHERE 1 = 1
 `
 	args := make([]interface{}, 0)
