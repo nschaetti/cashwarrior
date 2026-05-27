@@ -21,15 +21,20 @@ const (
 	FilterTypeDatetime
 )
 
+type listSortOptions struct {
+	Field string
+	Desc  bool
+}
+
+func defaultListSortOptions() listSortOptions {
+	return listSortOptions{Desc: true}
+}
+
 func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config config.Config) error {
 	rows := make([][]string, 0, len(transactions))
 	types := make([]string, 0, len(transactions))
 
 	for _, transaction := range transactions {
-		account, err := transaction.GetAccount(cashDb)
-		if err != nil {
-			return err
-		}
 		var categoryName string
 		if transaction.CategoryID != nil {
 			category, err := transaction.GetCategory(cashDb)
@@ -54,7 +59,6 @@ func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config
 			vendorName,
 			transaction.Description,
 			transaction.Datetime.Format(config.Display.DateFormat),
-			account.Name,
 			categoryName,
 		})
 		types = append(types, transaction.Type)
@@ -66,7 +70,7 @@ func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config
 		WithTitle("Transactions", theme.TransactionListTitleBackground).
 		WithSubtitle("Configured transactions").
 		WithHeaderBackground(theme.TransactionListHeaderBackground).
-		WithHeaders("ID", "Account", "Amount", "Currency", "Vendor", "Description", "Datetime", "Account", "Category")
+		WithHeaders("ID", "Account", "Amount", "Currency", "Vendor", "Description", "Datetime", "Category")
 
 	for i, row := range rows {
 		t.AddRowWithMetadata(row, map[string]string{"type": types[i]})
@@ -302,14 +306,162 @@ func createFilters(
 	return dbFilters, runFilters, nil
 }
 
+func parseListSortOptions(parsed parser.ParsedCmdLine) (parser.ParsedCmdLine, listSortOptions, error) {
+	sortOptions := defaultListSortOptions()
+	filteredFilters := make([]parser.Token, 0, len(parsed.Filters))
+
+	for _, filter := range parsed.Filters {
+		if filter.Kind != parser.TokenAttribute {
+			filteredFilters = append(filteredFilters, filter)
+			continue
+		}
+
+		switch filter.Key {
+		case "order":
+			if sortOptions.Field != "" {
+				return parsed, sortOptions, fmt.Errorf("order specified multiple times")
+			}
+			if !isSupportedListOrderField(filter.Value) {
+				return parsed, sortOptions, fmt.Errorf("unsupported order field %s", filter.Value)
+			}
+			sortOptions.Field = filter.Value
+		case "desc":
+			desc, err := strconv.ParseBool(filter.Value)
+			if err != nil {
+				return parsed, sortOptions, fmt.Errorf("invalid desc value %s", filter.Value)
+			}
+			sortOptions.Desc = desc
+		default:
+			filteredFilters = append(filteredFilters, filter)
+		}
+	}
+
+	parsed.Filters = filteredFilters
+	return parsed, sortOptions, nil
+}
+
+func isSupportedListOrderField(field string) bool {
+	switch field {
+	case "id", "datetime", "description", "amount", "account", "currency", "type", "category", "vendor":
+		return true
+	default:
+		return false
+	}
+}
+
+func sortTransactionsForList(cashDb db.DBTX, transactions []db.Transaction, options listSortOptions) error {
+	if options.Field == "" {
+		return nil
+	}
+
+	type sortValues struct {
+		category string
+		vendor   string
+	}
+
+	valuesByID := make(map[int64]sortValues, len(transactions))
+	for _, transaction := range transactions {
+		values := sortValues{}
+		if options.Field == "category" && transaction.CategoryID != nil {
+			category, err := transaction.GetCategory(cashDb)
+			if err != nil {
+				return err
+			}
+			values.category = category.Name
+		}
+		if options.Field == "vendor" && transaction.PlaceID != nil {
+			vendor, err := transaction.GetPlace(cashDb)
+			if err != nil {
+				return err
+			}
+			if vendor != nil {
+				values.vendor = vendor.Name
+			}
+		}
+		valuesByID[transaction.ID] = values
+	}
+
+	compareText := func(left string, right string) int {
+		return strings.Compare(strings.ToLower(left), strings.ToLower(right))
+	}
+
+	sort.SliceStable(transactions, func(i, j int) bool {
+		left := transactions[i]
+		right := transactions[j]
+
+		cmp := 0
+		switch options.Field {
+		case "id":
+			cmp = compareOrdered(left.ID, right.ID)
+		case "datetime":
+			cmp = compareTime(left.Datetime, right.Datetime)
+		case "description":
+			cmp = compareText(left.Description, right.Description)
+		case "amount":
+			cmp = compareOrdered(left.Amount, right.Amount)
+		case "account":
+			cmp = compareText(left.AccountName, right.AccountName)
+		case "currency":
+			cmp = compareText(left.Currency, right.Currency)
+		case "type":
+			cmp = compareText(left.Type, right.Type)
+		case "category":
+			cmp = compareText(valuesByID[left.ID].category, valuesByID[right.ID].category)
+		case "vendor":
+			cmp = compareText(valuesByID[left.ID].vendor, valuesByID[right.ID].vendor)
+		}
+
+		if cmp == 0 {
+			cmp = compareOrdered(left.ID, right.ID)
+		}
+
+		if options.Desc {
+			return cmp > 0
+		}
+		return cmp < 0
+	})
+
+	return nil
+}
+
+func compareOrdered[T ~int64 | ~float64](left T, right T) int {
+	if left < right {
+		return -1
+	}
+	if left > right {
+		return 1
+	}
+	return 0
+}
+
+func compareTime(left time.Time, right time.Time) int {
+	if left.Before(right) {
+		return -1
+	}
+	if left.After(right) {
+		return 1
+	}
+	return 0
+}
+
 func List(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
+	parsed, sortOptions, err := parseListSortOptions(parsed)
+	if err != nil {
+		return err
+	}
+
 	dbFilters, runFilters, err := createFilters(parsed, cashDb, config)
 	if err != nil {
 		return err
 	}
-	
+
 	// Get list of transactions
 	transactions, err := db.ListTransactions(cashDb, dbFilters, runFilters)
+	if err != nil {
+		return err
+	}
+
+	err = sortTransactionsForList(cashDb, transactions, sortOptions)
 	if err != nil {
 		return err
 	}

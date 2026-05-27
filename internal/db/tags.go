@@ -34,6 +34,21 @@ WHERE id = ?
 	return tag, err
 }
 
+func GetTagByName(db DBTX, name string) (Tag, error) {
+	var tag Tag
+	err := db.QueryRow(`
+SELECT id, name, created_at, updated_at
+FROM tags
+WHERE name = ?
+`, name).Scan(
+		&tag.ID,
+		&tag.Name,
+		&tag.CreatedAt,
+		&tag.UpdatedAt,
+	)
+	return tag, err
+}
+
 func ListTags(db DBTX, filter TagListFilter) ([]Tag, error) {
 	query := `
 SELECT id, name, created_at, updated_at
