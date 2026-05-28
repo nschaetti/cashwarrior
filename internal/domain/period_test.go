@@ -14,6 +14,8 @@ func TestParsePeriod_Valid(t *testing.T) {
 		{"year", PeriodYear},
 		{"lastmonday", PeriodLastMonday},
 		{"lastsunday", PeriodLastSunday},
+		{"january", PeriodNamedMonth},
+		{"week3", PeriodWeekNumber},
 	}
 
 	for _, tt := range tests {
@@ -37,6 +39,12 @@ func TestParsePeriod_Invalid(t *testing.T) {
 func TestIsPeriod(t *testing.T) {
 	if !IsPeriod("week") {
 		t.Fatal("IsPeriod(\"week\") = false, want true")
+	}
+	if !IsPeriod("march") {
+		t.Fatal("IsPeriod(\"march\") = false, want true")
+	}
+	if !IsPeriod("week8") {
+		t.Fatal("IsPeriod(\"week8\") = false, want true")
 	}
 	if IsPeriod("invalid") {
 		t.Fatal("IsPeriod(\"invalid\") = true, want false")

@@ -106,32 +106,6 @@ func (k TokenKind) String() string {
 	}
 }
 
-// Commands is the set of supported CLI commands.
-var Commands = map[string]bool{
-	"init":        true,
-	"add":         true,
-	"show":        true,
-	"categories":  true,
-	"stats":       true,
-	"group":       true,
-	"tags":        true,
-	"modify":      true,
-	"report":      true,
-	"list":        true,
-	"delete":      true,
-	"undo":        true,
-	"by":          true,
-	"accounts":    true,
-	"account":     true,
-	"balance":     true,
-	"fakeit":      true,
-	"transfer":    true,
-	"set-balance": true,
-	"budget":      true,
-	"config":      true,
-	"theme":       true,
-}
-
 // TokenRule classifies a raw token and reports whether it matched.
 type TokenRule func(raw string) (Token, bool)
 
@@ -146,7 +120,8 @@ var tokenRules = []TokenRule{
 }
 
 func isCommand(s string) bool {
-	return Commands[s]
+	_, ok := GetCommandSpec(s)
+	return ok
 }
 
 // ClassifyToken classifies a raw token using the configured rule order.
@@ -194,15 +169,29 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 		return ParsedCmdLine{}, err
 	}
 
+	commandSpec, ok := GetCommandSpec(command)
+	if !ok {
+		return ParsedCmdLine{}, &ParseError{Code: ParseErrorNoCommand, Message: fmt.Sprintf("unknown command: %s", command)}
+	}
+
 	// Extract filters and arguments
 	filterTokens := ExtractTokens(args[:index])
-	argsTokens := ExtractTokens(args[index+1:])
+	rawArgs := args[index+1:]
+	subcommand := commandSpec.DefaultSubcommand
+	if len(rawArgs) > 0 {
+		if _, ok := commandSpec.Subcommands[rawArgs[0]]; ok {
+			subcommand = rawArgs[0]
+			rawArgs = rawArgs[1:]
+		}
+	}
+	argsTokens := ExtractTokens(rawArgs)
 
 	// Put it all together
 	return ParsedCmdLine{
-		Command: command,
-		Filters: filterTokens,
-		Args:    argsTokens,
+		Command:    command,
+		Subcommand: subcommand,
+		Filters:    filterTokens,
+		Args:       argsTokens,
 	}, nil
 }
 
@@ -214,19 +203,181 @@ func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
 		return &ParseError{Code: ParseErrorNoCommand, Message: fmt.Sprintf("unknown command: %s", parsed.Command)}
 	}
 
+	subcommandSpec, ok := GetSubcommandSpec(parsed.Command, parsed.Subcommand)
+	if !ok {
+		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("unknown subcommand %s for command %s", parsed.Subcommand, parsed.Command)}
+	}
+
 	for _, token := range parsed.Filters {
 		if token.Kind == TokenUnknown {
 			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: "unknown token in filters"}
 		}
+		if err := validateTokenAgainstSideSpec(token, subcommandSpec.Left, "left side"); err != nil {
+			return err
+		}
+	}
+	if err := validateSideCardinality(parsed.Filters, subcommandSpec.Left, "left side"); err != nil {
+		return err
 	}
 
 	for _, token := range parsed.Args {
 		if token.Kind == TokenUnknown {
 			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: "unknown token in arguments"}
 		}
+		if err := validateTokenAgainstSideSpec(token, subcommandSpec.Right, "right side"); err != nil {
+			return err
+		}
+	}
+	if err := validateSideCardinality(parsed.Args, subcommandSpec.Right, "right side"); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+func validateTokenAgainstSideSpec(token Token, side SideSpec, sideName string) *ParseError {
+	if !side.AllowedKinds[token.Kind] {
+		return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: fmt.Sprintf("token kind %s is not allowed on %s", token.Kind, sideName)}
+	}
+
+	if token.Kind != TokenAttribute && token.Kind != TokenAttributeClear {
+		return nil
+	}
+	if side.AllowAnyAttr {
+		return nil
+	}
+
+	attributeSpec, ok := side.Attributes[token.Key]
+	if !ok {
+		return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: fmt.Sprintf("attribute %s is not allowed on %s", token.Key, sideName)}
+	}
+	if token.Kind == TokenAttributeClear {
+		if !attributeSpec.AllowsClear() {
+			return &ParseError{Code: ParseErrorInvalidInput, Token: token.Raw, Message: fmt.Sprintf("attribute %s cannot be cleared", token.Key)}
+		}
+		return nil
+	}
+	if !attributeSpec.AllowsSet() {
+		return &ParseError{Code: ParseErrorInvalidInput, Token: token.Raw, Message: fmt.Sprintf("attribute %s cannot be set", token.Key)}
+	}
+
+	value, err := ParseAttributeValue(token.Value)
+	if err != nil {
+		return &ParseError{Code: ParseErrorInvalidInput, Token: token.Raw, Message: err.Error()}
+	}
+	if !attributeSpec.Shapes.Allows(value) {
+		return &ParseError{Code: ParseErrorInvalidInput, Token: token.Raw, Message: fmt.Sprintf("attribute %s does not accept %s values", token.Key, value.Kind)}
+	}
+
+	return nil
+}
+
+func validateSideCardinality(tokens []Token, side SideSpec, sideName string) *ParseError {
+	if err := validateArgsCount(tokens, side, sideName); err != nil {
+		return err
+	}
+	if err := validateKindRules(tokens, side, sideName); err != nil {
+		return err
+	}
+	if err := validateAttributeRules(tokens, side, sideName); err != nil {
+		return err
+	}
+	if err := validatePresenceRules(tokens, side, sideName); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateArgsCount(tokens []Token, side SideSpec, sideName string) *ParseError {
+	count := len(tokens)
+	if side.MinArgs > 0 && count < side.MinArgs {
+		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("%s requires at least %d argument", sideName, side.MinArgs)}
+	}
+	if side.MaxArgs > 0 && count > side.MaxArgs {
+		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("%s accepts at most %d argument", sideName, side.MaxArgs)}
+	}
+	return nil
+}
+
+func validateKindRules(tokens []Token, side SideSpec, sideName string) *ParseError {
+	counts := make(map[TokenKind]int)
+	for _, token := range tokens {
+		counts[token.Kind]++
+	}
+	for kind, rule := range side.KindRules {
+		if err := validateCountRule(counts[kind], rule, sideName, kind.String()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateAttributeRules(tokens []Token, side SideSpec, sideName string) *ParseError {
+	counts := make(map[string]int)
+	for _, token := range tokens {
+		if token.Kind != TokenAttribute && token.Kind != TokenAttributeClear {
+			continue
+		}
+		counts[token.Key]++
+	}
+	for name, rule := range side.AttributeRules {
+		if err := validateCountRule(counts[name], rule, sideName, fmt.Sprintf("attribute %s", name)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateCountRule(count int, rule CountRule, sideName string, label string) *ParseError {
+	if rule.Min > 0 && count < rule.Min {
+		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("%s requires at least %d %s", sideName, rule.Min, label)}
+	}
+	if rule.Max > 0 && count > rule.Max {
+		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("%s accepts at most %d %s", sideName, rule.Max, label)}
+	}
+	return nil
+}
+
+func validatePresenceRules(tokens []Token, side SideSpec, sideName string) *ParseError {
+	if len(side.AtLeastOneOf) == 0 {
+		return nil
+	}
+
+	kindCounts := make(map[TokenKind]int)
+	attributeCounts := make(map[string]int)
+	for _, token := range tokens {
+		kindCounts[token.Kind]++
+		if token.Kind == TokenAttribute || token.Kind == TokenAttributeClear {
+			attributeCounts[token.Key]++
+		}
+	}
+
+	for _, rule := range side.AtLeastOneOf {
+		if presenceRuleSatisfied(rule, kindCounts, attributeCounts) {
+			continue
+		}
+		message := rule.Message
+		if message == "" {
+			message = fmt.Sprintf("%s requires at least one matching token", sideName)
+		}
+		return &ParseError{Code: ParseErrorInvalidInput, Message: message}
+	}
+
+	return nil
+}
+
+func presenceRuleSatisfied(rule PresenceRule, kindCounts map[TokenKind]int, attributeCounts map[string]int) bool {
+	for _, kind := range rule.Kinds {
+		if kindCounts[kind] > 0 {
+			return true
+		}
+	}
+	for _, name := range rule.Attributes {
+		if attributeCounts[name] > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // ParseAndValidateCmdLine parses args and then validates the parsed output.

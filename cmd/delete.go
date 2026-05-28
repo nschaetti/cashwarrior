@@ -8,9 +8,19 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
-func Delete(parsed parser.ParsedCmdLine, _ config.Config, query db.DBTX) error {
-	_ = parsed
-	_ = query
-	fmt.Println("delete")
-	return nil
+func Delete(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) error {
+	switch parsed.Subcommand {
+	case "list":
+		return listDeletedTransactions(cfg, query)
+	default:
+		transaction, err := db.GetTransactionByIdentifier(query, parsed.Args[0].Raw)
+		if err != nil {
+			return err
+		}
+		if err := db.UpdateTransactionDeleted(query, transaction.ID, true); err != nil {
+			return err
+		}
+		fmt.Printf("Transaction %s deleted\n", transaction.Identifier)
+		return nil
+	}
 }

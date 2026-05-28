@@ -126,6 +126,42 @@ VALUES (?, ?)
 	return result.LastInsertId()
 }
 
+func UpdateAccountName(db DBTX, accountID int64, name string) error {
+	_, err := db.Exec(`
+UPDATE accounts
+SET name = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, name, accountID)
+	return err
+}
+
+func UpdateAccountCurrency(db DBTX, accountID int64, currency string) error {
+	_, err := db.Exec(`
+UPDATE accounts
+SET currency = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, currency, accountID)
+	return err
+}
+
+func DeleteAccountByID(db DBTX, accountID int64) error {
+	_, err := db.Exec(`
+DELETE FROM accounts
+WHERE id = ?
+`, accountID)
+	return err
+}
+
+func CountTransactionsByAccountID(db DBTX, accountID int64) (int, error) {
+	var count int
+	err := db.QueryRow(`
+SELECT COUNT(*)
+FROM transactions
+WHERE account_id = ?
+`, accountID).Scan(&count)
+	return count, err
+}
+
 func ListAccountCurrencies(db DBTX) ([]string, error) {
 	rows, err := db.Query(`
 SELECT DISTINCT currency

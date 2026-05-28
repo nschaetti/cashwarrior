@@ -1,18 +1,167 @@
 package cmd
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
 	"github.com/nschaetti/cashwarrior/internal/parser"
+	"github.com/nschaetti/cashwarrior/internal/utils"
 )
 
 func Accounts(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
+	switch parsed.Subcommand {
+	case "list":
+		return listAccounts(config, cashDb)
+	case "balance":
+		return accountBalance(parsed, config, cashDb)
+	case "add":
+		return addAccount(parsed, config, cashDb)
+	case "modify":
+		return modifyAccount(parsed, config, cashDb)
+	case "delete":
+		return deleteAccount(parsed, config, cashDb)
+	default:
+		return fmt.Errorf("unknown accounts subcommand %s", parsed.Subcommand)
+	}
+}
+
+func getAccountNameArg(token parser.Token) (string, error) {
+	if token.Kind == parser.TokenText {
+		if token.Raw == "" {
+			return "", fmt.Errorf("account name cannot be empty")
+		}
+		return token.Raw, nil
+	}
+	if token.Kind == parser.TokenAttribute && token.Key == "account" && token.Value != "" {
+		return token.Value, nil
+	}
+	return "", fmt.Errorf("account name is required")
+}
+
+func getAttributesFromTokens(tokens []parser.Token) map[string]string {
+	attributes := make(map[string]string)
+	for _, token := range tokens {
+		if token.Kind != parser.TokenAttribute {
+			continue
+		}
+		attributes[token.Key] = token.Value
+	}
+	return attributes
+}
+
+func addAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
+	name, err := getAccountNameArg(parsed.Args[0])
+	if err != nil {
+		return err
+	}
+	attributes := getAttributesFromTokens(parsed.Args)
+	currency := cfg.Default.Currency
+	if value, ok := attributes["currency"]; ok {
+		currency = strings.TrimSpace(value)
+	}
+	if strings.TrimSpace(currency) == "" {
+		return fmt.Errorf("currency cannot be empty")
+	}
+	exists, err := db.AccountExists(cashDb, name)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("account %s already exists", name)
+	}
+	_, err = db.InsertAccount(cashDb, db.CreateAccountInput{Name: name, Currency: currency})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Account %s created\n", name)
+	return nil
+}
+
+func modifyAccount(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
+	name, err := getAccountNameArg(parsed.Args[0])
+	if err != nil {
+		return err
+	}
+	account, err := db.GetAccountByName(cashDb, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("account %s does not exist", name)
+	}
+	if err != nil {
+		return err
+	}
+	attributes := getAttributesFromTokens(parsed.Args[1:])
+	if newName, ok := attributes["account"]; ok {
+		newName = strings.TrimSpace(newName)
+		if newName == "" {
+			return fmt.Errorf("account name cannot be empty")
+		}
+		if newName != account.Name {
+			exists, err := db.AccountExists(cashDb, newName)
+			if err != nil {
+				return err
+			}
+			if exists {
+				return fmt.Errorf("account %s already exists", newName)
+			}
+			if err := db.UpdateAccountName(cashDb, account.ID, newName); err != nil {
+				return err
+			}
+		}
+	}
+	if currency, ok := attributes["currency"]; ok {
+		currency = strings.TrimSpace(currency)
+		if currency == "" {
+			return fmt.Errorf("currency cannot be empty")
+		}
+		if err := db.UpdateAccountCurrency(cashDb, account.ID, currency); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("Account %s updated\n", name)
+	return nil
+}
+
+func deleteAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
+	name, err := getAccountNameArg(parsed.Args[0])
+	if err != nil {
+		return err
+	}
+	if name == cfg.Default.Account {
+		return fmt.Errorf("cannot delete default account %s", name)
+	}
+	account, err := db.GetAccountByName(cashDb, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("account %s does not exist", name)
+	}
+	if err != nil {
+		return err
+	}
+	count, err := db.CountTransactionsByAccountID(cashDb, account.ID)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("account %s has linked transactions", name)
+	}
+	if !utils.AskYesNo(fmt.Sprintf("Delete account %s?", name)) {
+		return nil
+	}
+	if err := db.DeleteAccountByID(cashDb, account.ID); err != nil {
+		return err
+	}
+	fmt.Printf("Account %s deleted\n", name)
+	return nil
+}
+
+func listAccounts(config config.Config, cashDb db.DBTX) error {
 	accounts, err := db.ListAccounts(cashDb, db.AccountListFilter{})
 	if err != nil {
 		return err

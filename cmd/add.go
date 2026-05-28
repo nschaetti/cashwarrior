@@ -21,34 +21,7 @@ var CommandValidations = []func(
 	db.DBTX,
 	map[parser.TokenKind]int,
 ) (parser.ParsedCmdLine, error){
-	validateAtLeastTwoArgs,
-	validateNoFilters,
 	validateAmount,
-	validateAttributes,
-}
-
-func validateAtLeastTwoArgs(
-	parsed parser.ParsedCmdLine,
-	config config.Config,
-	db db.DBTX,
-	counts map[parser.TokenKind]int,
-) (parser.ParsedCmdLine, error) {
-	if len(parsed.Args) < 2 {
-		return parsed, fmt.Errorf("we need at least an amount and a description")
-	}
-	return parsed, nil
-}
-
-func validateNoFilters(
-	parsed parser.ParsedCmdLine,
-	config config.Config,
-	db db.DBTX,
-	counts map[parser.TokenKind]int,
-) (parser.ParsedCmdLine, error) {
-	if len(parsed.Filters) != 0 {
-		return parsed, fmt.Errorf("no filters allowed")
-	}
-	return parsed, nil
 }
 
 func validateAmount(
@@ -58,9 +31,7 @@ func validateAmount(
 	counts map[parser.TokenKind]int,
 ) (parser.ParsedCmdLine, error) {
 	// Zero or multiple amounts => problem
-	if counts[parser.TokenAmount] == 0 {
-		return parsed, fmt.Errorf("no amount specified")
-	} else if counts[parser.TokenAmount] > 1 {
+	if counts[parser.TokenAmount] > 1 {
 		name, err := pterm.DefaultInteractiveTextInput.
 			WithDefaultText("y").
 			Show("You specified multiple amounts. Would you like to sum them up?:")
@@ -101,24 +72,6 @@ func validateAmount(
 	// No zero amount allowed
 	if amount.Amount == 0 {
 		return parsed, fmt.Errorf("amount cannot be zero")
-	}
-
-	return parsed, nil
-}
-
-func validateAttributes(
-	parsed parser.ParsedCmdLine,
-	config config.Config,
-	db db.DBTX,
-	counts map[parser.TokenKind]int,
-) (parser.ParsedCmdLine, error) {
-	// Get count of attributes
-	attrsCount := parsed.GetAttributesCount(false)
-
-	for attr, count := range attrsCount {
-		if count > 1 {
-			return parsed, fmt.Errorf("attribute %s specified multiple times", attr)
-		}
 	}
 
 	return parsed, nil

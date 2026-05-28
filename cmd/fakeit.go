@@ -77,10 +77,6 @@ type fakeitContext struct {
 }
 
 func Fakeit(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
-	if len(parsed.Filters) != 0 {
-		return fmt.Errorf("no filters allowed")
-	}
-
 	gofakeit.Seed(time.Now().UnixNano())
 
 	options, err := parseFakeitOptions(parsed)
@@ -121,16 +117,10 @@ func Fakeit(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) erro
 
 func parseFakeitOptions(parsed parser.ParsedCmdLine) (fakeitOptions, error) {
 	options := fakeitOptions{Count: defaultFakeitCount}
-	seenAttributes := make(map[string]bool)
 
 	for _, arg := range parsed.Args {
 		switch arg.Kind {
 		case parser.TokenAttribute:
-			if seenAttributes[arg.Key] {
-				return options, fmt.Errorf("attribute %s specified multiple times", arg.Key)
-			}
-			seenAttributes[arg.Key] = true
-
 			switch arg.Key {
 			case "account":
 				options.AccountName = arg.Value
@@ -154,20 +144,13 @@ func parseFakeitOptions(parsed parser.ParsedCmdLine) (fakeitOptions, error) {
 					return options, fmt.Errorf("invalid month %s", arg.Value)
 				}
 				options.Month = month
-			default:
-				return options, fmt.Errorf("unsupported attribute %s", arg.Key)
 			}
 		case parser.TokenText:
 			count, err := strconv.Atoi(arg.Raw)
 			if err != nil || count <= 0 {
 				return options, fmt.Errorf("unsupported argument %s", arg.Raw)
 			}
-			if options.Count != defaultFakeitCount {
-				return options, fmt.Errorf("count specified multiple times")
-			}
 			options.Count = count
-		default:
-			return options, fmt.Errorf("unsupported token %s", arg.Raw)
 		}
 	}
 

@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -21,6 +22,7 @@ type Transaction struct {
 	CategoryID  *int64 // foreign key to categories
 	PlaceID     *int64 // foreign key to places
 	GroupID     *int64 // foreign key to groups
+	Deleted     bool
 
 	Notes *string // free-form text
 
@@ -130,7 +132,7 @@ func GetLastTransaction(db DBTX) (Transaction, error) {
 	return getTransactionFromQueryRow(db.QueryRow(`
 SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
        transactions.account_id, COALESCE(accounts.name, ''), COALESCE(accounts.currency, ''),
-       transactions.category_id, transactions.place_id, transactions.group_id,
+       transactions.category_id, transactions.place_id, transactions.group_id, transactions.deleted,
        transactions.created_at, transactions.updated_at
 FROM transactions
 LEFT JOIN accounts ON accounts.id = transactions.account_id
@@ -144,7 +146,7 @@ func GetTransactionByID(db DBTX, id int64) (Transaction, error) {
 	return getTransactionFromQueryRow(db.QueryRow(`
 SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
        transactions.account_id, COALESCE(accounts.name, ''), COALESCE(accounts.currency, ''),
-       transactions.category_id, transactions.place_id, transactions.group_id,
+       transactions.category_id, transactions.place_id, transactions.group_id, transactions.deleted,
        transactions.created_at, transactions.updated_at
 FROM transactions
 LEFT JOIN accounts ON accounts.id = transactions.account_id
@@ -157,7 +159,7 @@ func GetTransactionByIdentifier(db DBTX, identifier string) (Transaction, error)
 	return getTransactionFromQueryRow(db.QueryRow(`
 SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
        transactions.account_id, COALESCE(accounts.name, ''), COALESCE(accounts.currency, ''),
-       transactions.category_id, transactions.place_id, transactions.group_id,
+       transactions.category_id, transactions.place_id, transactions.group_id, transactions.deleted,
        transactions.created_at, transactions.updated_at
 FROM transactions
 LEFT JOIN accounts ON accounts.id = transactions.account_id
@@ -184,6 +186,7 @@ func getTransactionFromQueryRow(row *sql.Row, transaction Transaction) (Transact
 		&categoryID,
 		&placeID,
 		&groupID,
+		&transaction.Deleted,
 		&transaction.CreatedAt,
 		&transaction.UpdatedAt,
 	)
@@ -217,7 +220,7 @@ func GetSumOfTransactions(db DBTX, filters []SQLFilter) (float64, error) {
 	query := `
 SELECT SUM(amount)
 FROM transactions
-WHERE 1 = 1
+WHERE deleted = FALSE
 `
 	args := make([]interface{}, 0)
 
@@ -247,18 +250,36 @@ func ListTransactions(
 	dbFilters []SQLFilter,
 	runFilters []Filter[Transaction],
 ) ([]Transaction, error) {
+	return listTransactions(db, dbFilters, runFilters, false)
+}
+
+func ListDeletedTransactions(
+	db DBTX,
+	dbFilters []SQLFilter,
+	runFilters []Filter[Transaction],
+) ([]Transaction, error) {
+	return listTransactions(db, dbFilters, runFilters, true)
+}
+
+func listTransactions(
+	db DBTX,
+	dbFilters []SQLFilter,
+	runFilters []Filter[Transaction],
+	deleted bool,
+) ([]Transaction, error) {
 	query := `
 SELECT transactions.id, transactions.identifier, transactions.type, transactions.amount, transactions.description, transactions.datetime,
        transactions.account_id, COALESCE(accounts.name, ''), COALESCE(accounts.currency, ''),
-       transactions.category_id, transactions.place_id, transactions.group_id,
+       transactions.category_id, transactions.place_id, transactions.group_id, transactions.deleted,
        transactions.created_at, transactions.updated_at
 FROM transactions
 LEFT JOIN accounts ON accounts.id = transactions.account_id
 LEFT JOIN places ON places.id = transactions.place_id
 LEFT JOIN transaction_groups ON transaction_groups.id = transactions.group_id
-WHERE 1 = 1
+WHERE transactions.deleted = ?
 `
-	args := make([]interface{}, 0)
+	args := make([]interface{}, 0, 1)
+	args = append(args, deleted)
 
 	for _, filter := range dbFilters {
 		filterSQL, filterArgs := filter.GenerateSQL()
@@ -297,6 +318,7 @@ WHERE 1 = 1
 			&categoryID,
 			&placeID,
 			&groupID,
+			&transaction.Deleted,
 			&transaction.CreatedAt,
 			&transaction.UpdatedAt,
 		)
@@ -358,6 +380,97 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	}
 
 	return result.LastInsertId()
+}
+
+func UpdateTransactionDescription(db DBTX, transactionID int64, description string) error {
+	_, err := db.Exec(`
+UPDATE transactions
+SET description = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, description, transactionID)
+	return err
+}
+
+func UpdateTransactionDatetime(db DBTX, transactionID int64, datetime time.Time) error {
+	_, err := db.Exec(`
+UPDATE transactions
+SET datetime = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, datetime, transactionID)
+	return err
+}
+
+func UpdateTransactionAccountID(db DBTX, transactionID int64, accountID *int64) error {
+	_, err := db.Exec(`
+UPDATE transactions
+SET account_id = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, accountID, transactionID)
+	return err
+}
+
+func UpdateTransactionCategoryID(db DBTX, transactionID int64, categoryID *int64) error {
+	_, err := db.Exec(`
+UPDATE transactions
+SET category_id = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, categoryID, transactionID)
+	return err
+}
+
+func UpdateTransactionPlaceID(db DBTX, transactionID int64, placeID *int64) error {
+	_, err := db.Exec(`
+UPDATE transactions
+SET place_id = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, placeID, transactionID)
+	return err
+}
+
+func UpdateTransactionDeleted(db DBTX, transactionID int64, deleted bool) error {
+	_, err := db.Exec(`
+UPDATE transactions
+SET deleted = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, deleted, transactionID)
+	return err
+}
+
+func DeleteTransactionByID(db DBTX, transactionID int64) error {
+	_, err := db.Exec(`
+DELETE FROM transactions
+WHERE id = ?
+`, transactionID)
+	return err
+}
+
+func PurgeTransactionByIdentifier(db DBTX, identifier string) error {
+	transaction, err := GetTransactionByIdentifier(db, identifier)
+	if err != nil {
+		return err
+	}
+
+	transfer, err := GetTransferByTransactionID(db, transaction.ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return DeleteTransactionByID(db, transaction.ID)
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := DeleteTransferByID(db, transfer.ID); err != nil {
+		return err
+	}
+	if err := DeleteTransactionByID(db, transfer.FromTransactionID); err != nil {
+		return err
+	}
+	if transfer.ToTransactionID != transfer.FromTransactionID {
+		if err := DeleteTransactionByID(db, transfer.ToTransactionID); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (t Transaction) GetAccount(db DBTX) (*Account, error) {

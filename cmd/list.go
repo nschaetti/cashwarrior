@@ -9,20 +9,8 @@ import (
 
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
-	"github.com/nschaetti/cashwarrior/internal/domain"
 	"github.com/nschaetti/cashwarrior/internal/gui"
 	"github.com/nschaetti/cashwarrior/internal/parser"
-)
-
-const (
-	FilterUnknown = iota
-	FilterTypeTransactionID
-	FilterTypeAccountName
-	FilterTypeCurrency
-	FilterTypeStore
-	FilterTypeDescription
-	FilterTypeDatetime
-	FilterTypeGroup
 )
 
 type listSortOptions struct {
@@ -230,145 +218,6 @@ func PrintExpensesIncomeByCurrency(cashDb db.DBTX, transactions []db.Transaction
 	return nil
 }
 
-func classifyFilter(tokenFilter parser.Token) int {
-	switch tokenFilter.Kind {
-	case parser.TokenText:
-		if tokenFilter.Raw[0] == 'T' {
-			return FilterTypeTransactionID
-		}
-	case parser.TokenAttribute:
-		if tokenFilter.Key == "account" {
-			return FilterTypeAccountName
-		} else if tokenFilter.Key == "currency" {
-			return FilterTypeCurrency
-		} else if tokenFilter.Key == "store" {
-			return FilterTypeStore
-		} else if tokenFilter.Key == "desc" {
-			return FilterTypeDescription
-		} else if tokenFilter.Key == "date" {
-			return FilterTypeDatetime
-		} else if tokenFilter.Key == "period" {
-			return FilterTypeDatetime
-		} else if tokenFilter.Key == "time" {
-			return FilterTypeDatetime
-		} else if tokenFilter.Key == "group" {
-			return FilterTypeGroup
-		}
-	default:
-		return FilterUnknown
-	}
-	return FilterUnknown
-}
-
-func createTransactionIDFilter(token parser.Token) (db.SQLFilter, error) {
-	var transactionID string = token.Raw[1:]
-	_, err := domain.ParseTransactionID(transactionID)
-	if err != nil {
-		return nil, err
-	}
-	return db.TransactionIDFilter{ID: transactionID}, nil
-}
-
-func createAccountNameFilter(token parser.Token) (db.SQLFilter, error) {
-	return db.TransactionAccountNameFilter{Name: token.Value}, nil
-}
-
-func createCurrencyFilter(token parser.Token) (db.SQLFilter, error) {
-	return db.TransactionCurrencyFilter{Currency: token.Value}, nil
-}
-
-func createStoreFilter(token parser.Token) (db.SQLFilter, error) {
-	return db.TransactionStoreNameFilter{Store: token.Value}, nil
-}
-
-func createDescriptionFilter(token parser.Token) (db.SQLFilter, error) {
-	return db.TransactionDescriptionFilter{Description: token.Value}, nil
-}
-
-func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilter, error) {
-	if domain.IsTimeShortcut(token.Value) {
-		from, to, err := domain.GetTimeShortcut(token.Value)
-		if err != nil {
-			return nil, err
-		}
-		return db.TransactionDatetimeFilter{From: from, To: to}, nil
-	} else if strings.Contains(token.Value, "-") {
-		datetimeRange := strings.SplitN(token.Value, "-", 2)
-		datetimeFrom, err := time.Parse(config.Display.DateFormat, datetimeRange[0])
-		if err != nil {
-			return nil, err
-		}
-		datetimeTo, err := time.Parse(config.Display.DateFormat, datetimeRange[1])
-		if err != nil {
-			return nil, err
-		}
-		return db.TransactionDatetimeFilter{From: datetimeFrom, To: datetimeTo}, nil
-	}
-	return nil, fmt.Errorf("unknown datetime format: %s. Must be given as shortcuts or from-to", token.Value)
-}
-
-func createGroupFilter(token parser.Token) (db.SQLFilter, error) {
-	return db.TransactionGroupNameFilter{Name: token.Value}, nil
-}
-
-func createFilters(
-	parsed parser.ParsedCmdLine,
-	cashDb db.DBTX,
-	config config.Config,
-) ([]db.SQLFilter, []db.Filter[db.Transaction], error) {
-	var dbFilters []db.SQLFilter = make([]db.SQLFilter, 0, len(parsed.Filters))
-	var runFilters []db.Filter[db.Transaction] = make([]db.Filter[db.Transaction], 0, len(parsed.Filters))
-	for _, filter := range parsed.Filters {
-		filterType := classifyFilter(filter)
-		if filterType == FilterUnknown {
-			return nil, nil, fmt.Errorf("unknown filter: %s", filter.Raw)
-		} else if filterType == FilterTypeTransactionID {
-			newFilter, err := createTransactionIDFilter(filter)
-			if err != nil {
-				return nil, nil, err
-			}
-			dbFilters = append(dbFilters, newFilter)
-		} else if filterType == FilterTypeAccountName {
-			newFilter, err := createAccountNameFilter(filter)
-			if err != nil {
-				return nil, nil, err
-			}
-			dbFilters = append(dbFilters, newFilter)
-		} else if filterType == FilterTypeCurrency {
-			newFilter, err := createCurrencyFilter(filter)
-			if err != nil {
-				return nil, nil, err
-			}
-			dbFilters = append(dbFilters, newFilter)
-		} else if filterType == FilterTypeStore {
-			newFilter, err := createStoreFilter(filter)
-			if err != nil {
-				return nil, nil, err
-			}
-			dbFilters = append(dbFilters, newFilter)
-		} else if filterType == FilterTypeDescription {
-			newFilter, err := createDescriptionFilter(filter)
-			if err != nil {
-				return nil, nil, err
-			}
-			dbFilters = append(dbFilters, newFilter)
-		} else if filterType == FilterTypeDatetime {
-			newFilter, err := createDatetimeFilter(filter, config)
-			if err != nil {
-				return nil, nil, err
-			}
-			dbFilters = append(dbFilters, newFilter)
-		} else if filterType == FilterTypeGroup {
-			newFilter, err := createGroupFilter(filter)
-			if err != nil {
-				return nil, nil, err
-			}
-			dbFilters = append(dbFilters, newFilter)
-		}
-	}
-	return dbFilters, runFilters, nil
-}
-
 func parseListSortOptions(parsed parser.ParsedCmdLine) (parser.ParsedCmdLine, listSortOptions, error) {
 	sortOptions := defaultListSortOptions()
 	filteredFilters := make([]parser.Token, 0, len(parsed.Filters))
@@ -513,7 +362,7 @@ func List(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) err
 		return err
 	}
 
-	dbFilters, runFilters, err := createFilters(parsed, cashDb, config)
+	dbFilters, runFilters, err := createTransactionFilters(parsed, config)
 	if err != nil {
 		return err
 	}
@@ -538,6 +387,19 @@ func List(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) err
 	//  Print expenses and income summary
 	err = PrintExpensesIncomeByCurrency(cashDb, transactions)
 	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func listDeletedTransactions(config config.Config, cashDb db.DBTX) error {
+	transactions, err := db.ListDeletedTransactions(cashDb, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	if err := printTransactionTable(cashDb, transactions, config); err != nil {
 		return err
 	}
 

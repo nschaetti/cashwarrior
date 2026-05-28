@@ -16,9 +16,18 @@ func GetTokenKindCount(parsedTokens ParsedCmdLine, filter bool) map[TokenKind]in
 
 // ParsedCmdLine contains the parsed command, filters, and command arguments.
 type ParsedCmdLine struct {
-	Command string
-	Filters []Token
-	Args    []Token
+	Command    string
+	Subcommand string
+	Filters    []Token
+	Args       []Token
+}
+
+func (p *ParsedCmdLine) Left() []Token {
+	return p.Filters
+}
+
+func (p *ParsedCmdLine) Right() []Token {
+	return p.Args
 }
 
 func (p *ParsedCmdLine) GetTokenKindCount(filter bool) map[TokenKind]int {

@@ -197,6 +197,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 	category_id INTEGER,
 	place_id INTEGER NOT NULL,
 	group_id INTEGER,
+	deleted BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	FOREIGN KEY (account_id) REFERENCES accounts(id),
@@ -205,7 +206,52 @@ CREATE TABLE IF NOT EXISTS transactions (
 	FOREIGN KEY (group_id) REFERENCES transaction_groups(id)
 );
 `)
+	if err != nil {
+		return err
+	}
+
+	hasDeleted, err := transactionHasDeletedColumn(db)
+	if err != nil {
+		return err
+	}
+	if hasDeleted {
+		return nil
+	}
+
+	_, err = db.Exec(`
+ALTER TABLE transactions ADD COLUMN deleted BOOLEAN NOT NULL DEFAULT FALSE
+`)
 	return err
+}
+
+func transactionHasDeletedColumn(db *sql.DB) (bool, error) {
+	rows, err := db.Query("PRAGMA table_info(transactions)")
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var dataType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+
+		if err = rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
+			return false, err
+		}
+		if name == "deleted" {
+			return true, nil
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return false, err
+	}
+
+	return false, nil
 }
 
 func createTransactionGroupsTable(db *sql.DB, config config.Config) error {

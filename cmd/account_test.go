@@ -23,6 +23,21 @@ func TestGetAccountCommandName(t *testing.T) {
 	}
 }
 
+func TestGetAccountCommandNameFromAttribute(t *testing.T) {
+	parsed := parser.ParsedCmdLine{
+		Command: "accounts",
+		Args:    []parser.Token{{Kind: parser.TokenAttribute, Key: "account", Value: "ayasdi-wallet", Raw: "account:ayasdi-wallet"}},
+	}
+
+	name, err := getAccountCommandName(parsed)
+	if err != nil {
+		t.Fatalf("getAccountCommandName returned error: %v", err)
+	}
+	if name != "ayasdi-wallet" {
+		t.Fatalf("name = %q, want %q", name, "ayasdi-wallet")
+	}
+}
+
 func TestBuildRunningBalanceByTransactionID(t *testing.T) {
 	transactions := []db.Transaction{
 		{ID: 3, Amount: -5, Datetime: time.Date(2026, time.May, 2, 9, 0, 0, 0, time.UTC)},
@@ -41,12 +56,5 @@ func TestBuildRunningBalanceByTransactionID(t *testing.T) {
 	}
 	if balanceByTransactionID[3] != 8 {
 		t.Fatalf("balance for tx 3 = %v, want 8", balanceByTransactionID[3])
-	}
-}
-
-func TestHasAccountFilter(t *testing.T) {
-	filters := []parser.Token{{Kind: parser.TokenAttribute, Key: "account", Value: "main"}}
-	if !hasAccountFilter(filters) {
-		t.Fatal("hasAccountFilter returned false, want true")
 	}
 }

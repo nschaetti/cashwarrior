@@ -155,6 +155,56 @@ VALUES (?, ?)
 	return result.LastInsertId()
 }
 
+func UpdateCategoryName(db DBTX, categoryID int64, name string) error {
+	_, err := db.Exec(`
+UPDATE categories
+SET name = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, name, categoryID)
+	return err
+}
+
+func UpdateCategoryParentID(db DBTX, categoryID int64, parentID *int64) error {
+	_, err := db.Exec(`
+UPDATE categories
+SET parent_id = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, parentID, categoryID)
+	return err
+}
+
+func DeleteCategoryByID(db DBTX, categoryID int64) error {
+	_, err := db.Exec(`
+DELETE FROM categories
+WHERE id = ?
+`, categoryID)
+	return err
+}
+
+func CountTransactionsByCategoryID(db DBTX, categoryID int64) (int, error) {
+	var count int
+	err := db.QueryRow(`
+SELECT COUNT(*)
+FROM transactions
+WHERE category_id = ?
+`, categoryID).Scan(&count)
+	return count, err
+}
+
+func CountChildCategories(db DBTX, categoryID int64) (int, error) {
+	var count int
+	err := db.QueryRow(`
+SELECT COUNT(*)
+FROM categories
+WHERE parent_id = ?
+`, categoryID).Scan(&count)
+	return count, err
+}
+
+func RootCategoryName() string {
+	return rootCategoryName
+}
+
 func getCategoryIDByName(db DBTX, name string) (int64, error) {
 	var categoryID int64
 	err := db.QueryRow(`

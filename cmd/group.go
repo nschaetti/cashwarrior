@@ -13,10 +13,6 @@ import (
 )
 
 func Group(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
-	if len(parsed.Filters) != 0 {
-		return fmt.Errorf("no filters allowed")
-	}
-
 	transactionRefs, groupName, err := parseGroupArgs(parsed)
 	if err != nil {
 		return err
@@ -48,10 +44,6 @@ func parseGroupArgs(parsed parser.ParsedCmdLine) ([]string, string, error) {
 	groupName := ""
 
 	for _, arg := range parsed.Args {
-		if arg.Kind != parser.TokenText {
-			return nil, "", fmt.Errorf("unsupported token %s", arg.Raw)
-		}
-
 		if isTransactionReference(arg.Raw) {
 			transactionRefs = append(transactionRefs, arg.Raw)
 			continue

@@ -30,6 +30,10 @@ const (
 	PeriodLastSaturday
 	// PeriodLastSunday matches entries from last Sunday.
 	PeriodLastSunday
+	// PeriodNamedMonth matches shortcuts like january.
+	PeriodNamedMonth
+	// PeriodWeekNumber matches shortcuts like week12.
+	PeriodWeekNumber
 )
 
 var periodNames = map[string]PeriodKind{
@@ -60,21 +64,32 @@ var periodIDs = map[PeriodKind]string{
 	PeriodLastFriday:    "lastfriday",
 	PeriodLastSaturday:  "lastsaturday",
 	PeriodLastSunday:    "lastsunday",
+	PeriodNamedMonth:    "namedmonth",
+	PeriodWeekNumber:    "weeknumber",
 }
 
 // ParsePeriod converts a period identifier (for example "today") into PeriodKind.
 func ParsePeriod(s string) (PeriodKind, error) {
 	kind, ok := periodNames[s]
-	if !ok {
-		return 0, fmt.Errorf("invalid period: %s", s)
+	if ok {
+		return kind, nil
 	}
-	return kind, nil
+	if IsTimeShortcut(s) {
+		if len(s) >= 4 && s[:4] == "week" {
+			return PeriodWeekNumber, nil
+		}
+		return PeriodNamedMonth, nil
+	}
+	return 0, fmt.Errorf("invalid period: %s", s)
 }
 
 // IsPeriod reports whether s is a supported period identifier.
 func IsPeriod(s string) bool {
 	_, ok := periodNames[s]
-	return ok
+	if ok {
+		return true
+	}
+	return IsTimeShortcut(s)
 }
 
 // String returns the canonical identifier for the period kind.

@@ -31,21 +31,12 @@ func printConfigHelp() {
 }
 
 func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
-	if len(parsed.Filters) != 0 {
-		return fmt.Errorf("no filters allowed")
-	}
 	if len(parsed.Args) == 0 {
 		printConfigHelp()
 		return nil
 	}
-	if len(parsed.Args) != 1 {
-		return fmt.Errorf("usage: cash config key:value")
-	}
 
 	arg := parsed.Args[0]
-	if arg.Kind != parser.TokenAttribute {
-		return fmt.Errorf("usage: cash config key:value")
-	}
 
 	configPath := utils.ExpandPath(config.DefaultConfigFile)
 	cfg, err := config.LoadConfig(configPath)

@@ -120,3 +120,30 @@ VALUES (?)
 
 	return result.LastInsertId()
 }
+
+func UpdateTagName(db DBTX, tagID int64, name string) error {
+	_, err := db.Exec(`
+UPDATE tags
+SET name = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, name, tagID)
+	return err
+}
+
+func DeleteTagByID(db DBTX, tagID int64) error {
+	_, err := db.Exec(`
+DELETE FROM tags
+WHERE id = ?
+`, tagID)
+	return err
+}
+
+func CountTransactionsByTagID(db DBTX, tagID int64) (int, error) {
+	var count int
+	err := db.QueryRow(`
+SELECT COUNT(*)
+FROM transaction_tags
+WHERE tag_id = ?
+`, tagID).Scan(&count)
+	return count, err
+}

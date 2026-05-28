@@ -15,17 +15,6 @@ import (
 )
 
 func Transfer(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
-	counts := parsed.GetTokenKindCount(false)
-	if len(parsed.Filters) != 0 {
-		return fmt.Errorf("no filters allowed")
-	}
-	if counts[parser.TokenAmount] != 1 {
-		return fmt.Errorf("transfer requires exactly one amount")
-	}
-	if counts[parser.TokenAttribute] < 2 {
-		return fmt.Errorf("transfer requires from: and to: attributes")
-	}
-
 	attributes := getAttributes(parsed)
 	fromName, ok := attributes["from"]
 	if !ok || fromName == "" {
@@ -80,16 +69,14 @@ func Transfer(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) er
 	}
 
 	description := "Transfer"
-	if counts[parser.TokenText] > 0 {
-		textParts := make([]string, 0, counts[parser.TokenText])
-		for _, arg := range parsed.Args {
-			if arg.Kind == parser.TokenText {
-				textParts = append(textParts, arg.Raw)
-			}
+	textParts := make([]string, 0)
+	for _, arg := range parsed.Args {
+		if arg.Kind == parser.TokenText {
+			textParts = append(textParts, arg.Raw)
 		}
-		if len(textParts) > 0 {
-			description = strings.Join(textParts, " ")
-		}
+	}
+	if len(textParts) > 0 {
+		description = strings.Join(textParts, " ")
 	}
 
 	fromTransactionID, err := db.InsertTransaction(cashDb, db.CreateTransactionInput{

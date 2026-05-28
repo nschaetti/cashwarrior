@@ -140,6 +140,31 @@ SELECT EXISTS(
 	return exists, err
 }
 
+func GetTransferByTransactionID(db DBTX, transactionID int64) (Transfer, error) {
+	var transfer Transfer
+
+	err := db.QueryRow(`
+SELECT id, from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, created_at, updated_at
+FROM transfers
+WHERE from_transaction_id = ? OR to_transaction_id = ?
+LIMIT 1
+`, transactionID, transactionID).Scan(
+		&transfer.ID,
+		&transfer.FromTransactionID,
+		&transfer.ToTransactionID,
+		&transfer.FromAccountID,
+		&transfer.ToAccountID,
+		&transfer.Amount,
+		&transfer.CreatedAt,
+		&transfer.UpdatedAt,
+	)
+	if err != nil {
+		return transfer, err
+	}
+
+	return transfer, nil
+}
+
 func InsertTransfer(db DBTX, input CreateTransferInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO transfers (from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount)
@@ -150,6 +175,14 @@ VALUES (?, ?, ?, ?, ?)
 	}
 
 	return result.LastInsertId()
+}
+
+func DeleteTransferByID(db DBTX, id int64) error {
+	_, err := db.Exec(`
+DELETE FROM transfers
+WHERE id = ?
+`, id)
+	return err
 }
 
 func (t Transfer) GetFromTransaction(db DBTX) (*Transaction, error) {

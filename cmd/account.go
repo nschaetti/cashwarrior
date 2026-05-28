@@ -14,7 +14,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
-func Account(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
+func accountBalance(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
 	accountName, err := getAccountCommandName(parsed)
 	if err != nil {
 		return err
@@ -26,10 +26,6 @@ func Account(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) 
 	}
 	if err != nil {
 		return err
-	}
-
-	if hasAccountFilter(parsed.Filters) {
-		return fmt.Errorf("account command does not accept account filters before the command")
 	}
 
 	dbFilters, runFilters, err := createFilters(parsed, cashDb, config)
@@ -56,25 +52,17 @@ func Account(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) 
 }
 
 func getAccountCommandName(parsed parser.ParsedCmdLine) (string, error) {
-	if len(parsed.Args) != 1 {
-		return "", fmt.Errorf("account command requires exactly one account name")
-	}
-	if parsed.Args[0].Kind != parser.TokenText {
-		return "", fmt.Errorf("account command requires an account name")
-	}
-	if parsed.Args[0].Raw == "" {
-		return "", fmt.Errorf("account command requires an account name")
-	}
-	return parsed.Args[0].Raw, nil
-}
-
-func hasAccountFilter(filters []parser.Token) bool {
-	for _, filter := range filters {
-		if filter.Kind == parser.TokenAttribute && filter.Key == "account" {
-			return true
+	arg := parsed.Args[0]
+	if arg.Kind == parser.TokenAttribute {
+		if arg.Key != "account" || arg.Value == "" {
+			return "", fmt.Errorf("account command requires an account name")
 		}
+		return arg.Value, nil
 	}
-	return false
+	if arg.Raw == "" {
+		return "", fmt.Errorf("account command requires an account name")
+	}
+	return arg.Raw, nil
 }
 
 func sortTransactionsForRunningBalance(transactions []db.Transaction) {

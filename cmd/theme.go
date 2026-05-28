@@ -14,9 +14,6 @@ import (
 
 func Theme(parsed parser.ParsedCmdLine, _ config.Config, query db.DBTX) error {
 	_ = query
-	if len(parsed.Filters) != 0 {
-		return fmt.Errorf("no filters allowed")
-	}
 
 	themes := gui.ThemeNames()
 	sort.Strings(themes)
@@ -32,10 +29,6 @@ func Theme(parsed parser.ParsedCmdLine, _ config.Config, query db.DBTX) error {
 		fmt.Println("  cash theme <theme-name>")
 		fmt.Println()
 		return nil
-	}
-
-	if len(parsed.Args) != 1 {
-		return fmt.Errorf("usage: cash theme <theme-name>")
 	}
 
 	themeName := parsed.Args[0].Raw

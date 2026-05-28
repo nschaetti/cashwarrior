@@ -63,12 +63,13 @@ func run() error {
 
 	// Parse the command line
 	parsedCmd, parseErr := parser.ParseAndValidateCmdLine(os.Args[1:])
-	if parseErr != nil && parseErr.Code != parser.ParseErrorNoCommand {
+	if parseErr != nil && parseErr.Code == parser.ParseErrorNoCommand {
 		// Just call "list" if there is no command.
 		parsedCmd = parser.ParsedCmdLine{
-			Command: "list",
-			Filters: []parser.Token{},
-			Args:    []parser.Token{},
+			Command:    "list",
+			Subcommand: "default",
+			Filters:    []parser.Token{},
+			Args:       []parser.Token{},
 		}
 	} else if parseErr != nil {
 		return fmt.Errorf("error: %s", parseErr.Message)

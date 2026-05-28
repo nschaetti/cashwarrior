@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -10,9 +12,25 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
 	"github.com/nschaetti/cashwarrior/internal/parser"
+	"github.com/nschaetti/cashwarrior/internal/utils"
 )
 
 func Categories(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
+	switch parsed.Subcommand {
+	case "list":
+		return listCategories(config, cashDb)
+	case "add":
+		return addCategory(parsed, cashDb)
+	case "modify":
+		return modifyCategory(parsed, cashDb)
+	case "delete":
+		return deleteCategory(parsed, cashDb)
+	default:
+		return fmt.Errorf("unknown categories subcommand %s", parsed.Subcommand)
+	}
+}
+
+func listCategories(config config.Config, cashDb db.DBTX) error {
 	categories, err := db.ListCategories(cashDb, db.CategoryListFilter{})
 	if err != nil {
 		return err
@@ -189,5 +207,146 @@ func Categories(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBT
 	fmt.Println()
 	fmt.Println()
 
+	return nil
+}
+
+func getCategoryNameArg(token parser.Token) (string, error) {
+	if token.Kind == parser.TokenText {
+		if token.Raw == "" {
+			return "", fmt.Errorf("category name cannot be empty")
+		}
+		return token.Raw, nil
+	}
+	if token.Kind == parser.TokenAttribute && token.Key == "category" && token.Value != "" {
+		return token.Value, nil
+	}
+	return "", fmt.Errorf("category name is required")
+}
+
+func addCategory(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
+	name, err := getCategoryNameArg(parsed.Args[0])
+	if err != nil {
+		return err
+	}
+	exists, err := db.CategoryExists(cashDb, name)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("category %s already exists", name)
+	}
+	attributes := getAttributesFromTokens(parsed.Args)
+	var parentID *int64
+	if parentName, ok := attributes["parent"]; ok {
+		parent, err := db.GetCategoryByName(cashDb, parentName)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("parent category %s does not exist", parentName)
+		}
+		if err != nil {
+			return err
+		}
+		parentID = &parent.ID
+	}
+	_, err = db.InsertCategory(cashDb, db.CreateCategoryInput{Name: name, ParentID: parentID})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Category %s created\n", name)
+	return nil
+}
+
+func modifyCategory(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
+	name, err := getCategoryNameArg(parsed.Args[0])
+	if err != nil {
+		return err
+	}
+	category, err := db.GetCategoryByName(cashDb, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("category %s does not exist", name)
+	}
+	if err != nil {
+		return err
+	}
+	if category.Name == db.RootCategoryName() {
+		return fmt.Errorf("cannot modify root category")
+	}
+	attributes := getAttributesFromTokens(parsed.Args[1:])
+	if newName, ok := attributes["category"]; ok {
+		newName = strings.TrimSpace(newName)
+		if newName == "" {
+			return fmt.Errorf("category name cannot be empty")
+		}
+		if newName != category.Name {
+			exists, err := db.CategoryExists(cashDb, newName)
+			if err != nil {
+				return err
+			}
+			if exists {
+				return fmt.Errorf("category %s already exists", newName)
+			}
+			if err := db.UpdateCategoryName(cashDb, category.ID, newName); err != nil {
+				return err
+			}
+		}
+	}
+	if parentName, ok := attributes["parent"]; ok {
+		parentName = strings.TrimSpace(parentName)
+		if parentName == "" {
+			return fmt.Errorf("parent category cannot be empty")
+		}
+		parent, err := db.GetCategoryByName(cashDb, parentName)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("parent category %s does not exist", parentName)
+		}
+		if err != nil {
+			return err
+		}
+		if parent.ID == category.ID {
+			return fmt.Errorf("category cannot be its own parent")
+		}
+		if err := db.UpdateCategoryParentID(cashDb, category.ID, &parent.ID); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("Category %s updated\n", name)
+	return nil
+}
+
+func deleteCategory(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
+	name, err := getCategoryNameArg(parsed.Args[0])
+	if err != nil {
+		return err
+	}
+	category, err := db.GetCategoryByName(cashDb, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("category %s does not exist", name)
+	}
+	if err != nil {
+		return err
+	}
+	if category.Name == db.RootCategoryName() {
+		return fmt.Errorf("cannot delete root category")
+	}
+	childCount, err := db.CountChildCategories(cashDb, category.ID)
+	if err != nil {
+		return err
+	}
+	if childCount > 0 {
+		return fmt.Errorf("category %s has child categories", name)
+	}
+	txCount, err := db.CountTransactionsByCategoryID(cashDb, category.ID)
+	if err != nil {
+		return err
+	}
+	if txCount > 0 {
+		return fmt.Errorf("category %s has linked transactions", name)
+	}
+	if !utils.AskYesNo(fmt.Sprintf("Delete category %s?", name)) {
+		return nil
+	}
+	if err := db.DeleteCategoryByID(cashDb, category.ID); err != nil {
+		return err
+	}
+	fmt.Printf("Category %s deleted\n", name)
 	return nil
 }
