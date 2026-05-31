@@ -106,29 +106,6 @@ func (k TokenKind) String() string {
 	}
 }
 
-// Commands is the set of supported CLI commands.
-var Commands = map[string]bool{
-	"init":        true,
-	"add":         true,
-	"show":        true,
-	"categories":  true,
-	"stats":       true,
-	"tags":        true,
-	"modify":      true,
-	"report":      true,
-	"list":        true,
-	"delete":      true,
-	"undo":        true,
-	"by":          true,
-	"accounts":    true,
-	"balance":     true,
-	"transfer":    true,
-	"set-balance": true,
-	"budget":      true,
-	"config":      true,
-	"theme":       true,
-}
-
 // TokenRule classifies a raw token and reports whether it matched.
 type TokenRule func(raw string) (Token, bool)
 
@@ -143,7 +120,7 @@ var tokenRules = []TokenRule{
 }
 
 func isCommand(s string) bool {
-	return Commands[s]
+	return IsKnownCommand(s)
 }
 
 // ClassifyToken classifies a raw token using the configured rule order.
@@ -207,7 +184,8 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 //
 // It ensures the command is known and rejects unknown tokens.
 func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
-	if !isCommand(parsed.Command) {
+	spec, ok := GetCommandSpec(parsed.Command)
+	if !ok {
 		return &ParseError{Code: ParseErrorNoCommand, Message: fmt.Sprintf("unknown command: %s", parsed.Command)}
 	}
 
@@ -215,12 +193,25 @@ func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
 		if token.Kind == TokenUnknown {
 			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: "unknown token in filters"}
 		}
+		if !spec.AllowedFilterKinds[token.Kind] {
+			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: fmt.Sprintf("invalid token in filters for command %s", parsed.Command)}
+		}
 	}
 
 	for _, token := range parsed.Args {
 		if token.Kind == TokenUnknown {
 			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: "unknown token in arguments"}
 		}
+		if !spec.AllowedArgKinds[token.Kind] {
+			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: fmt.Sprintf("invalid token in arguments for command %s", parsed.Command)}
+		}
+	}
+
+	if spec.MinArgs >= 0 && len(parsed.Args) < spec.MinArgs {
+		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("command %s expects at least %d argument(s)", parsed.Command, spec.MinArgs)}
+	}
+	if spec.MaxArgs >= 0 && len(parsed.Args) > spec.MaxArgs {
+		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("command %s expects at most %d argument(s)", parsed.Command, spec.MaxArgs)}
 	}
 
 	return nil

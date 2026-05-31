@@ -8,7 +8,7 @@ import "github.com/nschaetti/cashwarrior/internal/config"
 
 type CommandFunc func(parsed parser.ParsedCmdLine, config config.Config, db db.DBTX) error
 
-var Commands = map[string]CommandFunc{
+var Handlers = map[string]CommandFunc{
 	"init":        Init,
 	"add":         Add,
 	"show":        Show,
@@ -32,9 +32,13 @@ var Commands = map[string]CommandFunc{
 }
 
 func Dispatch(parsed parser.ParsedCmdLine, cfg config.Config, tx db.DBTX) error {
-	fn, ok := Commands[parsed.Command]
-	if !ok {
+	if !parser.IsKnownCommand(parsed.Command) {
 		return &parser.ParseError{Code: parser.ParseErrorNoCommand, Message: "unknown command"}
+	}
+
+	fn, ok := Handlers[parsed.Command]
+	if !ok {
+		return &parser.ParseError{Code: parser.ParseErrorNoCommand, Message: "command has no handler"}
 	}
 	return fn(parsed, cfg, tx)
 }
