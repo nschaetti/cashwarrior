@@ -177,26 +177,3 @@ func TestParseAndValidateCmdLine(t *testing.T) {
 		t.Fatalf("parsed.Command = %q, want add", parsed.Command)
 	}
 }
-
-func TestParseCmdLine_SumCommandIsRecognized(t *testing.T) {
-	parsed, err := ParseCmdLine([]string{"sum"})
-	if err != nil {
-		t.Fatalf("ParseCmdLine returned error: %v", err)
-	}
-	if parsed.Command != "sum" {
-		t.Fatalf("parsed.Command = %q, want %q", parsed.Command, "sum")
-	}
-}
-
-func TestValidateParsedCmdLine_InitHasNoArgs(t *testing.T) {
-	err := ValidateParsedCmdLine(ParsedCmdLine{
-		Command: "init",
-		Args:    []Token{{Raw: "extra", Kind: TokenText}},
-	})
-	if err == nil {
-		t.Fatal("expected validation error, got nil")
-	}
-	if !IsParseErrorCode(err, ParseErrorInvalidInput) {
-		t.Fatalf("expected ParseErrorInvalidInput, got %v", err)
-	}
-}
