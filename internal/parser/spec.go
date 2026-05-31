@@ -1,5 +1,7 @@
 package parser
 
+import "sort"
+
 type AttributeValueShape uint8
 
 const (
@@ -450,6 +452,20 @@ var CommandSpecs = map[string]CommandSpec{
 func GetCommandSpec(name string) (CommandSpec, bool) {
 	spec, ok := CommandSpecs[name]
 	return spec, ok
+}
+
+func IsKnownCommand(command string) bool {
+	_, ok := CommandSpecs[command]
+	return ok
+}
+
+func KnownCommands() []string {
+	commands := make([]string, 0, len(CommandSpecs))
+	for name := range CommandSpecs {
+		commands = append(commands, name)
+	}
+	sort.Strings(commands)
+	return commands
 }
 
 func GetSubcommandSpec(command string, subcommand string) (SubcommandSpec, bool) {

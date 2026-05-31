@@ -198,7 +198,7 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 //
 // It ensures the command is known and rejects unknown tokens.
 func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
-	spec, ok := GetCommandSpec(parsed.Command)
+	_, ok := GetCommandSpec(parsed.Command)
 	if !ok {
 		return &ParseError{Code: ParseErrorNoCommand, Message: fmt.Sprintf("unknown command: %s", parsed.Command)}
 	}
@@ -212,9 +212,6 @@ func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
 		if token.Kind == TokenUnknown {
 			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: "unknown token in filters"}
 		}
-		if !spec.AllowedFilterKinds[token.Kind] {
-			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: fmt.Sprintf("invalid token in filters for command %s", parsed.Command)}
-		}
 		if err := validateTokenAgainstSideSpec(token, subcommandSpec.Left, "left side"); err != nil {
 			return err
 		}
@@ -227,17 +224,6 @@ func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
 		if token.Kind == TokenUnknown {
 			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: "unknown token in arguments"}
 		}
-		if !spec.AllowedArgKinds[token.Kind] {
-			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: fmt.Sprintf("invalid token in arguments for command %s", parsed.Command)}
-		}
-	}
-
-	if spec.MinArgs >= 0 && len(parsed.Args) < spec.MinArgs {
-		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("command %s expects at least %d argument(s)", parsed.Command, spec.MinArgs)}
-	}
-	if spec.MaxArgs >= 0 && len(parsed.Args) > spec.MaxArgs {
-		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("command %s expects at most %d argument(s)", parsed.Command, spec.MaxArgs)}
-	}
 		if err := validateTokenAgainstSideSpec(token, subcommandSpec.Right, "right side"); err != nil {
 			return err
 		}
