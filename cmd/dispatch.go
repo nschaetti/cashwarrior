@@ -31,6 +31,8 @@ var Commands = map[string]CommandFunc{
 	"set-balance": SetBalance,
 	"budget":      Budget,
 	"config":      Config,
+	"backup":      Backup,
+	"import":      Import,
 	"theme":       Theme,
 	"sum":         Sum,
 }

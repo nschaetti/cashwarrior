@@ -11,6 +11,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/nschaetti/cashwarrior/cmd"
+	"github.com/nschaetti/cashwarrior/internal/backup"
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
@@ -56,6 +57,10 @@ func run() error {
 
 	// Print logo
 	printLogo(theme)
+
+	if err := backup.Run(cfg.Database, cfg.Backup, time.Now()); err != nil {
+		pterm.Warning.Println("Automatic backup failed:", err)
+	}
 
 	// Start time & theme
 	pterm.Info.Println("Using theme ", cfg.Display.Theme)

@@ -33,6 +33,7 @@ type Config struct {
 	Database string        `toml:"database"`
 	Default  AccountConfig `toml:"default"`
 	Display  DisplayConfig `toml:"gui"`
+	Backup   BackupConfig  `toml:"backup"`
 }
 
 type AccountConfig struct {
@@ -44,6 +45,11 @@ type DisplayConfig struct {
 	DateFormat   string `toml:"date_format"`
 	ShowCurrency bool   `toml:"show_currency"`
 	Theme        string `toml:"theme"`
+}
+
+type BackupConfig struct {
+	Period string `toml:"period"`
+	Keep   int    `toml:"keep"`
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -70,6 +76,7 @@ func GetDefaultConfig() Config {
 			ShowCurrency: true,
 			Theme:        "dracula",
 		},
+		Backup: BackupConfig{},
 	}
 }
 
@@ -166,6 +173,7 @@ func configCreation() (Config, *ConfigError) {
 			ShowCurrency: true,
 			Theme:        "dracula",
 		},
+		Backup: BackupConfig{},
 	}, nil
 }
 

@@ -697,6 +697,21 @@ func TestValidateParsedCmdLine_ModifyAllowsClearingCategory(t *testing.T) {
 	}
 }
 
+func TestValidateParsedCmdLine_ModifyAllowsTagChanges(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{
+		Command:    "modify",
+		Subcommand: "default",
+		Filters:    []Token{{Raw: "T2026.05.1", Kind: TokenText}},
+		Args: []Token{
+			{Raw: "@food", Kind: TokenTag},
+			{Raw: "-@travel", Kind: TokenTagNegative},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ValidateParsedCmdLine(modify tag changes) returned error: %v", err)
+	}
+}
+
 func TestValidateParsedCmdLine_AddRejectsDuplicateSingletonAttribute(t *testing.T) {
 	err := ValidateParsedCmdLine(ParsedCmdLine{
 		Command:    "add",
@@ -753,6 +768,34 @@ func TestValidateParsedCmdLine_PurgeRequiresTransactionID(t *testing.T) {
 	err := ValidateParsedCmdLine(ParsedCmdLine{Command: "purge", Subcommand: "default"})
 	if err == nil {
 		t.Fatal("ValidateParsedCmdLine(purge no id) expected error, got nil")
+	}
+}
+
+func TestValidateParsedCmdLine_ShowRequiresTransactionID(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{Command: "show", Subcommand: "default"})
+	if err == nil {
+		t.Fatal("ValidateParsedCmdLine(show no id) expected error, got nil")
+	}
+}
+
+func TestValidateParsedCmdLine_ImportRequiresPath(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{Command: "import", Subcommand: "default"})
+	if err == nil {
+		t.Fatal("ValidateParsedCmdLine(import no path) expected error, got nil")
+	}
+}
+
+func TestValidateParsedCmdLine_BackupAllowsNoArgs(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{Command: "backup", Subcommand: "default"})
+	if err != nil {
+		t.Fatalf("ValidateParsedCmdLine(backup no args) returned error: %v", err)
+	}
+}
+
+func TestValidateParsedCmdLine_BackupAllowsOutputAttribute(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{Command: "backup", Subcommand: "default", Args: []Token{{Raw: "output:/tmp/cash.db", Kind: TokenAttribute, Key: "output", Value: "/tmp/cash.db"}}})
+	if err != nil {
+		t.Fatalf("ValidateParsedCmdLine(backup output) returned error: %v", err)
 	}
 }
 

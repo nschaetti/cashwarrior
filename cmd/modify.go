@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -21,6 +23,30 @@ type transactionModifications struct {
 	CategoryID  **int64
 	PlaceID     *int64
 	GroupID     **int64
+	AddTagIDs   []int64
+	DropTagIDs  []int64
+}
+
+func getOrCreateTagID(cashDb db.DBTX, name string) (int64, error) {
+	tag, err := db.GetTagByName(cashDb, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return db.InsertTag(cashDb, db.CreateTagInput{Name: name})
+	}
+	if err != nil {
+		return 0, err
+	}
+	return tag.ID, nil
+}
+
+func getExistingTagID(cashDb db.DBTX, name string) (*int64, error) {
+	tag, err := db.GetTagByName(cashDb, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &tag.ID, nil
 }
 
 func Modify(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
@@ -72,6 +98,28 @@ func parseTransactionModifications(parsed parser.ParsedCmdLine, cfg config.Confi
 	datetimeExists := false
 
 	for _, arg := range parsed.Args {
+		switch arg.Kind {
+		case parser.TokenTag:
+			tagName := strings.TrimPrefix(arg.Raw, "@")
+			tagID, err := getOrCreateTagID(cashDb, tagName)
+			if err != nil {
+				return transactionModifications{}, err
+			}
+			modifications.AddTagIDs = append(modifications.AddTagIDs, tagID)
+			continue
+		case parser.TokenTagNegative:
+			tagName := strings.TrimPrefix(arg.Raw, "-@")
+			tagID, err := getExistingTagID(cashDb, tagName)
+			if err != nil {
+				return transactionModifications{}, err
+			}
+			if tagID == nil {
+				continue
+			}
+			modifications.DropTagIDs = append(modifications.DropTagIDs, *tagID)
+			continue
+		}
+
 		switch arg.Key {
 		case "identifier":
 			return transactionModifications{}, fmt.Errorf("identifier is not modifiable")
@@ -240,6 +288,25 @@ func applyTransactionModifications(cashDb db.DBTX, transaction db.Transaction, m
 
 	if modifications.GroupID != nil {
 		if err := db.UpdateTransactionGroupID(cashDb, transaction.ID, *modifications.GroupID); err != nil {
+			return err
+		}
+	}
+
+	for _, tagID := range modifications.AddTagIDs {
+		exists, err := db.TransactionTagExists(cashDb, transaction.ID, tagID)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+		if err := db.InsertTransactionTag(cashDb, transaction.ID, tagID); err != nil {
+			return err
+		}
+	}
+
+	for _, tagID := range modifications.DropTagIDs {
+		if err := db.DeleteTransactionTag(cashDb, transaction.ID, tagID); err != nil {
 			return err
 		}
 	}

@@ -235,7 +235,7 @@ func addRightSideSpec() SideSpec {
 
 func modifyRightSideSpec() SideSpec {
 	side := sideSpec(
-		[]TokenKind{TokenAttribute, TokenAttributeClear},
+		[]TokenKind{TokenAttribute, TokenAttributeClear, TokenTag, TokenTagNegative},
 		setOnlyAttribute("identifier", AttributeValueShapeSingle),
 		setOnlyAttribute("desc", AttributeValueShapeSingle),
 		setOnlyAttribute("date", AttributeValueShapeSingle),
@@ -325,7 +325,11 @@ var CommandSpecs = map[string]CommandSpec{
 		DefaultSubcommand: "default",
 		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: addRightSideSpec()}),
 	},
-	"show": defaultCommandSpec("show"),
+	"show": {
+		Name:              "show",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())}),
+	},
 	"categories": {
 		Name:              "categories",
 		DefaultSubcommand: "list",
@@ -416,6 +420,16 @@ var CommandSpecs = map[string]CommandSpec{
 		Name:              "config",
 		DefaultSubcommand: "default",
 		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpecWithAnyAttributes(TokenAttribute), 0, 1)}),
+	},
+	"backup": {
+		Name:              "backup",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withAttributeRule(withArgs(sideSpec([]TokenKind{TokenAttribute}, setOnlyAttribute("output", AttributeValueShapeSingle)), 0, 1), "output", atMostOne())}),
+	},
+	"import": {
+		Name:              "import",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 1, 1)}),
 	},
 	"theme": {
 		Name:              "theme",

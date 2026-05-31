@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nschaetti/cashwarrior/internal/backup"
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
@@ -21,13 +22,41 @@ func printConfigHelp() {
 	fmt.Println("  cash config key:value")
 	fmt.Println()
 	fmt.Println("Parameters:")
-	fmt.Println("  database                Path to SQLite database file (must exist)")
+	fmt.Println("  database                Path to SQLite database file")
 	fmt.Println("  default.currency        Default currency code string (non-empty)")
 	fmt.Println("  default.account         Default account name (must exist)")
 	fmt.Println("  gui.date_format         Go time format containing 2006, 01, 02, 15, 04")
 	fmt.Println("  gui.show_currency       Boolean: true or false")
 	fmt.Println("  gui.theme               Theme name (available themes only)")
+	fmt.Println("  backup.period           day, 2days, week, 2weeks, month, 2months, ...")
+	fmt.Println("  backup.keep             Number of backup files to keep")
 	fmt.Println()
+}
+
+func ensureDatabasePath(cfg config.Config, dbPath string) error {
+	info, statErr := os.Stat(dbPath)
+	if statErr == nil {
+		if info.IsDir() {
+			return fmt.Errorf("database path is a directory: %s", dbPath)
+		}
+		cfg.Database = dbPath
+		return nil
+	}
+
+	if !os.IsNotExist(statErr) {
+		return statErr
+	}
+
+	if !utils.AskYesNo("Database file does not exist. Create and initialize it?") {
+		return nil
+	}
+
+	cfg.Database = dbPath
+	newDB, err := db.Open(cfg)
+	if err != nil {
+		return err
+	}
+	return newDB.Close()
 }
 
 func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
@@ -47,14 +76,17 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 	switch arg.Key {
 	case "database":
 		dbPath := utils.ExpandPath(arg.Value)
-		info, statErr := os.Stat(dbPath)
-		if statErr != nil {
-			return fmt.Errorf("database file does not exist: %s", dbPath)
+		previousPath := cfg.Database
+		if err := ensureDatabasePath(cfg, dbPath); err != nil {
+			return err
 		}
-		if info.IsDir() {
-			return fmt.Errorf("database path is a directory: %s", dbPath)
+		if _, statErr := os.Stat(dbPath); statErr == nil {
+			cfg.Database = dbPath
+		} else if os.IsNotExist(statErr) {
+			if previousPath == cfg.Database {
+				return nil
+			}
 		}
-		cfg.Database = dbPath
 
 	case "default.currency":
 		if strings.TrimSpace(arg.Value) == "" {
@@ -96,6 +128,22 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 			return fmt.Errorf("unknown theme %q (available: %s)", arg.Value, strings.Join(themes, ", "))
 		}
 		cfg.Display.Theme = arg.Value
+
+	case "backup.period":
+		cfg.Backup.Period = arg.Value
+		if err := backup.ValidateConfig(cfg.Backup); err != nil {
+			return err
+		}
+
+	case "backup.keep":
+		keep, parseErr := strconv.Atoi(arg.Value)
+		if parseErr != nil {
+			return fmt.Errorf("invalid backup.keep: expected integer")
+		}
+		cfg.Backup.Keep = keep
+		if err := backup.ValidateConfig(cfg.Backup); err != nil {
+			return err
+		}
 
 	default:
 		return fmt.Errorf("unknown config key: %s", arg.Key)
