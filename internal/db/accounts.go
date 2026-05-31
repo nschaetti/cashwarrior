@@ -3,11 +3,12 @@ package db
 import "time"
 
 type Account struct {
-	ID        int64
-	Name      string
-	Currency  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID             int64
+	Name           string
+	Currency       string
+	InitialBalance float64
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type AccountListFilter struct {
@@ -17,20 +18,22 @@ type AccountListFilter struct {
 }
 
 type CreateAccountInput struct {
-	Name     string
-	Currency string
+	Name           string
+	Currency       string
+	InitialBalance float64
 }
 
 func GetAccountByID(db DBTX, id int64) (Account, error) {
 	var account Account
 	err := db.QueryRow(`
-SELECT id, name, currency, created_at, updated_at
+SELECT id, name, currency, initial_balance, created_at, updated_at
 FROM accounts
 WHERE id = ?
 `, id).Scan(
 		&account.ID,
 		&account.Name,
 		&account.Currency,
+		&account.InitialBalance,
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
@@ -40,13 +43,14 @@ WHERE id = ?
 func GetAccountByName(db DBTX, name string) (Account, error) {
 	var account Account
 	err := db.QueryRow(`
-SELECT id, name, currency, created_at, updated_at
+SELECT id, name, currency, initial_balance, created_at, updated_at
 FROM accounts
 WHERE name = ?
 `, name).Scan(
 		&account.ID,
 		&account.Name,
 		&account.Currency,
+		&account.InitialBalance,
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
@@ -55,7 +59,7 @@ WHERE name = ?
 
 func ListAccounts(db DBTX, filter AccountListFilter) ([]Account, error) {
 	query := `
-SELECT id, name, currency, created_at, updated_at
+SELECT id, name, currency, initial_balance, created_at, updated_at
 FROM accounts
 `
 	args := make([]interface{}, 0)
@@ -88,6 +92,7 @@ FROM accounts
 			&account.ID,
 			&account.Name,
 			&account.Currency,
+			&account.InitialBalance,
 			&account.CreatedAt,
 			&account.UpdatedAt,
 		)
@@ -116,9 +121,9 @@ SELECT EXISTS(
 
 func InsertAccount(db DBTX, input CreateAccountInput) (int64, error) {
 	result, err := db.Exec(`
-INSERT INTO accounts (name, currency)
-VALUES (?, ?)
-`, input.Name, input.Currency)
+INSERT INTO accounts (name, currency, initial_balance)
+VALUES (?, ?, ?)
+`, input.Name, input.Currency, input.InitialBalance)
 	if err != nil {
 		return 0, err
 	}
@@ -141,6 +146,15 @@ UPDATE accounts
 SET currency = ?, updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 `, currency, accountID)
+	return err
+}
+
+func UpdateAccountInitialBalance(db DBTX, accountID int64, initialBalance float64) error {
+	_, err := db.Exec(`
+UPDATE accounts
+SET initial_balance = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, initialBalance, accountID)
 	return err
 }
 

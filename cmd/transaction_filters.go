@@ -20,6 +20,7 @@ const (
 	FilterTypeDescription
 	FilterTypeDatetime
 	FilterTypeGroup
+	FilterTypeIdentifier
 )
 
 func classifyFilter(tokenFilter parser.Token) int {
@@ -30,6 +31,8 @@ func classifyFilter(tokenFilter parser.Token) int {
 		if tokenFilter.Raw[0] == 'T' {
 			return FilterTypeTransactionID
 		}
+	case parser.TokenID:
+		return FilterTypeTransactionID
 	case parser.TokenAttribute:
 		if tokenFilter.Key == "account" {
 			return FilterTypeAccountName
@@ -47,6 +50,8 @@ func classifyFilter(tokenFilter parser.Token) int {
 			return FilterTypeDatetime
 		} else if tokenFilter.Key == "group" {
 			return FilterTypeGroup
+		} else if tokenFilter.Key == "identifier" {
+			return FilterTypeIdentifier
 		}
 	default:
 		return FilterUnknown
@@ -55,7 +60,10 @@ func classifyFilter(tokenFilter parser.Token) int {
 }
 
 func createTransactionIDFilter(token parser.Token) (db.SQLFilter, error) {
-	var transactionID string = token.Raw[1:]
+	transactionID := token.Raw
+	if token.Kind == parser.TokenText && len(token.Raw) > 0 && token.Raw[0] == 'T' {
+		transactionID = token.Raw[1:]
+	}
 	_, err := domain.ParseTransactionID(transactionID)
 	if err != nil {
 		return nil, err
@@ -85,12 +93,43 @@ func parseDateOnly(value string, config config.Config) (time.Time, error) {
 }
 
 func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilter, error) {
+	toDateFilter := func(from time.Time, to time.Time) db.SQLFilter {
+		return db.TransactionDateFilter{From: from.Format("2006-01-02"), To: to.Format("2006-01-02")}
+	}
+	parseFlexibleDate := func(value string) (time.Time, error) {
+		value = strings.TrimSpace(value)
+		layouts := []string{
+			"2006-01-02",
+			"2006-01-02 15:04:05",
+			"2006-01-02 15:04",
+			"02.01.2006",
+			"02.01.2006 15:04:05",
+			"02.01.2006 15:04",
+			"02/01/2006",
+			"02/01/2006 15:04:05",
+			"02/01/2006 15:04",
+			config.Display.DateFormat,
+		}
+		seen := make(map[string]bool, len(layouts))
+		for _, layout := range layouts {
+			if layout == "" || seen[layout] {
+				continue
+			}
+			seen[layout] = true
+			parsed, err := time.Parse(layout, value)
+			if err == nil {
+				return parsed, nil
+			}
+		}
+		return time.Time{}, fmt.Errorf("unknown datetime format: %s", value)
+	}
+
 	if token.Kind == parser.TokenPeriod {
 		from, to, err := domain.GetTimeShortcut(token.Raw)
 		if err != nil {
 			return nil, err
 		}
-		return db.TransactionDatetimeFilter{From: from, To: to}, nil
+		return toDateFilter(from, to), nil
 	}
 
 	if domain.IsTimeShortcut(token.Value) {
@@ -98,46 +137,51 @@ func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilte
 		if err != nil {
 			return nil, err
 		}
-		return db.TransactionDatetimeFilter{From: from, To: to}, nil
+		return toDateFilter(from, to), nil
 	}
 
 	if token.Key == "date" {
 		if strings.Contains(token.Value, "..") {
 			datetimeRange := strings.SplitN(token.Value, "..", 2)
-			datetimeFrom, err := parseDateOnly(datetimeRange[0], config)
+			datetimeFrom, err := parseFlexibleDate(datetimeRange[0])
 			if err != nil {
 				return nil, err
 			}
-			datetimeTo, err := parseDateOnly(datetimeRange[1], config)
+			datetimeTo, err := parseFlexibleDate(datetimeRange[1])
 			if err != nil {
 				return nil, err
 			}
-			return db.TransactionDatetimeFilter{From: datetimeFrom, To: datetimeTo.Add(24*time.Hour - time.Nanosecond)}, nil
+			return toDateFilter(datetimeFrom, datetimeTo), nil
 		}
 
-		datetime, err := parseDateOnly(token.Value, config)
+		datetime, err := parseFlexibleDate(token.Value)
 		if err == nil {
-			return db.TransactionDatetimeFilter{From: datetime, To: datetime.Add(24*time.Hour - time.Nanosecond)}, nil
+			return toDateFilter(datetime, datetime), nil
 		}
 	}
 
 	if strings.Contains(token.Value, "..") {
 		datetimeRange := strings.SplitN(token.Value, "..", 2)
-		datetimeFrom, err := time.Parse(config.Display.DateFormat, datetimeRange[0])
+		datetimeFrom, err := parseFlexibleDate(datetimeRange[0])
 		if err != nil {
 			return nil, err
 		}
-		datetimeTo, err := time.Parse(config.Display.DateFormat, datetimeRange[1])
+		datetimeTo, err := parseFlexibleDate(datetimeRange[1])
 		if err != nil {
 			return nil, err
 		}
-		return db.TransactionDatetimeFilter{From: datetimeFrom, To: datetimeTo}, nil
+		return toDateFilter(datetimeFrom, datetimeTo), nil
+	}
+
+	if token.Key == "time" {
+		now := time.Now()
+		return toDateFilter(now, now), nil
 	}
 
 	if token.Key == "datetime" {
-		datetime, err := time.Parse(config.Display.DateFormat, token.Value)
+		datetime, err := parseFlexibleDate(token.Value)
 		if err == nil {
-			return db.TransactionDatetimeFilter{From: datetime, To: datetime}, nil
+			return toDateFilter(datetime, datetime), nil
 		}
 	}
 
@@ -146,6 +190,14 @@ func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilte
 
 func createGroupFilter(token parser.Token) (db.SQLFilter, error) {
 	return db.TransactionGroupNameFilter{Name: token.Value}, nil
+}
+
+func createIdentifierFilter(token parser.Token) (db.SQLFilter, error) {
+	_, err := domain.ParseTransactionID(token.Value)
+	if err != nil {
+		return nil, err
+	}
+	return db.TransactionIDFilter{ID: token.Value}, nil
 }
 
 func createTransactionFilters(
@@ -196,6 +248,12 @@ func createTransactionFilters(
 			dbFilters = append(dbFilters, newFilter)
 		} else if filterType == FilterTypeGroup {
 			newFilter, err := createGroupFilter(filter)
+			if err != nil {
+				return nil, nil, err
+			}
+			dbFilters = append(dbFilters, newFilter)
+		} else if filterType == FilterTypeIdentifier {
+			newFilter, err := createIdentifierFilter(filter)
 			if err != nil {
 				return nil, nil, err
 			}

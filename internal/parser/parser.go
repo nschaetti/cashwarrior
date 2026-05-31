@@ -61,6 +61,11 @@ func (t Token) String() string {
 		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
 	} else if t.Kind == TokenText {
 		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
+	} else if t.Kind == TokenFlag {
+		if t.Value == "" {
+			return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Key)
+		}
+		return fmt.Sprintf("<Token %s: %s=%s>", t.Kind, t.Key, t.Value)
 	}
 	return fmt.Sprintf("<Token unknown %s: %s>", t.Kind, t.Raw)
 }
@@ -78,6 +83,7 @@ const (
 	TokenID
 	TokenPeriod
 	TokenText
+	TokenFlag
 )
 
 // String returns the canonical string representation of a token kind.
@@ -101,6 +107,8 @@ func (k TokenKind) String() string {
 		return "period"
 	case TokenText:
 		return "text"
+	case TokenFlag:
+		return "flag"
 	default:
 		return "unknown"
 	}
@@ -110,6 +118,7 @@ func (k TokenKind) String() string {
 type TokenRule func(raw string) (Token, bool)
 
 var tokenRules = []TokenRule{
+	classifyFlag,
 	classifyNegativeTag,
 	classifyTag,
 	classifyAmount,
@@ -174,8 +183,10 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 	}
 
 	// Extract filters and arguments
-	filterTokens := ExtractTokens(args[:index])
-	rawArgs := args[index+1:]
+	rawFilterTokens, flagTokensLeft := splitFlags(args[:index])
+	rawArgs, flagTokensRight := splitFlags(args[index+1:])
+	filterTokens := ExtractTokens(rawFilterTokens)
+	flagTokens := append(flagTokensLeft, flagTokensRight...)
 	subcommand := commandSpec.DefaultSubcommand
 	if len(rawArgs) > 0 {
 		if _, ok := commandSpec.Subcommands[rawArgs[0]]; ok {
@@ -191,13 +202,32 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 		Subcommand: subcommand,
 		Filters:    filterTokens,
 		Args:       argsTokens,
+		Flags:      flagTokens,
 	}, nil
+}
+
+func splitFlags(args []string) ([]string, []Token) {
+	nonFlags := make([]string, 0, len(args))
+	flags := make([]Token, 0)
+	for _, arg := range args {
+		tok, ok := classifyFlag(arg)
+		if ok {
+			flags = append(flags, tok)
+			continue
+		}
+		nonFlags = append(nonFlags, arg)
+	}
+	return nonFlags, flags
 }
 
 // ValidateParsedCmdLine validates the parsed structure and token kinds.
 //
 // It ensures the command is known and rejects unknown tokens.
 func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
+	if parsed.HasFlag("help") {
+		return nil
+	}
+
 	_, ok := GetCommandSpec(parsed.Command)
 	if !ok {
 		return &ParseError{Code: ParseErrorNoCommand, Message: fmt.Sprintf("unknown command: %s", parsed.Command)}

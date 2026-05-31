@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 )
 
 type transactionModifications struct {
+	Amount      *float64
 	Description *string
 	Date        *time.Time
 	Time        *time.Time
@@ -126,6 +128,12 @@ func parseTransactionModifications(parsed parser.ParsedCmdLine, cfg config.Confi
 		case "desc":
 			description := arg.Value
 			modifications.Description = &description
+		case "amount":
+			amount, err := strconv.ParseFloat(arg.Value, 64)
+			if err != nil {
+				return transactionModifications{}, fmt.Errorf("invalid amount %q", arg.Value)
+			}
+			modifications.Amount = &amount
 		case "date":
 			dateExists = true
 		case "time":
@@ -252,6 +260,12 @@ func validateTransactionModificationTargets(transactions []db.Transaction, modif
 }
 
 func applyTransactionModifications(cashDb db.DBTX, transaction db.Transaction, modifications transactionModifications) error {
+	if modifications.Amount != nil {
+		if err := db.UpdateTransactionAmount(cashDb, transaction.ID, *modifications.Amount); err != nil {
+			return err
+		}
+	}
+
 	if modifications.Description != nil {
 		if err := db.UpdateTransactionDescription(cashDb, transaction.ID, *modifications.Description); err != nil {
 			return err

@@ -65,6 +65,46 @@ func TestParseListSortOptionsRejectsUnsupportedField(t *testing.T) {
 	}
 }
 
+func TestParseListSortOptionsAcceptsDateAlias(t *testing.T) {
+	parsed := parser.ParsedCmdLine{
+		Command: "list",
+		Filters: []parser.Token{{Kind: parser.TokenAttribute, Key: "order", Value: "date"}},
+	}
+
+	_, options, err := parseListSortOptions(parsed)
+	if err != nil {
+		t.Fatalf("parseListSortOptions returned error: %v", err)
+	}
+	if options.Field != "date" {
+		t.Fatalf("Field = %q, want %q", options.Field, "date")
+	}
+}
+
+func TestParseListSortOptionsConsumesArgsAttributes(t *testing.T) {
+	parsed := parser.ParsedCmdLine{
+		Command: "list",
+		Args: []parser.Token{
+			{Kind: parser.TokenAttribute, Key: "order", Value: "date"},
+			{Kind: parser.TokenAttribute, Key: "desc", Value: "false"},
+			{Kind: parser.TokenAttribute, Key: "account", Value: "main"},
+		},
+	}
+
+	filtered, options, err := parseListSortOptions(parsed)
+	if err != nil {
+		t.Fatalf("parseListSortOptions returned error: %v", err)
+	}
+	if options.Field != "date" {
+		t.Fatalf("Field = %q, want %q", options.Field, "date")
+	}
+	if options.Desc {
+		t.Fatal("Desc = true, want false")
+	}
+	if len(filtered.Args) != 1 || filtered.Args[0].Key != "account" {
+		t.Fatalf("filtered.Args = %#v, want only account attr", filtered.Args)
+	}
+}
+
 func TestClassifyFilterGroup(t *testing.T) {
 	token := parser.Token{Kind: parser.TokenAttribute, Key: "group", Value: "ticket_0001"}
 	if got := classifyFilter(token); got != FilterTypeGroup {

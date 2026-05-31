@@ -28,6 +28,11 @@ func TestTokenString(t *testing.T) {
 }
 
 func TestClassifyToken_RuleOrder(t *testing.T) {
+	flag := ClassifyToken("--help")
+	if flag.Kind != TokenFlag || flag.Key != "help" {
+		t.Fatalf("ClassifyToken(--help) = (%v,%q), want (flag,help)", flag.Kind, flag.Key)
+	}
+
 	negTag := ClassifyToken("-@rent")
 	if negTag.Kind != TokenTagNegative {
 		t.Fatalf("ClassifyToken(-@rent) kind = %v, want %v", negTag.Kind, TokenTagNegative)
@@ -46,6 +51,29 @@ func TestClassifyToken_RuleOrder(t *testing.T) {
 	periodLikeText := ClassifyToken("todayx")
 	if periodLikeText.Kind != TokenText {
 		t.Fatalf("ClassifyToken(todayx) kind = %v, want %v", periodLikeText.Kind, TokenText)
+	}
+}
+
+func TestParseCmdLine_ExtractsHelpFlagFromArgs(t *testing.T) {
+	parsed, err := ParseCmdLine([]string{"accounts", "balance", "main", "--help"})
+	if err != nil {
+		t.Fatalf("ParseCmdLine returned error: %v", err)
+	}
+	if len(parsed.Flags) != 1 || parsed.Flags[0].Key != "help" {
+		t.Fatalf("parsed.Flags = %#v, want one help flag", parsed.Flags)
+	}
+	if len(parsed.Args) != 1 || parsed.Args[0].Raw != "main" {
+		t.Fatalf("parsed.Args = %#v, want main", parsed.Args)
+	}
+}
+
+func TestParseCmdLine_ExtractsShortHelpFlag(t *testing.T) {
+	parsed, err := ParseCmdLine([]string{"-h", "accounts"})
+	if err != nil {
+		t.Fatalf("ParseCmdLine returned error: %v", err)
+	}
+	if len(parsed.Flags) != 1 || parsed.Flags[0].Key != "help" {
+		t.Fatalf("parsed.Flags = %#v, want one help flag", parsed.Flags)
 	}
 }
 
@@ -432,6 +460,17 @@ func TestValidateParsedCmdLine_AccountsAddAllowsNameAndCurrency(t *testing.T) {
 	}
 }
 
+func TestValidateParsedCmdLine_AccountsAddAllowsInitialBalance(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{
+		Command:    "accounts",
+		Subcommand: "add",
+		Args:       []Token{{Raw: "savings", Kind: TokenText}, {Raw: "initial_balance:120.50", Kind: TokenAttribute, Key: "initial_balance", Value: "120.50"}},
+	})
+	if err != nil {
+		t.Fatalf("ValidateParsedCmdLine(accounts add initial_balance) returned error: %v", err)
+	}
+}
+
 func TestParseCmdLine_CategoriesDefaultSubcommand(t *testing.T) {
 	parsed, err := ParseCmdLine([]string{"categories"})
 	if err != nil {
@@ -485,6 +524,70 @@ func TestParseCmdLine_TagsDefaultSubcommand(t *testing.T) {
 	}
 }
 
+func TestParseCmdLine_GroupsDefaultSubcommand(t *testing.T) {
+	parsed, err := ParseCmdLine([]string{"groups"})
+	if err != nil {
+		t.Fatalf("ParseCmdLine returned error: %v", err)
+	}
+	if parsed.Subcommand != "list" {
+		t.Fatalf("parsed.Subcommand = %q, want list", parsed.Subcommand)
+	}
+}
+
+func TestParseCmdLine_PlacesDefaultSubcommand(t *testing.T) {
+	parsed, err := ParseCmdLine([]string{"places"})
+	if err != nil {
+		t.Fatalf("ParseCmdLine returned error: %v", err)
+	}
+	if parsed.Subcommand != "list" {
+		t.Fatalf("parsed.Subcommand = %q, want list", parsed.Subcommand)
+	}
+}
+
+func TestParseCmdLine_SummaryHasNoDefaultSubcommand(t *testing.T) {
+	parsed, err := ParseCmdLine([]string{"summary"})
+	if err != nil {
+		t.Fatalf("ParseCmdLine returned error: %v", err)
+	}
+	if parsed.Subcommand != "" {
+		t.Fatalf("parsed.Subcommand = %q, want empty", parsed.Subcommand)
+	}
+}
+
+func TestValidateParsedCmdLine_SummaryRequiresSubcommand(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{Command: "summary", Subcommand: ""})
+	if err == nil {
+		t.Fatal("ValidateParsedCmdLine(summary no subcommand) expected error, got nil")
+	}
+}
+
+func TestValidateParsedCmdLine_SummaryDaysAllowsTransactionFilters(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{
+		Command:    "summary",
+		Subcommand: "days",
+		Filters: []Token{
+			{Raw: "month", Kind: TokenPeriod, Period: domain.PeriodMonth},
+			{Raw: "account:main", Kind: TokenAttribute, Key: "account", Value: "main"},
+			{Raw: "identifier:2026.05.1", Kind: TokenAttribute, Key: "identifier", Value: "2026.05.1"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ValidateParsedCmdLine(summary days) returned error: %v", err)
+	}
+}
+
+func TestValidateParsedCmdLine_SummaryDaysAllowsRightSideFilters(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{
+		Command:    "summary",
+		Subcommand: "days",
+		Filters:    []Token{{Raw: "month", Kind: TokenPeriod, Period: domain.PeriodMonth}},
+		Args:       []Token{{Raw: "account:main", Kind: TokenAttribute, Key: "account", Value: "main"}},
+	})
+	if err != nil {
+		t.Fatalf("ValidateParsedCmdLine(summary days right-side filter) returned error: %v", err)
+	}
+}
+
 func TestValidateParsedCmdLine_TagsAddAllowsName(t *testing.T) {
 	err := ValidateParsedCmdLine(ParsedCmdLine{Command: "tags", Subcommand: "add", Args: []Token{{Raw: "travel", Kind: TokenText}}})
 	if err != nil {
@@ -517,6 +620,17 @@ func TestValidateParsedCmdLine_AccountsModifyRequiresOneTextTarget(t *testing.T)
 	}
 }
 
+func TestValidateParsedCmdLine_AccountsModifyAllowsInitialBalance(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{
+		Command:    "accounts",
+		Subcommand: "modify",
+		Args:       []Token{{Raw: "savings", Kind: TokenText}, {Raw: "initial_balance:10", Kind: TokenAttribute, Key: "initial_balance", Value: "10"}},
+	})
+	if err != nil {
+		t.Fatalf("ValidateParsedCmdLine(accounts modify initial_balance) returned error: %v", err)
+	}
+}
+
 func TestValidateParsedCmdLine_AccountsDeleteAllowsAccountAttribute(t *testing.T) {
 	err := ValidateParsedCmdLine(ParsedCmdLine{
 		Command:    "accounts",
@@ -525,6 +639,59 @@ func TestValidateParsedCmdLine_AccountsDeleteAllowsAccountAttribute(t *testing.T
 	})
 	if err != nil {
 		t.Fatalf("ValidateParsedCmdLine(accounts delete attr) returned error: %v", err)
+	}
+}
+
+func TestValidateParsedCmdLine_AccountsRenameAllowsTwoTextArgs(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{
+		Command:    "accounts",
+		Subcommand: "rename",
+		Args: []Token{
+			{Raw: "main", Kind: TokenText},
+			{Raw: "brokerage", Kind: TokenText},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ValidateParsedCmdLine(accounts rename) returned error: %v", err)
+	}
+}
+
+func TestValidateParsedCmdLine_AccountsRenameRequiresTwoTextArgs(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{
+		Command:    "accounts",
+		Subcommand: "rename",
+		Args:       []Token{{Raw: "main", Kind: TokenText}},
+	})
+	if err == nil {
+		t.Fatal("ValidateParsedCmdLine(accounts rename one arg) expected error, got nil")
+	}
+}
+
+func TestValidateParsedCmdLine_AccountsInitialBalanceAllowsTextArgs(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{
+		Command:    "accounts",
+		Subcommand: "initial-balance",
+		Args: []Token{
+			{Raw: "main", Kind: TokenText},
+			{Raw: "100", Kind: TokenText},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ValidateParsedCmdLine(accounts initial-balance text args) returned error: %v", err)
+	}
+}
+
+func TestValidateParsedCmdLine_AccountsInitialBalanceAllowsAttributes(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{
+		Command:    "accounts",
+		Subcommand: "initial-balance",
+		Args: []Token{
+			{Raw: "account:main", Kind: TokenAttribute, Key: "account", Value: "main"},
+			{Raw: "amount:100", Kind: TokenAttribute, Key: "amount", Value: "100"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ValidateParsedCmdLine(accounts initial-balance attrs) returned error: %v", err)
 	}
 }
 
@@ -806,5 +973,18 @@ func TestParseAndValidateCmdLine(t *testing.T) {
 	}
 	if parsed.Command != "add" {
 		t.Fatalf("parsed.Command = %q, want add", parsed.Command)
+	}
+}
+
+func TestParseAndValidateCmdLine_AllowsHelpWithoutRequiredArgs(t *testing.T) {
+	parsed, err := ParseAndValidateCmdLine([]string{"transfer", "--help"})
+	if err != nil {
+		t.Fatalf("ParseAndValidateCmdLine returned error: %v", err)
+	}
+	if parsed.Command != "transfer" {
+		t.Fatalf("parsed.Command = %q, want transfer", parsed.Command)
+	}
+	if !parsed.HasFlag("help") {
+		t.Fatal("expected help flag to be set")
 	}
 }

@@ -20,6 +20,16 @@ type ParsedCmdLine struct {
 	Subcommand string
 	Filters    []Token
 	Args       []Token
+	Flags      []Token
+}
+
+func (p *ParsedCmdLine) HasFlag(name string) bool {
+	for _, flag := range p.Flags {
+		if flag.Kind == TokenFlag && flag.Key == name {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *ParsedCmdLine) Left() []Token {

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/nschaetti/cashwarrior/internal/config"
@@ -17,6 +19,27 @@ func Delete(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) error
 		if err != nil {
 			return err
 		}
+
+		transfer, err := db.GetTransferByTransactionID(query, transaction.ID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if err == nil {
+			if err := db.UpdateTransferDeleted(query, transfer.ID, true); err != nil {
+				return err
+			}
+			if err := db.UpdateTransactionDeleted(query, transfer.FromTransactionID, true); err != nil {
+				return err
+			}
+			if transfer.ToTransactionID != transfer.FromTransactionID {
+				if err := db.UpdateTransactionDeleted(query, transfer.ToTransactionID, true); err != nil {
+					return err
+				}
+			}
+			fmt.Printf("Transaction %s deleted\n", transaction.Identifier)
+			return nil
+		}
+
 		if err := db.UpdateTransactionDeleted(query, transaction.ID, true); err != nil {
 			return err
 		}

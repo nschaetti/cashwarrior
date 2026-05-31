@@ -131,6 +131,36 @@ func getTransactionDatetime(
 	attributes map[string]string,
 	config config.Config,
 ) (time.Time, error) {
+	toDateOnly := func(dt time.Time) time.Time {
+		return time.Date(dt.Year(), dt.Month(), dt.Day(), 0, 0, 0, 0, dt.Location())
+	}
+	parseFlexibleDate := func(value string) (time.Time, error) {
+		value = strings.TrimSpace(value)
+		layouts := []string{
+			"2006-01-02",
+			"2006-01-02 15:04:05",
+			"2006-01-02 15:04",
+			"02.01.2006",
+			"02.01.2006 15:04:05",
+			"02.01.2006 15:04",
+			"02/01/2006",
+			"02/01/2006 15:04:05",
+			"02/01/2006 15:04",
+			config.Display.DateFormat,
+		}
+		seen := make(map[string]bool, len(layouts))
+		for _, layout := range layouts {
+			if layout == "" || seen[layout] {
+				continue
+			}
+			seen[layout] = true
+			parsed, err := time.Parse(layout, value)
+			if err == nil {
+				return parsed, nil
+			}
+		}
+		return time.Time{}, fmt.Errorf("unsupported datetime format %q", value)
+	}
 	// Check attributes exists
 	var dateTimeExists bool
 	var dateExists bool
@@ -157,22 +187,28 @@ func getTransactionDatetime(
 
 	// Datetime given
 	if dateTimeExists {
-		return time.Parse(config.Display.DateFormat, attributes["datetime"])
+		datetime, err := parseFlexibleDate(attributes["datetime"])
+		if err != nil {
+			return time.Time{}, err
+		}
+		return toDateOnly(datetime), nil
 	}
 
-	// Date and time given
-	if dateExists && timeExists {
-		return time.Parse(
-			config.Display.DateFormat,
-			attributes["date"]+" "+attributes["time"],
-		)
-	} else if dateExists {
-		return time.Parse(strings.Split(config.Display.DateFormat, " ")[0], attributes["date"])
-	} else if timeExists {
-		return time.Parse(strings.Split(config.Display.DateFormat, " ")[1], attributes["time"])
+	// Date given (time is ignored on purpose)
+	if dateExists {
+		datetime, err := parseFlexibleDate(attributes["date"])
+		if err != nil {
+			return time.Time{}, err
+		}
+		return toDateOnly(datetime), nil
 	}
 
-	return time.Now(), nil
+	if timeExists {
+		now := time.Now()
+		return toDateOnly(now), nil
+	}
+
+	return toDateOnly(time.Now()), nil
 }
 
 func getAttributes(parsed parser.ParsedCmdLine) map[string]string {

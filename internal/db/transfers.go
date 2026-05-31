@@ -11,7 +11,8 @@ type Transfer struct {
 	FromAccountID int64
 	ToAccountID   int64
 
-	Amount float64
+	Amount  float64
+	Deleted bool
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -39,7 +40,7 @@ func GetTransferByID(db DBTX, id int64) (Transfer, error) {
 	var transfer Transfer
 
 	err := db.QueryRow(`
-SELECT id, from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, created_at, updated_at
+SELECT id, from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, deleted, created_at, updated_at
 FROM transfers
 WHERE id = ?
 `, id).Scan(
@@ -49,6 +50,7 @@ WHERE id = ?
 		&transfer.FromAccountID,
 		&transfer.ToAccountID,
 		&transfer.Amount,
+		&transfer.Deleted,
 		&transfer.CreatedAt,
 		&transfer.UpdatedAt,
 	)
@@ -61,9 +63,9 @@ WHERE id = ?
 
 func ListTransfers(db DBTX, filter TransferListFilter) ([]Transfer, error) {
 	query := `
-SELECT id, from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, created_at, updated_at
+SELECT id, from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, deleted, created_at, updated_at
 FROM transfers
-WHERE 1 = 1
+WHERE deleted = FALSE
 `
 	args := make([]interface{}, 0)
 
@@ -114,6 +116,7 @@ WHERE 1 = 1
 			&transfer.FromAccountID,
 			&transfer.ToAccountID,
 			&transfer.Amount,
+			&transfer.Deleted,
 			&transfer.CreatedAt,
 			&transfer.UpdatedAt,
 		)
@@ -141,20 +144,35 @@ SELECT EXISTS(
 }
 
 func GetTransferByTransactionID(db DBTX, transactionID int64) (Transfer, error) {
-	var transfer Transfer
+	return getTransferByTransactionID(db, transactionID, false)
+}
 
-	err := db.QueryRow(`
-SELECT id, from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, created_at, updated_at
+func GetTransferByTransactionIDIncludingDeleted(db DBTX, transactionID int64) (Transfer, error) {
+	return getTransferByTransactionID(db, transactionID, true)
+}
+
+func getTransferByTransactionID(db DBTX, transactionID int64, includeDeleted bool) (Transfer, error) {
+	var transfer Transfer
+	whereDeleted := "AND deleted = FALSE"
+	if includeDeleted {
+		whereDeleted = ""
+	}
+
+	query := `
+SELECT id, from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, deleted, created_at, updated_at
 FROM transfers
-WHERE from_transaction_id = ? OR to_transaction_id = ?
+WHERE (from_transaction_id = ? OR to_transaction_id = ?)
+` + whereDeleted + `
 LIMIT 1
-`, transactionID, transactionID).Scan(
+`
+	err := db.QueryRow(query, transactionID, transactionID).Scan(
 		&transfer.ID,
 		&transfer.FromTransactionID,
 		&transfer.ToTransactionID,
 		&transfer.FromAccountID,
 		&transfer.ToAccountID,
 		&transfer.Amount,
+		&transfer.Deleted,
 		&transfer.CreatedAt,
 		&transfer.UpdatedAt,
 	)
@@ -167,14 +185,23 @@ LIMIT 1
 
 func InsertTransfer(db DBTX, input CreateTransferInput) (int64, error) {
 	result, err := db.Exec(`
-INSERT INTO transfers (from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO transfers (from_transaction_id, to_transaction_id, from_account_id, to_account_id, amount, deleted)
+VALUES (?, ?, ?, ?, ?, FALSE)
 `, input.FromTransactionID, input.ToTransactionID, input.FromAccountID, input.ToAccountID, input.Amount)
 	if err != nil {
 		return 0, err
 	}
 
 	return result.LastInsertId()
+}
+
+func UpdateTransferDeleted(db DBTX, transferID int64, deleted bool) error {
+	_, err := db.Exec(`
+UPDATE transfers
+SET deleted = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, deleted, transferID)
+	return err
 }
 
 func DeleteTransferByID(db DBTX, id int64) error {

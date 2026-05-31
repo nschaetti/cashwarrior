@@ -241,6 +241,52 @@ func TestParseTransactionModificationsCreatesMissingAddedTag(t *testing.T) {
 	}
 }
 
+func TestModifyUpdatesAmountWithIDFilter(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	mainAccount, err := db.GetAccountByName(cashDB, cfg.Default.Account)
+	if err != nil {
+		t.Fatalf("GetAccountByName returned error: %v", err)
+	}
+	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Amount Modify Test"})
+	if err != nil {
+		t.Fatalf("InsertPlace returned error: %v", err)
+	}
+
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{
+		Identifier:  "2026.05.1",
+		Amount:      -10,
+		Description: "Lunch",
+		Datetime:    time.Date(2026, time.May, 27, 0, 0, 0, 0, time.UTC),
+		AccountID:   mainAccount.ID,
+		PlaceID:     &placeID,
+	})
+	if err != nil {
+		t.Fatalf("InsertTransaction returned error: %v", err)
+	}
+
+	parsed := parser.ParsedCmdLine{
+		Command: "modify",
+		Filters: []parser.Token{{Kind: parser.TokenID, Raw: "2026.05.1"}},
+		Args:    []parser.Token{{Kind: parser.TokenAttribute, Key: "amount", Value: "-3.60", Raw: "amount:-3.60"}},
+	}
+
+	withInput(t, "y\n", func() {
+		if err := Modify(parsed, cfg, cashDB); err != nil {
+			t.Fatalf("Modify returned error: %v", err)
+		}
+	})
+
+	transaction, err := db.GetTransactionByIdentifier(cashDB, "2026.05.1")
+	if err != nil {
+		t.Fatalf("GetTransactionByIdentifier returned error: %v", err)
+	}
+	if transaction.Amount != -3.60 {
+		t.Fatalf("transaction.Amount = %v, want -3.60", transaction.Amount)
+	}
+}
+
 func openTestDB(t *testing.T) (config.Config, *sql.DB) {
 	t.Helper()
 

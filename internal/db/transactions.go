@@ -103,6 +103,19 @@ func (f TransactionDatetimeFilter) String() string {
 	return fmt.Sprintf("<TransactionDatetimeFilter: %s - %s>", f.From, f.To)
 }
 
+type TransactionDateFilter struct {
+	From string
+	To   string
+}
+
+func (f TransactionDateFilter) GenerateSQL() (string, []any) {
+	return "SUBSTR(transactions.datetime, 1, 10) BETWEEN ? AND ?", []any{f.From, f.To}
+}
+
+func (f TransactionDateFilter) String() string {
+	return fmt.Sprintf("<TransactionDateFilter: %s - %s>", f.From, f.To)
+}
+
 type TransactionGroupNameFilter struct {
 	Name string
 }
@@ -391,6 +404,15 @@ WHERE id = ?
 	return err
 }
 
+func UpdateTransactionAmount(db DBTX, transactionID int64, amount float64) error {
+	_, err := db.Exec(`
+UPDATE transactions
+SET amount = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, amount, transactionID)
+	return err
+}
+
 func UpdateTransactionDatetime(db DBTX, transactionID int64, datetime time.Time) error {
 	_, err := db.Exec(`
 UPDATE transactions
@@ -450,7 +472,7 @@ func PurgeTransactionByIdentifier(db DBTX, identifier string) error {
 		return err
 	}
 
-	transfer, err := GetTransferByTransactionID(db, transaction.ID)
+	transfer, err := GetTransferByTransactionIDIncludingDeleted(db, transaction.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return DeleteTransactionByID(db, transaction.ID)
 	}

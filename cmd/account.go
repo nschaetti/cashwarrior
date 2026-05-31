@@ -39,7 +39,7 @@ func accountBalance(parsed parser.ParsedCmdLine, config config.Config, cashDb db
 		return err
 	}
 	sortTransactionsForRunningBalance(historyTransactions)
-	balanceByTransactionID := buildRunningBalanceByTransactionID(historyTransactions)
+	balanceByTransactionID := buildRunningBalanceByTransactionID(historyTransactions, account.InitialBalance)
 
 	dbFilters = append(dbFilters, accountFilter)
 	transactions, err := db.ListTransactions(cashDb, dbFilters, runFilters)
@@ -74,9 +74,9 @@ func sortTransactionsForRunningBalance(transactions []db.Transaction) {
 	})
 }
 
-func buildRunningBalanceByTransactionID(transactions []db.Transaction) map[int64]float64 {
+func buildRunningBalanceByTransactionID(transactions []db.Transaction, initialBalance float64) map[int64]float64 {
 	balanceByTransactionID := make(map[int64]float64, len(transactions))
-	balance := 0.0
+	balance := initialBalance
 	for _, transaction := range transactions {
 		balance += transaction.Amount
 		balanceByTransactionID[transaction.ID] = balance
@@ -121,7 +121,7 @@ func printAccountTransactionTable(
 			account.Currency,
 			vendorName,
 			transaction.Description,
-			transaction.Datetime.Format(config.Display.DateFormat),
+			transaction.Datetime.Format("2006-01-02"),
 			categoryName,
 			strconv.FormatFloat(balanceByTransactionID[transaction.ID], 'f', 2, 64),
 		})
@@ -133,7 +133,7 @@ func printAccountTransactionTable(
 		WithTitle("Account", theme.AccountsTitleBackground).
 		WithSubtitle(account.Name).
 		WithHeaderBackground(theme.AccountsHeaderBackground).
-		WithHeaders("ID", "Amount", "Currency", "Vendor", "Description", "Datetime", "Category", "Balance")
+		WithHeaders("ID", "Amount", "Currency", "Vendor", "Description", "Date", "Category", "Balance")
 
 	for i, row := range rows {
 		t.AddRowWithMetadata(row, map[string]string{"type": types[i]})

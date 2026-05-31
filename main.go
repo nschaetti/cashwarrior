@@ -67,14 +67,25 @@ func run() error {
 	start := time.Now()
 
 	// Parse the command line
-	parsedCmd, parseErr := parser.ParseAndValidateCmdLine(os.Args[1:])
+	argv := os.Args[1:]
+	parsedCmd, parseErr := parser.ParseAndValidateCmdLine(argv)
 	if parseErr != nil && parseErr.Code == parser.ParseErrorNoCommand {
-		// Just call "list" if there is no command.
-		parsedCmd = parser.ParsedCmdLine{
-			Command:    "list",
-			Subcommand: "default",
-			Filters:    []parser.Token{},
-			Args:       []parser.Token{},
+		if containsHelpFlag(argv) {
+			parsedCmd = parser.ParsedCmdLine{
+				Command:    "",
+				Subcommand: "",
+				Filters:    []parser.Token{},
+				Args:       []parser.Token{},
+				Flags:      []parser.Token{{Raw: "--help", Key: "help", Kind: parser.TokenFlag}},
+			}
+		} else {
+			// Just call "list" if there is no command.
+			parsedCmd = parser.ParsedCmdLine{
+				Command:    "list",
+				Subcommand: "default",
+				Filters:    []parser.Token{},
+				Args:       []parser.Token{},
+			}
 		}
 	} else if parseErr != nil {
 		return fmt.Errorf("error: %s", parseErr.Message)
@@ -109,6 +120,15 @@ func run() error {
 	elapsed := time.Since(start)
 	pterm.Success.Println("Command success, done in ", elapsed)
 	return nil
+}
+
+func containsHelpFlag(args []string) bool {
+	for _, arg := range args {
+		if arg == "--help" || arg == "-h" {
+			return true
+		}
+	}
+	return false
 }
 
 func main() {

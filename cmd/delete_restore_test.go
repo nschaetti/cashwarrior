@@ -194,3 +194,122 @@ func TestPurgeTransactionDeletesEntireTransfer(t *testing.T) {
 		t.Fatalf("len(transfers) = %d, want 0", len(transfers))
 	}
 }
+
+func TestDeleteTransferMarksBothTransactionsAndTransferDeleted(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	fromAccount, err := db.GetAccountByName(cashDB, cfg.Default.Account)
+	if err != nil {
+		t.Fatalf("GetAccountByName returned error: %v", err)
+	}
+	toAccountID, err := db.InsertAccount(cashDB, db.CreateAccountInput{Name: "savings", Currency: cfg.Default.Currency})
+	if err != nil {
+		t.Fatalf("InsertAccount returned error: %v", err)
+	}
+	transferPlaceID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "transfer-delete"})
+	if err != nil {
+		t.Fatalf("InsertPlace returned error: %v", err)
+	}
+
+	fromTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Type: "transfer_out", Amount: -20, Description: "Transfer", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: fromAccount.ID, PlaceID: &transferPlaceID})
+	if err != nil {
+		t.Fatalf("InsertTransaction(from) returned error: %v", err)
+	}
+	toTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "transfer_in", Amount: 20, Description: "Transfer", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: toAccountID, PlaceID: &transferPlaceID})
+	if err != nil {
+		t.Fatalf("InsertTransaction(to) returned error: %v", err)
+	}
+	transferID, err := db.InsertTransfer(cashDB, db.CreateTransferInput{FromTransactionID: fromTxID, ToTransactionID: toTxID, FromAccountID: fromAccount.ID, ToAccountID: toAccountID, Amount: 20})
+	if err != nil {
+		t.Fatalf("InsertTransfer returned error: %v", err)
+	}
+
+	if err := Delete(parser.ParsedCmdLine{Command: "delete", Subcommand: "default", Args: []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}}}, cfg, cashDB); err != nil {
+		t.Fatalf("Delete returned error: %v", err)
+	}
+
+	fromTx, err := db.GetTransactionByID(cashDB, fromTxID)
+	if err != nil {
+		t.Fatalf("GetTransactionByID(from) returned error: %v", err)
+	}
+	if !fromTx.Deleted {
+		t.Fatal("from transfer transaction should be deleted")
+	}
+	toTx, err := db.GetTransactionByID(cashDB, toTxID)
+	if err != nil {
+		t.Fatalf("GetTransactionByID(to) returned error: %v", err)
+	}
+	if !toTx.Deleted {
+		t.Fatal("to transfer transaction should be deleted")
+	}
+
+	transfer, err := db.GetTransferByID(cashDB, transferID)
+	if err != nil {
+		t.Fatalf("GetTransferByID returned error: %v", err)
+	}
+	if !transfer.Deleted {
+		t.Fatal("transfer should be marked deleted")
+	}
+}
+
+func TestRestoreTransferRestoresBothTransactionsAndTransfer(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	fromAccount, err := db.GetAccountByName(cashDB, cfg.Default.Account)
+	if err != nil {
+		t.Fatalf("GetAccountByName returned error: %v", err)
+	}
+	toAccountID, err := db.InsertAccount(cashDB, db.CreateAccountInput{Name: "savings", Currency: cfg.Default.Currency})
+	if err != nil {
+		t.Fatalf("InsertAccount returned error: %v", err)
+	}
+	transferPlaceID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "transfer-restore"})
+	if err != nil {
+		t.Fatalf("InsertPlace returned error: %v", err)
+	}
+
+	fromTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Type: "transfer_out", Amount: -20, Description: "Transfer", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: fromAccount.ID, PlaceID: &transferPlaceID})
+	if err != nil {
+		t.Fatalf("InsertTransaction(from) returned error: %v", err)
+	}
+	toTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "transfer_in", Amount: 20, Description: "Transfer", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: toAccountID, PlaceID: &transferPlaceID})
+	if err != nil {
+		t.Fatalf("InsertTransaction(to) returned error: %v", err)
+	}
+	_, err = db.InsertTransfer(cashDB, db.CreateTransferInput{FromTransactionID: fromTxID, ToTransactionID: toTxID, FromAccountID: fromAccount.ID, ToAccountID: toAccountID, Amount: 20})
+	if err != nil {
+		t.Fatalf("InsertTransfer returned error: %v", err)
+	}
+
+	if err := Delete(parser.ParsedCmdLine{Command: "delete", Subcommand: "default", Args: []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}}}, cfg, cashDB); err != nil {
+		t.Fatalf("Delete returned error: %v", err)
+	}
+	if err := Restore(parser.ParsedCmdLine{Command: "restore", Subcommand: "default", Args: []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}}}, cfg, cashDB); err != nil {
+		t.Fatalf("Restore returned error: %v", err)
+	}
+
+	fromTx, err := db.GetTransactionByID(cashDB, fromTxID)
+	if err != nil {
+		t.Fatalf("GetTransactionByID(from) returned error: %v", err)
+	}
+	if fromTx.Deleted {
+		t.Fatal("from transfer transaction should be restored")
+	}
+	toTx, err := db.GetTransactionByID(cashDB, toTxID)
+	if err != nil {
+		t.Fatalf("GetTransactionByID(to) returned error: %v", err)
+	}
+	if toTx.Deleted {
+		t.Fatal("to transfer transaction should be restored")
+	}
+
+	transfer, err := db.GetTransferByTransactionID(cashDB, fromTxID)
+	if err != nil {
+		t.Fatalf("GetTransferByTransactionID returned error: %v", err)
+	}
+	if transfer.Deleted {
+		t.Fatal("transfer should be restored")
+	}
+}

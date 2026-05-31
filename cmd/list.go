@@ -60,7 +60,7 @@ func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config
 			transaction.Currency,
 			vendorName,
 			transaction.Description,
-			transaction.Datetime.Format(config.Display.DateFormat),
+			transaction.Datetime.Format("2006-01-02"),
 			categoryName,
 			groupName,
 		})
@@ -73,7 +73,7 @@ func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config
 		WithTitle("Transactions", theme.TransactionListTitleBackground).
 		WithSubtitle("Configured transactions").
 		WithHeaderBackground(theme.TransactionListHeaderBackground).
-		WithHeaders("ID", "Account", "Amount", "Currency", "Vendor", "Description", "Datetime", "Category", "Group")
+		WithHeaders("ID", "Account", "Amount", "Currency", "Vendor", "Description", "Date", "Category", "Group")
 
 	for i, row := range rows {
 		t.AddRowWithMetadata(row, map[string]string{"type": types[i]})
@@ -221,40 +221,67 @@ func PrintExpensesIncomeByCurrency(cashDb db.DBTX, transactions []db.Transaction
 func parseListSortOptions(parsed parser.ParsedCmdLine) (parser.ParsedCmdLine, listSortOptions, error) {
 	sortOptions := defaultListSortOptions()
 	filteredFilters := make([]parser.Token, 0, len(parsed.Filters))
+	filteredArgs := make([]parser.Token, 0, len(parsed.Args))
 
-	for _, filter := range parsed.Filters {
-		if filter.Kind != parser.TokenAttribute {
-			filteredFilters = append(filteredFilters, filter)
-			continue
+	consumeSortAttribute := func(token parser.Token) (bool, error) {
+		if token.Kind != parser.TokenAttribute {
+			return false, nil
 		}
 
-		switch filter.Key {
+		switch token.Key {
 		case "order":
 			if sortOptions.Field != "" {
-				return parsed, sortOptions, fmt.Errorf("order specified multiple times")
+				return false, fmt.Errorf("order specified multiple times")
 			}
-			if !isSupportedListOrderField(filter.Value) {
-				return parsed, sortOptions, fmt.Errorf("unsupported order field %s", filter.Value)
+			if !isSupportedListOrderField(token.Value) {
+				return false, fmt.Errorf("unsupported order field %s", token.Value)
 			}
-			sortOptions.Field = filter.Value
+			sortOptions.Field = token.Value
+			return true, nil
 		case "desc":
-			desc, err := strconv.ParseBool(filter.Value)
+			desc, err := strconv.ParseBool(token.Value)
 			if err != nil {
-				return parsed, sortOptions, fmt.Errorf("invalid desc value %s", filter.Value)
+				return false, fmt.Errorf("invalid desc value %s", token.Value)
 			}
 			sortOptions.Desc = desc
+			return true, nil
 		default:
-			filteredFilters = append(filteredFilters, filter)
+			return false, nil
 		}
 	}
 
+	for _, filter := range parsed.Filters {
+		consumed, err := consumeSortAttribute(filter)
+		if err != nil {
+			return parsed, sortOptions, err
+		}
+		if consumed {
+			continue
+		}
+		filteredFilters = append(filteredFilters, filter)
+	}
+
+	for _, arg := range parsed.Args {
+		consumed, err := consumeSortAttribute(arg)
+		if err != nil {
+			return parsed, sortOptions, err
+		}
+		if consumed {
+			continue
+		}
+		filteredArgs = append(filteredArgs, arg)
+	}
+
 	parsed.Filters = filteredFilters
+	parsed.Args = filteredArgs
 	return parsed, sortOptions, nil
 }
 
 func isSupportedListOrderField(field string) bool {
 	switch field {
 	case "id", "datetime", "description", "amount", "account", "currency", "type", "category", "vendor":
+		return true
+	case "date":
 		return true
 	default:
 		return false
@@ -305,7 +332,7 @@ func sortTransactionsForList(cashDb db.DBTX, transactions []db.Transaction, opti
 		switch options.Field {
 		case "id":
 			cmp = compareOrdered(left.ID, right.ID)
-		case "datetime":
+		case "datetime", "date":
 			cmp = compareTime(left.Datetime, right.Datetime)
 		case "description":
 			cmp = compareText(left.Description, right.Description)

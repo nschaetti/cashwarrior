@@ -15,9 +15,9 @@ func TestCreateDatetimeFilterFromPeriodTokenWeekNumber(t *testing.T) {
 		t.Fatalf("createDatetimeFilter returned error: %v", err)
 	}
 
-	datetimeFilter, ok := filter.(db.TransactionDatetimeFilter)
+	dateFilter, ok := filter.(db.TransactionDateFilter)
 	if !ok {
-		t.Fatalf("filter type = %T, want db.TransactionDatetimeFilter", filter)
+		t.Fatalf("filter type = %T, want db.TransactionDateFilter", filter)
 	}
 
 	now := time.Now()
@@ -26,7 +26,7 @@ func TestCreateDatetimeFilterFromPeriodTokenWeekNumber(t *testing.T) {
 		want = want.AddDate(0, 0, 1)
 	}
 
-	if !datetimeFilter.From.Equal(want) {
-		t.Fatalf("From = %v, want %v", datetimeFilter.From, want)
+	if dateFilter.From != want.Format("2006-01-02") {
+		t.Fatalf("From = %v, want %v", dateFilter.From, want.Format("2006-01-02"))
 	}
 }

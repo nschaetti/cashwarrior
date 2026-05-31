@@ -7,6 +7,21 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/domain"
 )
 
+func classifyFlag(raw string) (Token, bool) {
+	if raw == "-h" {
+		return Token{Raw: raw, Key: "help", Kind: TokenFlag}, true
+	}
+	if !strings.HasPrefix(raw, "--") || len(raw) <= 2 {
+		return Token{}, false
+	}
+	trimmed := strings.TrimPrefix(raw, "--")
+	parts := strings.SplitN(trimmed, "=", 2)
+	if len(parts) == 1 {
+		return Token{Raw: raw, Key: parts[0], Kind: TokenFlag}, true
+	}
+	return Token{Raw: raw, Key: parts[0], Value: parts[1], Kind: TokenFlag}, true
+}
+
 // classifyNegativeTag classifies tokens like "-@groceries".
 func classifyNegativeTag(raw string) (Token, bool) {
 	if len(raw) > 2 && strings.HasPrefix(raw, "-@") {

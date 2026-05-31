@@ -106,7 +106,7 @@ func TestShowDisplaysTransactionDetails(t *testing.T) {
 		"groceries",
 		"weekly-shop",
 		"food",
-		"2026-05-27 12:34:56",
+		"2026-05-27",
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output missing %q:\n%s", want, output)

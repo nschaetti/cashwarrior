@@ -73,7 +73,7 @@ WHERE 1 = 1
 		args = append(args, *filter.ID)
 	}
 
-	query += "ORDER BY id\n"
+	query += "ORDER BY name\n"
 	if filter.Limit > 0 {
 		query += "LIMIT ?\n"
 		args = append(args, filter.Limit)

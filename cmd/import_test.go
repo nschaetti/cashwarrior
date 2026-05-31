@@ -151,3 +151,151 @@ func TestImportTransactionTagsAndTransfersCSV(t *testing.T) {
 		t.Fatalf("len(transfers) = %d, want 1", len(transfers))
 	}
 }
+
+func TestImportTransactionsCSVWithoutIdentifierColumn(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	mainAccount, err := db.GetAccountByName(cashDB, cfg.Default.Account)
+	if err != nil {
+		t.Fatalf("GetAccountByName returned error: %v", err)
+	}
+	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"})
+	if err != nil {
+		t.Fatalf("InsertPlace returned error: %v", err)
+	}
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.3", Type: "expense", Amount: -3, Description: "Existing", Datetime: time.Date(2026, time.May, 1, 12, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
+	if err != nil {
+		t.Fatalf("InsertTransaction returned error: %v", err)
+	}
+
+	path := writeCSVFile(t, `type,amount,description,datetime,account,place,deleted
+expense,-12.50,Lunch,2026-05-27,main,Migros,false
+expense,-7.20,Snack,2026-06-01,main,Migros,false
+expense,-4.00,Coffee,2026-05-28,main,Migros,false`)
+
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+		t.Fatalf("Import returned error: %v", err)
+	}
+
+	if _, err := db.GetTransactionByIdentifier(cashDB, "2026.05.4"); err != nil {
+		t.Fatalf("GetTransactionByIdentifier(2026.05.4) returned error: %v", err)
+	}
+	if _, err := db.GetTransactionByIdentifier(cashDB, "2026.06.1"); err != nil {
+		t.Fatalf("GetTransactionByIdentifier(2026.06.1) returned error: %v", err)
+	}
+	if _, err := db.GetTransactionByIdentifier(cashDB, "2026.05.5"); err != nil {
+		t.Fatalf("GetTransactionByIdentifier(2026.05.5) returned error: %v", err)
+	}
+}
+
+func TestImportTransactionsCSVWithEmptyIdentifierCells(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	mainAccount, err := db.GetAccountByName(cashDB, cfg.Default.Account)
+	if err != nil {
+		t.Fatalf("GetAccountByName returned error: %v", err)
+	}
+	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"})
+	if err != nil {
+		t.Fatalf("InsertPlace returned error: %v", err)
+	}
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "expense", Amount: -2, Description: "Existing", Datetime: time.Date(2026, time.May, 1, 12, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
+	if err != nil {
+		t.Fatalf("InsertTransaction returned error: %v", err)
+	}
+
+	path := writeCSVFile(t, `identifier,type,amount,description,datetime,account,place,deleted
+,expense,-12.50,Lunch,2026-05-27,main,Migros,false
+2026.05.10,expense,-7.20,Dinner,2026-05-28,main,Migros,false
+,expense,-4.00,Coffee,2026-05-29,main,Migros,false`)
+
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+		t.Fatalf("Import returned error: %v", err)
+	}
+
+	if _, err := db.GetTransactionByIdentifier(cashDB, "2026.05.3"); err != nil {
+		t.Fatalf("GetTransactionByIdentifier(2026.05.3) returned error: %v", err)
+	}
+	if _, err := db.GetTransactionByIdentifier(cashDB, "2026.05.10"); err != nil {
+		t.Fatalf("GetTransactionByIdentifier(2026.05.10) returned error: %v", err)
+	}
+	if _, err := db.GetTransactionByIdentifier(cashDB, "2026.05.11"); err != nil {
+		t.Fatalf("GetTransactionByIdentifier(2026.05.11) returned error: %v", err)
+	}
+}
+
+func TestImportTransactionsCSVWithoutDeletedColumn(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	if _, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"}); err != nil {
+		t.Fatalf("InsertPlace returned error: %v", err)
+	}
+
+	path := writeCSVFile(t, `type,amount,description,datetime,account,place
+expense,-12.50,Lunch,2026-05-27,main,Migros`)
+
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+		t.Fatalf("Import returned error: %v", err)
+	}
+
+	transactions, err := db.ListTransactions(cashDB, nil, nil)
+	if err != nil {
+		t.Fatalf("ListTransactions returned error: %v", err)
+	}
+	if len(transactions) != 1 {
+		t.Fatalf("len(transactions) = %d, want 1", len(transactions))
+	}
+	if transactions[0].Deleted {
+		t.Fatal("transactions[0].Deleted = true, want false")
+	}
+}
+
+func TestImportTransactionsCSVWithFlexibleDateFormatAndEmptyDeleted(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	if _, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"}); err != nil {
+		t.Fatalf("InsertPlace returned error: %v", err)
+	}
+
+	path := writeCSVFile(t, `type,amount,description,datetime,account,place,deleted
+expense,-12.50,Lunch,31.05.2026,main,Migros,
+expense,-7.20,Dinner,31.05.2026 21:10,main,Migros,`)
+
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+		t.Fatalf("Import returned error: %v", err)
+	}
+
+	first, err := db.GetTransactionByIdentifier(cashDB, "2026.05.1")
+	if err != nil {
+		t.Fatalf("GetTransactionByIdentifier(2026.05.1) returned error: %v", err)
+	}
+	if first.Datetime.Hour() != 0 || first.Datetime.Minute() != 0 || first.Datetime.Second() != 0 {
+		t.Fatalf("first datetime time = %02d:%02d:%02d, want 00:00:00", first.Datetime.Hour(), first.Datetime.Minute(), first.Datetime.Second())
+	}
+}
+
+func TestImportTransactionsCSVCreatesMissingPlaceCategoryAndGroup(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	path := writeCSVFile(t, `type,amount,description,datetime,account,category,place,group
+expense,-12.50,Lunch,31.05.2026,main, groceries , Coop Pronto Nyon Gare , weekly groceries `)
+
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+		t.Fatalf("Import returned error: %v", err)
+	}
+
+	if _, err := db.GetPlaceByName(cashDB, "Coop Pronto Nyon Gare"); err != nil {
+		t.Fatalf("GetPlaceByName returned error: %v", err)
+	}
+	if _, err := db.GetCategoryByName(cashDB, "groceries"); err != nil {
+		t.Fatalf("GetCategoryByName returned error: %v", err)
+	}
+	if _, err := db.GetTransactionGroupByName(cashDB, "weekly groceries"); err != nil {
+		t.Fatalf("GetTransactionGroupByName returned error: %v", err)
+	}
+}

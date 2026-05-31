@@ -73,7 +73,7 @@ FROM places
 		args = append(args, "%"+filter.NameLike+"%")
 	}
 
-	query += "ORDER BY id\n"
+	query += "ORDER BY name\n"
 	if filter.Limit > 0 {
 		query += "LIMIT ?\n"
 		args = append(args, filter.Limit)
@@ -118,6 +118,15 @@ VALUES (?)
 		return 0, err
 	}
 	return result.LastInsertId()
+}
+
+func UpdatePlaceName(db DBTX, placeID int64, name string) error {
+	_, err := db.Exec(`
+UPDATE places
+SET name = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, name, placeID)
+	return err
 }
 
 func PlaceExists(db DBTX, name string) (bool, error) {

@@ -195,9 +195,10 @@ func transactionFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 		{Name: "time", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
 		{Name: "datetime", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
 		{Name: "group", Shapes: AttributeValueShapeSingle},
+		{Name: "identifier", Shapes: AttributeValueShapeSingle},
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]TokenKind{TokenPeriod, TokenText, TokenAttribute}, base...)
+	return sideSpec([]TokenKind{TokenPeriod, TokenText, TokenID, TokenAttribute}, base...)
 }
 
 func transactionFilterSideSpecWithoutAccount(extraAttrs ...AttributeSpec) SideSpec {
@@ -210,9 +211,10 @@ func transactionFilterSideSpecWithoutAccount(extraAttrs ...AttributeSpec) SideSp
 		{Name: "time", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
 		{Name: "datetime", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
 		{Name: "group", Shapes: AttributeValueShapeSingle},
+		{Name: "identifier", Shapes: AttributeValueShapeSingle},
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]TokenKind{TokenPeriod, TokenText, TokenAttribute}, base...)
+	return sideSpec([]TokenKind{TokenPeriod, TokenText, TokenID, TokenAttribute}, base...)
 }
 
 func addRightSideSpec() SideSpec {
@@ -239,6 +241,7 @@ func modifyRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]TokenKind{TokenAttribute, TokenAttributeClear, TokenTag, TokenTagNegative},
 		setOnlyAttribute("identifier", AttributeValueShapeSingle),
+		setOnlyAttribute("amount", AttributeValueShapeSingle),
 		setOnlyAttribute("desc", AttributeValueShapeSingle),
 		setOnlyAttribute("date", AttributeValueShapeSingle),
 		setOnlyAttribute("time", AttributeValueShapeSingle),
@@ -249,7 +252,7 @@ func modifyRightSideSpec() SideSpec {
 		setOrClearAttribute("group", AttributeValueShapeSingle),
 	)
 	side = withArgs(side, 1, 0)
-	for _, name := range []string{"identifier", "desc", "date", "time", "datetime", "account", "category", "store", "group"} {
+	for _, name := range []string{"identifier", "amount", "desc", "date", "time", "datetime", "account", "category", "store", "group"} {
 		side = withAttributeRule(side, name, atMostOne())
 	}
 	return side
@@ -358,6 +361,21 @@ var CommandSpecs = map[string]CommandSpec{
 			SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags delete requires a tag name"})},
 		),
 	},
+	"groups": {
+		Name:              "groups",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
+		),
+	},
+	"places": {
+		Name:              "places",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
+			SubcommandSpec{Name: "rename", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenText}), 2, 2), TokenText, countRule(2, 2))},
+		),
+	},
 	"modify": {
 		Name:              "modify",
 		DefaultSubcommand: "default",
@@ -393,8 +411,10 @@ var CommandSpecs = map[string]CommandSpec{
 		Subcommands: subcommands(
 			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
 			SubcommandSpec{Name: "balance", Left: transactionFilterSideSpecWithoutAccount(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle)), 1, 1), "account", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"account"}, Message: "accounts balance requires an account name"})},
-			SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle), setOnlyAttribute("currency", AttributeValueShapeSingle)), 1, 2), "currency", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"account"}, Message: "accounts add requires an account name"})},
-			SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle), setOnlyAttribute("currency", AttributeValueShapeSingle)), 2, 3), TokenText, exactlyOne()), "account", atMostOne()), "currency", atMostOne()), PresenceRule{Attributes: []string{"account", "currency"}, Message: "accounts modify requires at least one modification"})},
+			SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle), setOnlyAttribute("currency", AttributeValueShapeSingle), setOnlyAttribute("initial_balance", AttributeValueShapeSingle)), 1, 3), "currency", atMostOne()), "initial_balance", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"account"}, Message: "accounts add requires an account name"})},
+			SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withAttributeRule(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle), setOnlyAttribute("currency", AttributeValueShapeSingle), setOnlyAttribute("initial_balance", AttributeValueShapeSingle)), 2, 4), TokenText, exactlyOne()), "account", atMostOne()), "currency", atMostOne()), "initial_balance", atMostOne()), PresenceRule{Attributes: []string{"account", "currency", "initial_balance"}, Message: "accounts modify requires at least one modification"})},
+			SubcommandSpec{Name: "initial-balance", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle), setOnlyAttribute("amount", AttributeValueShapeSingle), setOnlyAttribute("initial_balance", AttributeValueShapeSingle)), 2, 2)},
+			SubcommandSpec{Name: "rename", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenText}), 2, 2), TokenText, countRule(2, 2))},
 			SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle)), 1, 1), "account", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"account"}, Message: "accounts delete requires an account name"})},
 		),
 	},
@@ -439,6 +459,13 @@ var CommandSpecs = map[string]CommandSpec{
 		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 0, 1)}),
 	},
 	"sum": defaultCommandSpec("sum"),
+	"summary": {
+		Name:              "summary",
+		DefaultSubcommand: "",
+		Subcommands: subcommands(
+			SubcommandSpec{Name: "days", Left: transactionFilterSideSpec(), Right: transactionFilterSideSpec()},
+		),
+	},
 	"budget": {
 		Name:              "budget",
 		DefaultSubcommand: "list",

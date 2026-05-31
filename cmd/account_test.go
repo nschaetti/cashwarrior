@@ -46,7 +46,7 @@ func TestBuildRunningBalanceByTransactionID(t *testing.T) {
 	}
 
 	sortTransactionsForRunningBalance(transactions)
-	balanceByTransactionID := buildRunningBalanceByTransactionID(transactions)
+	balanceByTransactionID := buildRunningBalanceByTransactionID(transactions, 0)
 
 	if balanceByTransactionID[1] != 20 {
 		t.Fatalf("balance for tx 1 = %v, want 20", balanceByTransactionID[1])
@@ -56,5 +56,22 @@ func TestBuildRunningBalanceByTransactionID(t *testing.T) {
 	}
 	if balanceByTransactionID[3] != 8 {
 		t.Fatalf("balance for tx 3 = %v, want 8", balanceByTransactionID[3])
+	}
+}
+
+func TestBuildRunningBalanceByTransactionIDWithInitialBalance(t *testing.T) {
+	transactions := []db.Transaction{
+		{ID: 1, Amount: 10, Datetime: time.Date(2026, time.May, 1, 9, 0, 0, 0, time.UTC)},
+		{ID: 2, Amount: -2.5, Datetime: time.Date(2026, time.May, 2, 9, 0, 0, 0, time.UTC)},
+	}
+
+	sortTransactionsForRunningBalance(transactions)
+	balanceByTransactionID := buildRunningBalanceByTransactionID(transactions, 100)
+
+	if balanceByTransactionID[1] != 110 {
+		t.Fatalf("balance for tx 1 = %v, want 110", balanceByTransactionID[1])
+	}
+	if balanceByTransactionID[2] != 107.5 {
+		t.Fatalf("balance for tx 2 = %v, want 107.5", balanceByTransactionID[2])
 	}
 }

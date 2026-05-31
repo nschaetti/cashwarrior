@@ -15,10 +15,7 @@ import (
 )
 
 func formatShowDatetime(datetime time.Time, cfg config.Config) string {
-	layout := cfg.Display.DateFormat
-	if !strings.Contains(layout, "15") {
-		layout += " 15:04:05"
-	}
+	layout := strings.Split(cfg.Display.DateFormat, " ")[0]
 	return datetime.Format(layout)
 }
 
@@ -63,7 +60,7 @@ func Show(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) error {
 		{"Account", showValue(transaction.AccountName)},
 		{"Place", "none"},
 		{"Description", showValue(transaction.Description)},
-		{"Datetime", formatShowDatetime(transaction.Datetime, cfg)},
+		{"Date", formatShowDatetime(transaction.Datetime, cfg)},
 		{"Category", "none"},
 		{"Group", "none"},
 		{"Tags", "none"},

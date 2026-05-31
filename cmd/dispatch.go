@@ -35,9 +35,17 @@ var Handlers = map[string]CommandFunc{
 	"import":      Import,
 	"theme":       Theme,
 	"sum":         Sum,
+	"summary":     Summary,
+	"groups":      Groups,
+	"places":      Places,
 }
 
 func Dispatch(parsed parser.ParsedCmdLine, cfg config.Config, tx db.DBTX) error {
+	if parsed.HasFlag("help") {
+		printHelp(parsed)
+		return nil
+	}
+
 	if !parser.IsKnownCommand(parsed.Command) {
 		return &parser.ParseError{Code: parser.ParseErrorNoCommand, Message: "unknown command"}
 	}

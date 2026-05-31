@@ -26,11 +26,92 @@ func Accounts(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX)
 		return addAccount(parsed, config, cashDb)
 	case "modify":
 		return modifyAccount(parsed, config, cashDb)
+	case "rename":
+		return renameAccount(parsed, config, cashDb)
 	case "delete":
 		return deleteAccount(parsed, config, cashDb)
+	case "initial-balance":
+		return setAccountInitialBalance(parsed, cashDb)
 	default:
 		return fmt.Errorf("unknown accounts subcommand %s", parsed.Subcommand)
 	}
+}
+
+func setAccountInitialBalance(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
+	var accountName string
+	var amountValue string
+
+	for _, arg := range parsed.Args {
+		if arg.Kind == parser.TokenAttribute {
+			switch arg.Key {
+			case "account":
+				accountName = strings.TrimSpace(arg.Value)
+			case "amount", "initial_balance":
+				amountValue = strings.TrimSpace(arg.Value)
+			}
+		}
+	}
+
+	textArgs := make([]string, 0, 2)
+	for _, arg := range parsed.Args {
+		if arg.Kind == parser.TokenText {
+			textArgs = append(textArgs, strings.TrimSpace(arg.Raw))
+		}
+	}
+
+	if accountName == "" || amountValue == "" {
+		if len(textArgs) != 2 {
+			return fmt.Errorf("accounts initial-balance requires an account and an amount")
+		}
+		firstAmount, firstErr := strconv.ParseFloat(textArgs[0], 64)
+		secondAmount, secondErr := strconv.ParseFloat(textArgs[1], 64)
+		_ = firstAmount
+		_ = secondAmount
+
+		switch {
+		case firstErr == nil && secondErr == nil:
+			return fmt.Errorf("accounts initial-balance is ambiguous: both arguments look like amounts")
+		case firstErr != nil && secondErr != nil:
+			return fmt.Errorf("accounts initial-balance requires one numeric amount")
+		case firstErr == nil:
+			if amountValue == "" {
+				amountValue = textArgs[0]
+			}
+			if accountName == "" {
+				accountName = textArgs[1]
+			}
+		default:
+			if amountValue == "" {
+				amountValue = textArgs[1]
+			}
+			if accountName == "" {
+				accountName = textArgs[0]
+			}
+		}
+	}
+
+	if accountName == "" || amountValue == "" {
+		return fmt.Errorf("accounts initial-balance requires an account and an amount")
+	}
+
+	amount, err := strconv.ParseFloat(amountValue, 64)
+	if err != nil {
+		return fmt.Errorf("invalid amount %q", amountValue)
+	}
+
+	account, err := db.GetAccountByName(cashDb, accountName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("account %s does not exist", accountName)
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := db.UpdateAccountInitialBalance(cashDb, account.ID, amount); err != nil {
+		return err
+	}
+	fmt.Printf("Account %s initial balance set to %.2f\n", accountName, amount)
+	return nil
 }
 
 func getAccountNameArg(token parser.Token) (string, error) {
@@ -67,6 +148,13 @@ func addAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) 
 	if value, ok := attributes["currency"]; ok {
 		currency = strings.TrimSpace(value)
 	}
+	initialBalance := 0.0
+	if value, ok := attributes["initial_balance"]; ok {
+		initialBalance, err = strconv.ParseFloat(strings.TrimSpace(value), 64)
+		if err != nil {
+			return fmt.Errorf("invalid initial_balance %q", value)
+		}
+	}
 	if strings.TrimSpace(currency) == "" {
 		return fmt.Errorf("currency cannot be empty")
 	}
@@ -77,7 +165,7 @@ func addAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) 
 	if exists {
 		return fmt.Errorf("account %s already exists", name)
 	}
-	_, err = db.InsertAccount(cashDb, db.CreateAccountInput{Name: name, Currency: currency})
+	_, err = db.InsertAccount(cashDb, db.CreateAccountInput{Name: name, Currency: currency, InitialBalance: initialBalance})
 	if err != nil {
 		return err
 	}
@@ -125,7 +213,64 @@ func modifyAccount(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX)
 			return err
 		}
 	}
+	if value, ok := attributes["initial_balance"]; ok {
+		initialBalance, parseErr := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		if parseErr != nil {
+			return fmt.Errorf("invalid initial_balance %q", value)
+		}
+		if err := db.UpdateAccountInitialBalance(cashDb, account.ID, initialBalance); err != nil {
+			return err
+		}
+	}
 	fmt.Printf("Account %s updated\n", name)
+	return nil
+}
+
+func renameAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
+	name, err := getAccountNameArg(parsed.Args[0])
+	if err != nil {
+		return err
+	}
+	newName, err := getAccountNameArg(parsed.Args[1])
+	if err != nil {
+		return err
+	}
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return fmt.Errorf("account name cannot be empty")
+	}
+	if name == newName {
+		return nil
+	}
+	if name == cfg.Default.Account {
+		fmt.Printf("Account %s is your default account.\n", name)
+		if !utils.AskYesNo("Rename it and update default.account in config?") {
+			return nil
+		}
+		cfg.Default.Account = newName
+		configPath := utils.ExpandPath(config.DefaultConfigFile)
+		if err := config.SaveConfig(configPath, cfg); err != nil {
+			return err
+		}
+	}
+	account, err := db.GetAccountByName(cashDb, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("account %s does not exist", name)
+	}
+	if err != nil {
+		return err
+	}
+	exists, err := db.AccountExists(cashDb, newName)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("account %s already exists", newName)
+	}
+	if err := db.UpdateAccountName(cashDb, account.ID, newName); err != nil {
+		return err
+	}
+	fmt.Printf("Account %s renamed to %s\n", name, newName)
 	return nil
 }
 
@@ -182,7 +327,7 @@ func listAccounts(config config.Config, cashDb db.DBTX) error {
 
 	totalsByAccount := make(map[int64]*accountTotals, len(accounts))
 	for _, account := range accounts {
-		totalsByAccount[account.ID] = &accountTotals{}
+		totalsByAccount[account.ID] = &accountTotals{Balance: account.InitialBalance}
 	}
 
 	now := time.Now()
@@ -232,6 +377,7 @@ func listAccounts(config config.Config, cashDb db.DBTX) error {
 			strconv.FormatInt(account.ID, 10),
 			account.Name,
 			account.Currency,
+			formatAmount(account.InitialBalance, true),
 			formatAmount(totals.Balance, true),
 			strconv.Itoa(totals.Operations),
 		})
@@ -243,7 +389,7 @@ func listAccounts(config config.Config, cashDb db.DBTX) error {
 		WithTitle("Accounts", theme.AccountsTitleBackground).
 		WithSubtitle("Configured cash accounts").
 		WithHeaderBackground(theme.AccountsHeaderBackground).
-		WithHeaders("ID", "Name", "Currency", "Balance", "Operations").
+		WithHeaders("ID", "Name", "Currency", "Initial Balance", "Balance", "Operations").
 		AddRows(rows)
 
 	fmt.Println(t.Render())

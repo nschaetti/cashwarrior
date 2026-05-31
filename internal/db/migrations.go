@@ -27,12 +27,26 @@ CREATE TABLE IF NOT EXISTS accounts (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	name TEXT NOT NULL UNIQUE,
 	currency TEXT NOT NULL DEFAULT 'CHF',
+	initial_balance REAL NOT NULL DEFAULT 0.0,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 `)
 	if err != nil {
 		return err
+	}
+
+	hasInitialBalance, err := accountHasInitialBalanceColumn(db)
+	if err != nil {
+		return err
+	}
+	if !hasInitialBalance {
+		_, err = db.Exec(`
+ALTER TABLE accounts ADD COLUMN initial_balance REAL NOT NULL DEFAULT 0.0
+`)
+		if err != nil {
+			return err
+		}
 	}
 
 	exists, err := AccountExists(db, config.Default.Account)
@@ -48,6 +62,36 @@ CREATE TABLE IF NOT EXISTS accounts (
 		Currency: config.Default.Currency,
 	})
 	return err
+}
+
+func accountHasInitialBalanceColumn(db *sql.DB) (bool, error) {
+	rows, err := db.Query("PRAGMA table_info(accounts)")
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var dataType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+
+		if err = rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
+			return false, err
+		}
+		if name == "initial_balance" {
+			return true, nil
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return false, err
+	}
+
+	return false, nil
 }
 
 func createTagsTable(db *sql.DB, config config.Config) error {
@@ -275,6 +319,7 @@ CREATE TABLE IF NOT EXISTS transfers (
 	from_account_id INTEGER NOT NULL,
 	to_account_id INTEGER NOT NULL,
 	amount REAL NOT NULL,
+	deleted BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	FOREIGN KEY (from_transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
@@ -283,7 +328,52 @@ CREATE TABLE IF NOT EXISTS transfers (
 	FOREIGN KEY (to_account_id) REFERENCES accounts(id)
 );
 `)
+	if err != nil {
+		return err
+	}
+
+	hasDeleted, err := transferHasDeletedColumn(db)
+	if err != nil {
+		return err
+	}
+	if hasDeleted {
+		return nil
+	}
+
+	_, err = db.Exec(`
+ALTER TABLE transfers ADD COLUMN deleted BOOLEAN NOT NULL DEFAULT FALSE
+`)
 	return err
+}
+
+func transferHasDeletedColumn(db *sql.DB) (bool, error) {
+	rows, err := db.Query("PRAGMA table_info(transfers)")
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var dataType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+
+		if err = rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
+			return false, err
+		}
+		if name == "deleted" {
+			return true, nil
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return false, err
+	}
+
+	return false, nil
 }
 
 func createPlacesTable(db *sql.DB, config config.Config) error {

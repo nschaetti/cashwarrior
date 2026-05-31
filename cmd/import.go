@@ -12,6 +12,7 @@ import (
 
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
+	"github.com/nschaetti/cashwarrior/internal/domain"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 	"github.com/pterm/pterm"
 )
@@ -29,8 +30,8 @@ type csvImportData struct {
 }
 
 var csvSchemas = []csvSchema{
-	newCSVSchema("transactions", []string{"identifier", "type", "amount", "description", "datetime", "account", "place", "deleted"}, []string{"category", "group"}, []string{"created_at", "updated_at"}),
-	newCSVSchema("accounts", []string{"name", "currency"}, nil, []string{"created_at", "updated_at"}),
+	newCSVSchema("transactions", []string{"type", "amount", "description", "datetime", "account", "place"}, []string{"identifier", "category", "group", "deleted"}, []string{"created_at", "updated_at"}),
+	newCSVSchema("accounts", []string{"name", "currency"}, []string{"initial_balance"}, []string{"created_at", "updated_at"}),
 	newCSVSchema("budgets", []string{"category", "name", "description", "amount", "currency", "period"}, nil, []string{"created_at", "updated_at"}),
 	newCSVSchema("categories", []string{"name"}, []string{"parent"}, []string{"created_at", "updated_at"}),
 	newCSVSchema("places", []string{"place_name"}, nil, []string{"created_at", "updated_at"}),
@@ -188,17 +189,8 @@ func Import(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) error
 }
 
 func importTransactions(rows []map[string]string, cfg config.Config, query db.DBTX) error {
+	nextNumberByMonth := make(map[string]int)
 	for i, row := range rows {
-		identifier := row["identifier"]
-		if identifier == "" {
-			return fmt.Errorf("csv line %d: identifier is required", i+2)
-		}
-		if _, err := db.GetTransactionByIdentifier(query, identifier); err == nil {
-			return fmt.Errorf("csv line %d: transaction %s already exists", i+2, identifier)
-		} else if !errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("csv line %d: %w", i+2, err)
-		}
-
 		amount, err := strconv.ParseFloat(row["amount"], 64)
 		if err != nil {
 			return fmt.Errorf("csv line %d: invalid amount %q", i+2, row["amount"])
@@ -207,9 +199,28 @@ func importTransactions(rows []map[string]string, cfg config.Config, query db.DB
 		if err != nil {
 			return fmt.Errorf("csv line %d: invalid datetime %q", i+2, row["datetime"])
 		}
-		deleted, err := strconv.ParseBool(row["deleted"])
-		if err != nil {
-			return fmt.Errorf("csv line %d: invalid deleted value %q", i+2, row["deleted"])
+
+		identifier := row["identifier"]
+		if identifier == "" {
+			identifier, err = generateImportTransactionIdentifier(query, datetime, nextNumberByMonth)
+			if err != nil {
+				return fmt.Errorf("csv line %d: %w", i+2, err)
+			}
+		} else {
+			if _, err := db.GetTransactionByIdentifier(query, identifier); err == nil {
+				return fmt.Errorf("csv line %d: transaction %s already exists", i+2, identifier)
+			} else if !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("csv line %d: %w", i+2, err)
+			}
+			reserveImportTransactionIdentifier(identifier, nextNumberByMonth)
+		}
+
+		deleted := false
+		if row["deleted"] != "" {
+			deleted, err = strconv.ParseBool(row["deleted"])
+			if err != nil {
+				return fmt.Errorf("csv line %d: invalid deleted value %q", i+2, row["deleted"])
+			}
 		}
 
 		account, err := db.GetAccountByName(query, row["account"])
@@ -220,19 +231,16 @@ func importTransactions(rows []map[string]string, cfg config.Config, query db.DB
 			return fmt.Errorf("csv line %d: %w", i+2, err)
 		}
 
-		place, err := db.GetPlaceByName(query, row["place"])
-		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("csv line %d: place %s does not exist", i+2, row["place"])
-		}
-		if err != nil {
-			return fmt.Errorf("csv line %d: %w", i+2, err)
-		}
-
-		categoryID, err := resolveOptionalCategoryID(query, row["category"], i+2)
+		placeID, err := resolveOrCreateOptionalPlaceID(query, row["place"], i+2)
 		if err != nil {
 			return err
 		}
-		groupID, err := resolveOptionalGroupID(query, row["group"], i+2)
+
+		categoryID, err := resolveOrCreateOptionalCategoryID(query, row["category"], i+2)
+		if err != nil {
+			return err
+		}
+		groupID, err := resolveOrCreateOptionalGroupID(query, row["group"], i+2)
 		if err != nil {
 			return err
 		}
@@ -245,7 +253,7 @@ func importTransactions(rows []map[string]string, cfg config.Config, query db.DB
 			Datetime:    datetime,
 			AccountID:   account.ID,
 			CategoryID:  categoryID,
-			PlaceID:     &place.ID,
+			PlaceID:     placeID,
 			GroupID:     groupID,
 		})
 		if err != nil {
@@ -262,7 +270,15 @@ func importTransactions(rows []map[string]string, cfg config.Config, query db.DB
 
 func importAccounts(rows []map[string]string, query db.DBTX) error {
 	for i, row := range rows {
-		if _, err := db.InsertAccount(query, db.CreateAccountInput{Name: row["name"], Currency: row["currency"]}); err != nil {
+		initialBalance := 0.0
+		if raw := strings.TrimSpace(row["initial_balance"]); raw != "" {
+			parsed, err := strconv.ParseFloat(raw, 64)
+			if err != nil {
+				return fmt.Errorf("csv line %d: invalid initial_balance %q", i+2, row["initial_balance"])
+			}
+			initialBalance = parsed
+		}
+		if _, err := db.InsertAccount(query, db.CreateAccountInput{Name: row["name"], Currency: row["currency"], InitialBalance: initialBalance}); err != nil {
 			return fmt.Errorf("csv line %d: %w", i+2, err)
 		}
 	}
@@ -426,13 +442,37 @@ func importTransfers(rows []map[string]string, query db.DBTX) error {
 	return nil
 }
 
-func resolveOptionalCategoryID(query db.DBTX, name string, line int) (*int64, error) {
+func resolveOrCreateOptionalPlaceID(query db.DBTX, name string, line int) (*int64, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, nil
+	}
+	place, err := db.GetPlaceByName(query, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		id, insertErr := db.InsertPlace(query, db.CreatePlaceInput{Name: name})
+		if insertErr != nil {
+			return nil, fmt.Errorf("csv line %d: %w", line, insertErr)
+		}
+		return &id, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("csv line %d: %w", line, err)
+	}
+	return &place.ID, nil
+}
+
+func resolveOrCreateOptionalCategoryID(query db.DBTX, name string, line int) (*int64, error) {
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, nil
 	}
 	category, err := db.GetCategoryByName(query, name)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("csv line %d: category %s does not exist", line, name)
+		id, insertErr := db.InsertCategory(query, db.CreateCategoryInput{Name: name})
+		if insertErr != nil {
+			return nil, fmt.Errorf("csv line %d: %w", line, insertErr)
+		}
+		return &id, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("csv line %d: %w", line, err)
@@ -440,13 +480,18 @@ func resolveOptionalCategoryID(query db.DBTX, name string, line int) (*int64, er
 	return &category.ID, nil
 }
 
-func resolveOptionalGroupID(query db.DBTX, name string, line int) (*int64, error) {
+func resolveOrCreateOptionalGroupID(query db.DBTX, name string, line int) (*int64, error) {
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, nil
 	}
 	group, err := db.GetTransactionGroupByName(query, name)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("csv line %d: group %s does not exist", line, name)
+		id, insertErr := db.InsertTransactionGroup(query, db.CreateTransactionGroupInput{Name: name})
+		if insertErr != nil {
+			return nil, fmt.Errorf("csv line %d: %w", line, insertErr)
+		}
+		return &id, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("csv line %d: %w", line, err)
@@ -455,5 +500,73 @@ func resolveOptionalGroupID(query db.DBTX, name string, line int) (*int64, error
 }
 
 func parseDateTime(value string, cfg config.Config) (time.Time, error) {
-	return time.Parse(cfg.Display.DateFormat, value)
+	value = strings.TrimSpace(value)
+	layouts := []string{
+		cfg.Display.DateFormat,
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02",
+		"02.01.2006 15:04:05",
+		"02.01.2006 15:04",
+		"02.01.2006",
+		"02/01/2006 15:04:05",
+		"02/01/2006 15:04",
+		"02/01/2006",
+	}
+
+	seen := make(map[string]bool, len(layouts))
+	for _, layout := range layouts {
+		if layout == "" || seen[layout] {
+			continue
+		}
+		seen[layout] = true
+		parsed, err := time.Parse(layout, value)
+		if err == nil {
+			return time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, parsed.Location()), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unsupported datetime format %q", value)
+}
+
+func generateImportTransactionIdentifier(query db.DBTX, datetime time.Time, nextNumberByMonth map[string]int) (string, error) {
+	monthKey := fmt.Sprintf("%04d.%02d", datetime.Year(), int(datetime.Month()))
+	nextNumber, ok := nextNumberByMonth[monthKey]
+	if !ok {
+		lastNumber, err := getMaxTransactionNumberForMonth(query, datetime.Year(), int(datetime.Month()))
+		if err != nil {
+			return "", err
+		}
+		nextNumber = lastNumber + 1
+	}
+	nextNumberByMonth[monthKey] = nextNumber + 1
+	return fmt.Sprintf("%s.%d", monthKey, nextNumber), nil
+}
+
+func reserveImportTransactionIdentifier(identifier string, nextNumberByMonth map[string]int) {
+	parsedIdentifier, err := domain.ParseTransactionID(identifier)
+	if err != nil {
+		return
+	}
+	monthKey := fmt.Sprintf("%04d.%02d", parsedIdentifier.Year, parsedIdentifier.Month)
+	nextNumber := parsedIdentifier.Num + 1
+	if current, ok := nextNumberByMonth[monthKey]; !ok || nextNumber > current {
+		nextNumberByMonth[monthKey] = nextNumber
+	}
+}
+
+func getMaxTransactionNumberForMonth(query db.DBTX, year int, month int) (int, error) {
+	prefix := fmt.Sprintf("%04d.%02d.", year, month)
+	var maxNumber sql.NullInt64
+	err := query.QueryRow(`
+SELECT MAX(CAST(SUBSTR(identifier, LENGTH(?) + 1) AS INTEGER))
+FROM transactions
+WHERE identifier LIKE ?
+`, prefix, prefix+"%").Scan(&maxNumber)
+	if err != nil {
+		return 0, err
+	}
+	if !maxNumber.Valid {
+		return 0, nil
+	}
+	return int(maxNumber.Int64), nil
 }
