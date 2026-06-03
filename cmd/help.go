@@ -8,6 +8,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
+// printHelp prints the help for the given command.
 func printHelp(parsed parser.ParsedCmdLine) {
 	if parsed.Command == "" {
 		printGlobalHelp()
@@ -29,6 +30,7 @@ func printHelp(parsed parser.ParsedCmdLine) {
 	}
 }
 
+// printGlobalHelp prints the global help.
 func printGlobalHelp() {
 	fmt.Println()
 	fmt.Println("Usage:")
