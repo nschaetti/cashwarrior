@@ -337,90 +337,6 @@ func defaultCommandSpec(name string) CommandSpec {
 }
 
 var CommandSpecs = map[string]CommandSpec{
-	"init": defaultCommandSpec("init"),
-	"add": {
-		Name:              "add",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: addRightSideSpec()}),
-	},
-	"show": {
-		Name:              "show",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())}),
-	},
-	"categories": {
-		Name:              "categories",
-		DefaultSubcommand: "list",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-			SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("category", AttributeValueShapeSingle), setOnlyAttribute("parent", AttributeValueShapeSingle)), 1, 2), "parent", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"category"}, Message: "categories add requires a category name"})},
-			SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("category", AttributeValueShapeSingle), setOnlyAttribute("parent", AttributeValueShapeSingle)), 2, 3), TokenText, exactlyOne()), "category", atMostOne()), "parent", atMostOne()), PresenceRule{Attributes: []string{"category", "parent"}, Message: "categories modify requires at least one modification"})},
-			SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("category", AttributeValueShapeSingle)), 1, 1), "category", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"category"}, Message: "categories delete requires a category name"})},
-		),
-	},
-	"stats": defaultCommandSpec("stats"),
-	"group": {
-		Name:              "group",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 2, 0)}),
-	},
-	"tags": {
-		Name:              "tags",
-		DefaultSubcommand: "list",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-			SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags add requires a tag name"})},
-			SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("tag", AttributeValueShapeSingle)), 2, 2), TokenText, exactlyOne()), "tag", exactlyOne()), PresenceRule{Attributes: []string{"tag"}, Message: "tags modify requires a new tag name"})},
-			SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags delete requires a tag name"})},
-		),
-	},
-	"groups": {
-		Name:              "groups",
-		DefaultSubcommand: "list",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: sideSpec([]TokenKind{TokenAttribute},
-				AttributeSpec{Name: "order", Shapes: AttributeValueShapeSingle},
-				AttributeSpec{Name: "desc", Shapes: AttributeValueShapeSingle},
-			), Right: withArgs(emptySideSpec(), 0, 0)},
-		),
-	},
-	"places": {
-		Name:              "places",
-		DefaultSubcommand: "list",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-			SubcommandSpec{Name: "rename", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenText}), 2, 2), TokenText, countRule(2, 2))},
-		),
-	},
-	"modify": {
-		Name:              "modify",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: transactionFilterSideSpec(), Right: modifyRightSideSpec()}),
-	},
-	"report": defaultCommandSpec("report"),
-	"list": {
-		Name:              "list",
-		DefaultSubcommand: "default",
-		Subcommands: subcommands(SubcommandSpec{Name: "default", Left: transactionFilterSideSpec(
-			AttributeSpec{Name: "order", Shapes: AttributeValueShapeSingle},
-			AttributeSpec{Name: "desc", Shapes: AttributeValueShapeSingle},
-		), Right: genericSideSpec()}),
-	},
-	"delete": {
-		Name:              "delete",
-		DefaultSubcommand: "default",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())},
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-		),
-	},
-	"purge": {
-		Name:              "purge",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())}),
-	},
-	"undo": defaultCommandSpec("undo"),
-	"by":   defaultCommandSpec("by"),
 	"accounts": {
 		Name:              "accounts",
 		DefaultSubcommand: "list",
@@ -434,54 +350,17 @@ var CommandSpecs = map[string]CommandSpec{
 			SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle)), 1, 1), "account", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"account"}, Message: "accounts delete requires an account name"})},
 		),
 	},
-	"balance": defaultCommandSpec("balance"),
-	"fakeit": {
-		Name:              "fakeit",
+	"add": {
+		Name:              "add",
 		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: fakeitRightSideSpec()}),
-	},
-	"transfer": {
-		Name:              "transfer",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: transferRightSideSpec()}),
-	},
-	"set-balance": defaultCommandSpec("set-balance"),
-	"restore": {
-		Name:              "restore",
-		DefaultSubcommand: "default",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())},
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-		),
-	},
-	"config": {
-		Name:              "config",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpecWithAnyAttributes(TokenAttribute), 0, 1)}),
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: addRightSideSpec()}),
 	},
 	"backup": {
 		Name:              "backup",
 		DefaultSubcommand: "default",
 		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withAttributeRule(withArgs(sideSpec([]TokenKind{TokenAttribute}, setOnlyAttribute("output", AttributeValueShapeSingle)), 0, 1), "output", atMostOne())}),
 	},
-	"import": {
-		Name:              "import",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 1, 1)}),
-	},
-	"theme": {
-		Name:              "theme",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 0, 1)}),
-	},
-	"sum": defaultCommandSpec("sum"),
-	"summary": {
-		Name:              "summary",
-		DefaultSubcommand: "",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "days", Left: transactionFilterSideSpec(), Right: transactionFilterSideSpec()},
-		),
-	},
+	"balance": defaultCommandSpec("balance"),
 	"budget": {
 		Name:              "budget",
 		DefaultSubcommand: "list",
@@ -490,6 +369,127 @@ var CommandSpecs = map[string]CommandSpec{
 			SubcommandSpec{Name: "add", Left: budgetSideSpec(), Right: budgetSideSpec()},
 		),
 	},
+	"by": defaultCommandSpec("by"),
+	"categories": {
+		Name:              "categories",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
+			SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("category", AttributeValueShapeSingle), setOnlyAttribute("parent", AttributeValueShapeSingle)), 1, 2), "parent", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"category"}, Message: "categories add requires a category name"})},
+			SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("category", AttributeValueShapeSingle), setOnlyAttribute("parent", AttributeValueShapeSingle)), 2, 3), TokenText, exactlyOne()), "category", atMostOne()), "parent", atMostOne()), PresenceRule{Attributes: []string{"category", "parent"}, Message: "categories modify requires at least one modification"})},
+			SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("category", AttributeValueShapeSingle)), 1, 1), "category", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"category"}, Message: "categories delete requires a category name"})},
+		),
+	},
+	"config": {
+		Name:              "config",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpecWithAnyAttributes(TokenAttribute), 0, 1)}),
+	},
+	"delete": {
+		Name:              "delete",
+		DefaultSubcommand: "default",
+		Subcommands: subcommands(
+			SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())},
+			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
+		),
+	},
+	"fakeit": {
+		Name:              "fakeit",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: fakeitRightSideSpec()}),
+	},
+	"group": {
+		Name:              "group",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 2, 0)}),
+	},
+	"groups": {
+		Name:              "groups",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			SubcommandSpec{Name: "list", Left: sideSpec([]TokenKind{TokenAttribute},
+				AttributeSpec{Name: "order", Shapes: AttributeValueShapeSingle},
+				AttributeSpec{Name: "desc", Shapes: AttributeValueShapeSingle},
+			), Right: withArgs(emptySideSpec(), 0, 0)},
+		),
+	},
+	"import": {
+		Name:              "import",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 1, 1)}),
+	},
+	"init": defaultCommandSpec("init"),
+	"list": {
+		Name:              "list",
+		DefaultSubcommand: "default",
+		Subcommands: subcommands(SubcommandSpec{Name: "default", Left: transactionFilterSideSpec(
+			AttributeSpec{Name: "order", Shapes: AttributeValueShapeSingle},
+			AttributeSpec{Name: "desc", Shapes: AttributeValueShapeSingle},
+		), Right: genericSideSpec()}),
+	},
+	"modify": {
+		Name:              "modify",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: transactionFilterSideSpec(), Right: modifyRightSideSpec()}),
+	},
+	"places": {
+		Name:              "places",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
+			SubcommandSpec{Name: "rename", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenText}), 2, 2), TokenText, countRule(2, 2))},
+		),
+	},
+	"purge": {
+		Name:              "purge",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())}),
+	},
+	"report": defaultCommandSpec("report"),
+	"restore": {
+		Name:              "restore",
+		DefaultSubcommand: "default",
+		Subcommands: subcommands(
+			SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())},
+			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
+		),
+	},
+	"set-balance": defaultCommandSpec("set-balance"),
+	"show": {
+		Name:              "show",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())}),
+	},
+	"stats": defaultCommandSpec("stats"),
+	"sum": defaultCommandSpec("sum"),
+	"summary": {
+		Name:              "summary",
+		DefaultSubcommand: "",
+		Subcommands: subcommands(
+			SubcommandSpec{Name: "days", Left: transactionFilterSideSpec(), Right: transactionFilterSideSpec()},
+		),
+	},
+	"tags": {
+		Name:              "tags",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
+			SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags add requires a tag name"})},
+			SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("tag", AttributeValueShapeSingle)), 2, 2), TokenText, exactlyOne()), "tag", exactlyOne()), PresenceRule{Attributes: []string{"tag"}, Message: "tags modify requires a new tag name"})},
+			SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags delete requires a tag name"})},
+		),
+	},
+	"theme": {
+		Name:              "theme",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 0, 1)}),
+	},
+	"transfer": {
+		Name:              "transfer",
+		DefaultSubcommand: "default",
+		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: transferRightSideSpec()}),
+	},
+	"undo": defaultCommandSpec("undo"),
 }
 
 func GetCommandSpec(name string) (CommandSpec, bool) {
