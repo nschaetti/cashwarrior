@@ -1,6 +1,9 @@
 package parser
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 type AttributeValueShape uint8
 
@@ -60,6 +63,15 @@ type CommandSpec struct {
 	Name              string
 	DefaultSubcommand string
 	Subcommands       map[string]SubcommandSpec
+}
+
+func (c CommandSpec) String() string {
+	return fmt.Sprintf(
+		"<CommandSpec name=%s, default=%s, subcommands=%v>",
+		c.Name,
+		c.DefaultSubcommand,
+		c.Subcommands,
+	)
 }
 
 func allowKinds(kinds ...TokenKind) map[TokenKind]bool {
@@ -217,6 +229,7 @@ func transactionFilterSideSpecWithoutAccount(extraAttrs ...AttributeSpec) SideSp
 	return sideSpec([]TokenKind{TokenPeriod, TokenText, TokenID, TokenAttribute}, base...)
 }
 
+// addRightSideSpec specifies the right side of the add command.
 func addRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]TokenKind{TokenAmount, TokenTag, TokenAttribute, TokenText},
@@ -365,7 +378,10 @@ var CommandSpecs = map[string]CommandSpec{
 		Name:              "groups",
 		DefaultSubcommand: "list",
 		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
+			SubcommandSpec{Name: "list", Left: sideSpec([]TokenKind{TokenAttribute},
+				AttributeSpec{Name: "order", Shapes: AttributeValueShapeSingle},
+				AttributeSpec{Name: "desc", Shapes: AttributeValueShapeSingle},
+			), Right: withArgs(emptySideSpec(), 0, 0)},
 		),
 	},
 	"places": {

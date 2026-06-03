@@ -186,6 +186,8 @@ var helpExamples = map[string][]string{
 	"groups list": {
 		"cash groups",
 		"cash groups list",
+		"cash order:start_date groups",
+		"cash order:end_date desc:true groups",
 	},
 	"places list": {
 		"cash places",

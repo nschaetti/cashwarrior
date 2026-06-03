@@ -45,11 +45,42 @@ type DisplayConfig struct {
 	DateFormat   string `toml:"date_format"`
 	ShowCurrency bool   `toml:"show_currency"`
 	Theme        string `toml:"theme"`
+	ShowHeader   bool   `toml:"show_header"`
+	ShowInfo     bool   `toml:"show_info"`
 }
 
 type BackupConfig struct {
 	Period string `toml:"period"`
 	Keep   int    `toml:"keep"`
+}
+
+func (c Config) String() string {
+	return fmt.Sprintf(
+		"<Config: database_path=%s, default=%s, display=%s, backup=%s>",
+		c.Database,
+		c.Default,
+		c.Display,
+		c.Backup,
+	)
+}
+
+func (c AccountConfig) String() string {
+	return fmt.Sprintf("<AccountConfig: currency=%s, account=%s>", c.Currency, c.Account)
+}
+
+func (c DisplayConfig) String() string {
+	return fmt.Sprintf(
+		"<DisplayConfig: date_format=%s, show_currency=%t, theme=%s, show_header=%v, show_info=%v>",
+		c.DateFormat,
+		c.ShowCurrency,
+		c.Theme,
+		c.ShowHeader,
+		c.ShowInfo,
+	)
+}
+
+func (c BackupConfig) String() string {
+	return fmt.Sprintf("<BackupConfig: period=%s, keep=%d>", c.Period, c.Keep)
 }
 
 func LoadConfig(path string) (Config, error) {

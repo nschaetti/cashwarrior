@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -11,16 +12,29 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
+type groupsSortOptions struct {
+	Field string
+	Desc  bool
+}
+
+func defaultGroupsSortOptions() groupsSortOptions {
+	return groupsSortOptions{Field: "name", Desc: false}
+}
+
 func Groups(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
 	switch parsed.Subcommand {
 	case "list":
-		return listGroups(cashDb)
+		sortOptions, err := parseGroupsSortOptions(parsed)
+		if err != nil {
+			return err
+		}
+		return listGroups(cashDb, sortOptions)
 	default:
 		return fmt.Errorf("unknown groups subcommand %s", parsed.Subcommand)
 	}
 }
 
-func listGroups(cashDb db.DBTX) error {
+func listGroups(cashDb db.DBTX, sortOptions groupsSortOptions) error {
 	groups, err := db.ListTransactionGroups(cashDb, db.TransactionGroupListFilter{})
 	if err != nil {
 		return err
@@ -50,6 +64,38 @@ func listGroups(cashDb db.DBTX) error {
 			newestByGroupID[groupID] = transaction.Datetime
 		}
 	}
+
+	sort.SliceStable(groups, func(i, j int) bool {
+		left := groups[i]
+		right := groups[j]
+
+		compare := 0
+		switch sortOptions.Field {
+		case "name":
+			if left.Name < right.Name {
+				compare = -1
+			} else if left.Name > right.Name {
+				compare = 1
+			}
+		case "start_date":
+			compare = compareGroupDates(oldestByGroupID[left.ID], oldestByGroupID[right.ID])
+		case "end_date":
+			compare = compareGroupDates(newestByGroupID[left.ID], newestByGroupID[right.ID])
+		}
+
+		if compare == 0 {
+			if left.Name < right.Name {
+				compare = -1
+			} else if left.Name > right.Name {
+				compare = 1
+			}
+		}
+
+		if sortOptions.Desc {
+			return compare > 0
+		}
+		return compare < 0
+	})
 
 	rows := make([][]string, 0, len(groups))
 	for _, group := range groups {
@@ -84,4 +130,59 @@ func listGroups(cashDb db.DBTX) error {
 	fmt.Println()
 	fmt.Println()
 	return nil
+}
+
+func compareGroupDates(left time.Time, right time.Time) int {
+	leftSet := !left.IsZero()
+	rightSet := !right.IsZero()
+
+	if leftSet && rightSet {
+		if left.Before(right) {
+			return -1
+		}
+		if left.After(right) {
+			return 1
+		}
+		return 0
+	}
+
+	if leftSet && !rightSet {
+		return -1
+	}
+	if !leftSet && rightSet {
+		return 1
+	}
+
+	return 0
+}
+
+func parseGroupsSortOptions(parsed parser.ParsedCmdLine) (groupsSortOptions, error) {
+	sortOptions := defaultGroupsSortOptions()
+	orderSpecified := false
+
+	for _, filter := range parsed.Filters {
+		if filter.Kind != parser.TokenAttribute {
+			continue
+		}
+
+		switch filter.Key {
+		case "order":
+			if orderSpecified {
+				return sortOptions, fmt.Errorf("order specified multiple times")
+			}
+			if filter.Value != "name" && filter.Value != "start_date" && filter.Value != "end_date" {
+				return sortOptions, fmt.Errorf("unsupported groups order field %s", filter.Value)
+			}
+			sortOptions.Field = filter.Value
+			orderSpecified = true
+		case "desc":
+			desc, err := strconv.ParseBool(filter.Value)
+			if err != nil {
+				return sortOptions, fmt.Errorf("invalid desc value %s", filter.Value)
+			}
+			sortOptions.Desc = desc
+		}
+	}
+
+	return sortOptions, nil
 }

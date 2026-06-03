@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nschaetti/cashwarrior/internal/domain"
+	"github.com/pterm/pterm"
 )
 
 type ParseErrorCode string
@@ -15,6 +16,8 @@ const (
 	ParseErrorUnknownToken ParseErrorCode = "UNKNOWN_TOKEN"
 	// ParseErrorInvalidInput indicates malformed input, such as an empty command line.
 	ParseErrorInvalidInput ParseErrorCode = "INVALID_INPUT"
+	// ParseErrorEmptyCommandLine indicates an empty command line.
+	ParseErrorEmptyCommandLine = "EMPTY_COMMAND_LINE"
 )
 
 // ParseError represents a structured parser or validation error.
@@ -146,7 +149,7 @@ func ClassifyToken(raw string) Token {
 // FindCommand returns the first command found in args and its index.
 func FindCommand(args []string) (command string, index int, parseErr *ParseError) {
 	if len(args) == 0 {
-		return "", -1, &ParseError{Code: ParseErrorInvalidInput, Message: "empty command line"}
+		return "", -1, &ParseError{Code: ParseErrorEmptyCommandLine, Message: "empty command line"}
 	}
 
 	for i, arg := range args {
@@ -173,7 +176,12 @@ func ExtractTokens(args []string) []Token {
 func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 	// Find the command
 	command, index, err := FindCommand(args)
-	if err != nil {
+	if err != nil && err.Code == ParseErrorNoCommand {
+		command = "list"
+		args = append(args, command)
+		index = len(args) - 1
+		pterm.Warning.Println("no command specified, defaulting to 'list'")
+	} else if err != nil {
 		return ParsedCmdLine{}, err
 	}
 
@@ -224,10 +232,12 @@ func splitFlags(args []string) ([]string, []Token) {
 //
 // It ensures the command is known and rejects unknown tokens.
 func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
+	// Special case: help is always valid
 	if parsed.HasFlag("help") {
 		return nil
 	}
 
+	// Get command specification
 	_, ok := GetCommandSpec(parsed.Command)
 	if !ok {
 		return &ParseError{Code: ParseErrorNoCommand, Message: fmt.Sprintf("unknown command: %s", parsed.Command)}
@@ -412,11 +422,13 @@ func presenceRuleSatisfied(rule PresenceRule, kindCounts map[TokenKind]int, attr
 
 // ParseAndValidateCmdLine parses args and then validates the parsed output.
 func ParseAndValidateCmdLine(args []string) (ParsedCmdLine, *ParseError) {
+	// Parse the command line
 	parsed, err := ParseCmdLine(args)
 	if err != nil {
 		return ParsedCmdLine{}, err
 	}
 
+	// Validate the parsed structure
 	if err := ValidateParsedCmdLine(parsed); err != nil {
 		return ParsedCmdLine{}, err
 	}

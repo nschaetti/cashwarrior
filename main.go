@@ -43,6 +43,16 @@ func closeAndRollback(cashDb *sql.DB, tx *sql.Tx) {
 	}
 }
 
+func createHelpCmdLine() parser.ParsedCmdLine {
+	return parser.ParsedCmdLine{
+		Command:    "",
+		Subcommand: "",
+		Filters:    []parser.Token{},
+		Args:       []parser.Token{},
+		Flags:      []parser.Token{{Raw: "--help", Key: "help", Kind: parser.TokenFlag}},
+	}
+}
+
 func run() error {
 	// Check configuration exists
 	cfg, err := config.InitConfig()
@@ -56,14 +66,18 @@ func run() error {
 	gui.ApplyPTermTheme(theme)
 
 	// Print logo
-	printLogo(theme)
+	if cfg.Display.ShowHeader {
+		printLogo(theme)
+	}
 
 	if err := backup.Run(cfg.Database, cfg.Backup, time.Now()); err != nil {
 		pterm.Warning.Println("Automatic backup failed:", err)
 	}
 
 	// Start time & theme
-	pterm.Info.Println("Using theme ", cfg.Display.Theme)
+	if cfg.Display.ShowInfo {
+		pterm.Info.Println("Using theme ", cfg.Display.Theme)
+	}
 	start := time.Now()
 
 	// Parse the command line
@@ -71,13 +85,7 @@ func run() error {
 	parsedCmd, parseErr := parser.ParseAndValidateCmdLine(argv)
 	if parseErr != nil && parseErr.Code == parser.ParseErrorNoCommand {
 		if containsHelpFlag(argv) {
-			parsedCmd = parser.ParsedCmdLine{
-				Command:    "",
-				Subcommand: "",
-				Filters:    []parser.Token{},
-				Args:       []parser.Token{},
-				Flags:      []parser.Token{{Raw: "--help", Key: "help", Kind: parser.TokenFlag}},
-			}
+			parsedCmd = createHelpCmdLine()
 		} else {
 			// Just call "list" if there is no command.
 			parsedCmd = parser.ParsedCmdLine{
@@ -87,12 +95,15 @@ func run() error {
 				Args:       []parser.Token{},
 			}
 		}
-	} else if parseErr != nil {
-		return fmt.Errorf("error: %s", parseErr.Message)
+	} else if parseErr != nil && parseErr.Code == parser.ParseErrorEmptyCommandLine {
+		pterm.Error.Println("Empty command line, you must specify a command.")
+		parsedCmd = createHelpCmdLine()
 	}
 
 	// Open the database
-	pterm.Info.Println("Using SQLite database ", cfg.Database)
+	if cfg.Display.ShowInfo {
+		pterm.Info.Println("Using SQLite database ", cfg.Database)
+	}
 	cashDb, dErr := db.Open(cfg)
 	if dErr != nil {
 		return fmt.Errorf("error opening database: %w", dErr)

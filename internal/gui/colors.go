@@ -582,7 +582,7 @@ func ApplyPTermTheme(theme Theme) {
 		if err != nil {
 			return
 		}
-		setter(rgb.Sprintf(" %s ", label))
+		setter(rgb.Sprint(label))
 	}
 
 	applyPrefix(theme.PTermInfoColor, "INFO", func(text string) {
