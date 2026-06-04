@@ -100,27 +100,17 @@ func getTransactionDescription(parsed parser.ParsedCmdLine, counts map[parser.To
 	return strings.Join(textParts, " ")
 }
 
-func getNextIdentifier(cashDb db.DBTX) (domain.TransactionID, error) {
-	// Get next transaction identifier
-	lastTransaction, err := db.GetLastTransaction(cashDb)
-	if errors.Is(err, sql.ErrNoRows) {
-		return domain.CurrentTransactionID(1), nil
-	} else if err != nil {
-		return domain.CurrentTransactionID(0), err
-	}
-
-	// Parse identifier
-	id, err := domain.ParseTransactionID(lastTransaction.Identifier)
+func getNextIdentifier(cashDb db.DBTX, transactionTime time.Time) (domain.TransactionID, error) {
+	lastNumber, err := getMaxTransactionNumberForMonth(cashDb, transactionTime.Year(), int(transactionTime.Month()))
 	if err != nil {
 		return domain.TransactionID{}, err
 	}
 
-	// Same year-month -> increment sequence number
-	if id.Month == int(time.Now().Month()) && id.Year == int(time.Now().Year()) {
-		return domain.CurrentTransactionID(id.Num + 1), nil
-	}
-
-	return domain.CurrentTransactionID(0), nil
+	return domain.TransactionID{
+		Year:  transactionTime.Year(),
+		Month: int(transactionTime.Month()),
+		Num:   lastNumber + 1,
+	}, nil
 }
 
 func getTransactionAmount(parsed parser.ParsedCmdLine, counts map[parser.TokenKind]int) float32 {
@@ -322,8 +312,14 @@ func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) erro
 	desc := getTransactionDescription(parsed, tokenKindsCount)
 	amount := getTransactionAmount(parsed, tokenKindsCount)
 
-	// Get next transaction identifier
-	nextIdentifier, err := getNextIdentifier(cashDb)
+	// Get transaction datetime
+	transactionTime, err := getTransactionDatetime(attributes, config)
+	if err != nil {
+		return err
+	}
+
+	// Get next transaction identifier for the transaction month
+	nextIdentifier, err := getNextIdentifier(cashDb, transactionTime)
 	if err != nil {
 		return err
 	}
@@ -334,12 +330,6 @@ func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) erro
 		transactionType = "expense"
 	} else {
 		transactionType = "income"
-	}
-
-	// Get transaction datetime
-	transactionTime, err := getTransactionDatetime(attributes, config)
-	if err != nil {
-		return err
 	}
 
 	// Get store

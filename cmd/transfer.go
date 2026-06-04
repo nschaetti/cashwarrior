@@ -57,16 +57,16 @@ func Transfer(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) er
 		return err
 	}
 
-	nextIdentifier, err := getNextIdentifier(cashDb)
-	if err != nil {
-		return err
-	}
-	secondIdentifier := domain.TransactionID{Year: nextIdentifier.Year, Month: nextIdentifier.Month, Num: nextIdentifier.Num + 1}
-
 	transactionTime, err := getTransactionDatetime(attributes, cfg)
 	if err != nil {
 		return err
 	}
+
+	nextIdentifier, err := getNextIdentifier(cashDb, transactionTime)
+	if err != nil {
+		return err
+	}
+	secondIdentifier := domain.TransactionID{Year: nextIdentifier.Year, Month: nextIdentifier.Month, Num: nextIdentifier.Num + 1}
 
 	description := "Transfer"
 	textParts := make([]string, 0)
