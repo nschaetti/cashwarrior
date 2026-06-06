@@ -19,6 +19,7 @@ type AttributeValue struct {
 	Items []string
 	Start string
 	End   string
+	Clear bool
 }
 
 func (v AttributeValue) String() string {

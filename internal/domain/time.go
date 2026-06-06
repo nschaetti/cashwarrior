@@ -65,68 +65,104 @@ func ShortcutLastYear() (time.Time, time.Time) {
 	return start, end
 }
 
-func ShortcutJanuary() (time.Time, time.Time) {
-	start, end, err := namedMonthRange("january")
+func getWeekdayShortcut(weekday time.Weekday) (time.Time, time.Time) {
+	now := time.Now()
+	start, end := ShortcutToday()
+	if now.Weekday() != weekday {
+		// Start of the week, Monday, at 00:00:00
+		weekStart := now.AddDate(0, 0, -int(now.Weekday()))
+		if now.Weekday() < weekday {
+			start = weekStart.AddDate(0, 0, -7).AddDate(0, 0, int(weekday))
+		} else {
+			start = weekStart.AddDate(0, 0, int(weekday))
+		}
+		end = start.AddDate(0, 0, 1).Add(-time.Nanosecond)
+	}
+	return start, end
+}
+
+func ShortcutMonday() (time.Time, time.Time) {
+	return getWeekdayShortcut(time.Monday)
+}
+
+func ShortcutTuesday() (time.Time, time.Time) {
+	return getWeekdayShortcut(time.Tuesday)
+}
+
+func ShortcutWednesday() (time.Time, time.Time) {
+	return getWeekdayShortcut(time.Wednesday)
+}
+
+func ShortcutThursday() (time.Time, time.Time) {
+	return getWeekdayShortcut(time.Thursday)
+}
+
+func ShortcutFriday() (time.Time, time.Time) {
+	return getWeekdayShortcut(time.Friday)
+}
+
+func ShortcutSaturday() (time.Time, time.Time) {
+	return getWeekdayShortcut(time.Saturday)
+}
+
+func ShortcutSunday() (time.Time, time.Time) {
+	return getWeekdayShortcut(time.Sunday)
+}
+
+func ShortcutNamedMonth(name string) (time.Time, time.Time) {
+	start, end, err := namedMonthRange(name)
 	if err != nil {
 		panic(">" + err.Error() + "<")
 	}
 	return start, end
+}
+
+func ShortcutJanuary() (time.Time, time.Time) {
+	return ShortcutNamedMonth("january")
 }
 
 func ShortcutFebruary() (time.Time, time.Time) {
-	start, end, err := namedMonthRange("february")
-	if err != nil {
-		panic(">" + err.Error() + "<")
-	}
-	return start, end
+	return ShortcutNamedMonth("february")
 }
 
 func ShortcutMarch() (time.Time, time.Time) {
-	start, end, err := namedMonthRange("march")
-	if err != nil {
-		panic(">" + err.Error() + "<")
-	}
-	return start, end
+	return ShortcutNamedMonth("march")
 }
 
 func ShortcutApril() (time.Time, time.Time) {
-	start, end, err := namedMonthRange("april")
-	if err != nil {
-		panic(">" + err.Error() + "<")
-	}
-	return start, end
+	return ShortcutNamedMonth("april")
 }
 
 func ShortcutMay() (time.Time, time.Time) {
-	start, end, err := namedMonthRange("may")
-	if err != nil {
-		panic(">" + err.Error() + "<")
-	}
-	return start, end
+	return ShortcutNamedMonth("may")
 }
 
 func ShortcutJune() (time.Time, time.Time) {
-	start, end, err := namedMonthRange("june")
-	if err != nil {
-		panic(">" + err.Error() + "<")
-	}
-	return start, end
+	return ShortcutNamedMonth("june")
 }
 
 func ShortcutJuly() (time.Time, time.Time) {
-	start, end, err := namedMonthRange("july")
-	if err != nil {
-		panic(">" + err.Error() + "<")
-	}
-	return start, end
+	return ShortcutNamedMonth("july")
 }
 
 func ShortcutAugust() (time.Time, time.Time) {
-	start, end, err := namedMonthRange("august")
-	if err != nil {
-		panic(">" + err.Error() + "<")
-	}
-	return start, end
+	return ShortcutNamedMonth("august")
+}
+
+func ShortcutSeptember() (time.Time, time.Time) {
+	return ShortcutNamedMonth("september")
+}
+
+func ShortcutOctober() (time.Time, time.Time) {
+	return ShortcutNamedMonth("october")
+}
+
+func ShortcutNovember() (time.Time, time.Time) {
+	return ShortcutNamedMonth("november")
+}
+
+func ShortcutDecember() (time.Time, time.Time) {
+	return ShortcutNamedMonth("december")
 }
 
 var timeShortcutFunc = map[string]func() (time.Time, time.Time){
@@ -149,17 +185,28 @@ var timeShortcutFunc = map[string]func() (time.Time, time.Time){
 	"sunday":    ShortcutSunday,
 	// Month
 	"january":   ShortcutJanuary,
+	"jan":       ShortcutJanuary,
 	"february":  ShortcutFebruary,
+	"feb":       ShortcutFebruary,
 	"march":     ShortcutMarch,
+	"mar":       ShortcutMarch,
 	"april":     ShortcutApril,
+	"apr":       ShortcutApril,
 	"may":       ShortcutMay,
 	"june":      ShortcutJune,
+	"jun":       ShortcutJune,
 	"july":      ShortcutJuly,
+	"jul":       ShortcutJuly,
 	"august":    ShortcutAugust,
+	"aug":       ShortcutAugust,
 	"september": ShortcutSeptember,
+	"sep":       ShortcutSeptember,
 	"october":   ShortcutOctober,
+	"oct":       ShortcutOctober,
 	"november":  ShortcutNovember,
+	"nov":       ShortcutNovember,
 	"december":  ShortcutDecember,
+	"dec":       ShortcutDecember,
 }
 
 var namedMonths = map[string]time.Month{
@@ -202,6 +249,31 @@ func namedMonthRange(name string) (time.Time, time.Time, error) {
 
 	start := time.Date(year, month, 1, 0, 0, 0, 0, now.Location())
 	end := start.AddDate(0, 1, 0).Add(-time.Nanosecond)
+	return start, end, nil
+}
+
+func numberedYearRange(shortcut string) (time.Time, time.Time, error) {
+	value := strings.TrimPrefix(strings.ToLower(shortcut), "year")
+	yearNumber, err := strconv.Atoi(value)
+	if err != nil || yearNumber <= 0 {
+		return time.Time{}, time.Time{}, fmt.Errorf("unknown year shortcut: %s", shortcut)
+	}
+	start := time.Date(yearNumber, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(1, 0, 0).Add(-time.Nanosecond)
+	return start, end, nil
+}
+
+func numberedDayRange(shortcut string) (time.Time, time.Time, error) {
+	value := strings.TrimPrefix(strings.ToLower(shortcut), "day")
+	dayNumber, err := strconv.Atoi(value)
+	if err != nil || dayNumber <= 0 {
+		return time.Time{}, time.Time{}, fmt.Errorf("unknown day shortcut: %s", shortcut)
+	}
+
+	now := time.Now()
+	location := now.Location()
+	start := time.Date(now.Year(), now.Month(), dayNumber, 0, 0, 0, 0, location)
+	end := start.AddDate(0, 0, 1).Add(-time.Nanosecond)
 	return start, end, nil
 }
 

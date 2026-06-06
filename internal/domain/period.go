@@ -60,6 +60,14 @@ const (
 	PeriodNovember
 	// PeriodDecember matches entries from December.
 	PeriodDecember
+	// PeriodNumberedYear matches entries from the current year.
+	PeriodNumberedYear
+	// PeriodNumberedMonth matches entries from the current month.
+	PeriodNumberedMonth
+	// PeriodNumberedWeek matches entries from the current week.
+	PeriodNumberedWeek
+	// PeriodNumberedDay matches entries from the current day.
+	PeriodNumberedDay
 )
 
 var periodNames = map[string]PeriodKind{
@@ -133,10 +141,18 @@ func ParsePeriod(s string) (PeriodKind, error) {
 		return kind, nil
 	}
 	if IsTimeShortcut(s) {
-		if len(s) >= 4 && s[:4] == "week" {
-			return s, nil
+		if len(s) > 4 && s[:4] == "week" {
+			return PeriodNumberedWeek, nil
 		}
-		return s, nil
+		if len(s) > 3 && s[:3] == "day" {
+			return PeriodNumberedDay, nil
+		}
+		if len(s) > 5 && s[:5] == "month" {
+			return PeriodNumberedMonth, nil
+		}
+		if len(s) > 4 && s[:4] == "year" {
+			return PeriodNumberedYear, nil
+		}
 	}
 	return 0, fmt.Errorf("invalid period: %s", s)
 }

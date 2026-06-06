@@ -11,11 +11,24 @@ const (
 	AttributeValueShapeSingle AttributeValueShape = 1 << iota
 	AttributeValueShapeList
 	AttributeValueShapeRange
+	AttributeValueShapeOperator
+)
+
+type AttributeValueType uint8
+
+const (
+	AttributeValueTypeString AttributeValueType = iota
+	AttributeValueTypeInteger
+	AttributeValueTypeFloat
+	AttributeValueTypeDate
+	AttributeValueTypeBool
+	AttributeValueTypeFile
 )
 
 type AttributeSpec struct {
 	Name      string
 	Shapes    AttributeValueShape
+	Type      AttributeValueType
 	Settable  bool
 	Clearable bool
 }
@@ -30,6 +43,50 @@ func (s AttributeSpec) AllowsSet() bool {
 func (s AttributeSpec) AllowsClear() bool {
 	return s.Clearable
 }
+
+var AttributeSpecs = map[string]AttributeSpec{
+	"amount": {
+		Name:      "amount",
+		Shapes:    AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:      AttributeValueTypeFloat,
+		Settable:  true,
+		Clearable: false,
+	},
+	"account": {
+		Name:      "account",
+		Shapes:    AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:      AttributeValueTypeString,
+		Settable:  true,
+		Clearable: false,
+	},
+	"category": {
+		Name:      "category",
+		Shapes:    AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:      AttributeValueTypeString,
+		Settable:  true,
+		Clearable: true,
+	},
+	"currency": {
+		Name:      "currency",
+		Shapes:    AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:      AttributeValueTypeString,
+		Settable:  false,
+		Clearable: false,
+	},
+	"date": {
+		Name:      "date",
+		Shapes:    AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:      AttributeValueTypeDate,
+		Settable:  true,
+	},
+	"desc": {
+		Name:      "desc",
+		 Shapes:    AttributeValueShapeSingle,
+		 Type:      AttributeValueTypeBool,
+		 Settable:  true,
+		 Clearable: false,
+	},
+},
 
 type CountRule struct {
 	Min int
@@ -100,13 +157,10 @@ func subcommands(specs ...SubcommandSpec) map[string]SubcommandSpec {
 
 func allSupportedKinds() map[TokenKind]bool {
 	return allowKinds(
-		TokenAmount,
 		TokenTag,
 		TokenTagNegative,
 		TokenAttribute,
 		TokenAttributeClear,
-		TokenID,
-		TokenPeriod,
 		TokenText,
 	)
 }
@@ -121,8 +175,15 @@ func genericSideSpec() SideSpec {
 	}
 }
 
+// emptySideSpec specifies a side that accepts no tokens.
 func emptySideSpec() SideSpec {
-	return SideSpec{AllowedKinds: map[TokenKind]bool{}, Attributes: map[string]AttributeSpec{}, KindRules: map[TokenKind]CountRule{}, AttributeRules: map[string]CountRule{}, AtLeastOneOf: []PresenceRule{}}
+	return SideSpec{
+		AllowedKinds:   map[TokenKind]bool{},
+		Attributes:     map[string]AttributeSpec{},
+		KindRules:      map[TokenKind]CountRule{},
+		AttributeRules: map[string]CountRule{},
+		AtLeastOneOf:   []PresenceRule{},
+	}
 }
 
 func sideSpec(kinds []TokenKind, attrs ...AttributeSpec) SideSpec {
@@ -198,19 +259,17 @@ func setOrClearAttribute(name string, shapes AttributeValueShape) AttributeSpec 
 
 func transactionFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 	base := []AttributeSpec{
-		{Name: "account", Shapes: AttributeValueShapeSingle},
-		{Name: "currency", Shapes: AttributeValueShapeSingle},
-		{Name: "store", Shapes: AttributeValueShapeSingle},
+		{Name: "account", Shapes: AttributeValueShapeSingle | AttributeValueShapeList},
+		{Name: "currency", Shapes: AttributeValueShapeSingle | AttributeValueShapeList},
+		{Name: "store", Shapes: AttributeValueShapeSingle | AttributeValueShapeList},
 		{Name: "desc", Shapes: AttributeValueShapeSingle},
-		{Name: "date", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
-		{Name: "period", Shapes: AttributeValueShapeSingle},
-		{Name: "time", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
-		{Name: "datetime", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
-		{Name: "group", Shapes: AttributeValueShapeSingle},
-		{Name: "identifier", Shapes: AttributeValueShapeSingle},
+		{Name: "date", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange | AttributeValueShapeList},
+		{Name: "period", Shapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange},
+		{Name: "group", Shapes: AttributeValueShapeSingle | AttributeValueShapeList},
+		{Name: "identifier", Shapes: AttributeValueShapeSingle | AttributeValueShapeList},
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]TokenKind{TokenPeriod, TokenText, TokenID, TokenAttribute}, base...)
+	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
 }
 
 func transactionFilterSideSpecWithoutAccount(extraAttrs ...AttributeSpec) SideSpec {
@@ -220,29 +279,25 @@ func transactionFilterSideSpecWithoutAccount(extraAttrs ...AttributeSpec) SideSp
 		{Name: "desc", Shapes: AttributeValueShapeSingle},
 		{Name: "date", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
 		{Name: "period", Shapes: AttributeValueShapeSingle},
-		{Name: "time", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
-		{Name: "datetime", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
 		{Name: "group", Shapes: AttributeValueShapeSingle},
 		{Name: "identifier", Shapes: AttributeValueShapeSingle},
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]TokenKind{TokenPeriod, TokenText, TokenID, TokenAttribute}, base...)
+	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
 }
 
 // addRightSideSpec specifies the right side of the add command.
 func addRightSideSpec() SideSpec {
 	side := sideSpec(
-		[]TokenKind{TokenAmount, TokenTag, TokenAttribute, TokenText},
-		setOnlyAttribute("datetime", AttributeValueShapeSingle),
+		[]TokenKind{TokenTag, TokenAttribute, TokenText},
 		setOnlyAttribute("date", AttributeValueShapeSingle),
-		setOnlyAttribute("time", AttributeValueShapeSingle),
 		setOnlyAttribute("store", AttributeValueShapeSingle),
 		setOnlyAttribute("account", AttributeValueShapeSingle),
 		setOnlyAttribute("category", AttributeValueShapeSingle),
 		setOnlyAttribute("group", AttributeValueShapeSingle),
 	)
 	side = withArgs(side, 2, 0)
-	side = withKindRule(side, TokenAmount, atLeastOne())
+	side = withAttributeRule(side, "amount", exactlyOne())
 	for _, name := range []string{"datetime", "date", "time", "store", "account", "category", "group"} {
 		side = withAttributeRule(side, name, atMostOne())
 	}
@@ -257,8 +312,6 @@ func modifyRightSideSpec() SideSpec {
 		setOnlyAttribute("amount", AttributeValueShapeSingle),
 		setOnlyAttribute("desc", AttributeValueShapeSingle),
 		setOnlyAttribute("date", AttributeValueShapeSingle),
-		setOnlyAttribute("time", AttributeValueShapeSingle),
-		setOnlyAttribute("datetime", AttributeValueShapeSingle),
 		setOnlyAttribute("account", AttributeValueShapeSingle),
 		setOrClearAttribute("category", AttributeValueShapeSingle),
 		setOnlyAttribute("store", AttributeValueShapeSingle),
@@ -273,19 +326,15 @@ func modifyRightSideSpec() SideSpec {
 
 func transferRightSideSpec() SideSpec {
 	side := sideSpec(
-		[]TokenKind{TokenAmount, TokenAttribute, TokenText},
+		[]TokenKind{TokenAttribute, TokenText},
 		setOnlyAttribute("from", AttributeValueShapeSingle),
 		setOnlyAttribute("to", AttributeValueShapeSingle),
 		setOnlyAttribute("date", AttributeValueShapeSingle),
-		setOnlyAttribute("time", AttributeValueShapeSingle),
-		setOnlyAttribute("datetime", AttributeValueShapeSingle),
 	)
-	side = withKindRule(side, TokenAmount, exactlyOne())
+	side = withAttributeRule(side, "amount", exactlyOne())
 	side = withAttributeRule(side, "from", exactlyOne())
 	side = withAttributeRule(side, "to", exactlyOne())
 	side = withAttributeRule(side, "date", atMostOne())
-	side = withAttributeRule(side, "time", atMostOne())
-	side = withAttributeRule(side, "datetime", atMostOne())
 	return side
 }
 
@@ -315,7 +364,6 @@ func budgetSideSpec() SideSpec {
 			setOnlyAttribute("date", AttributeValueShapeSingle|AttributeValueShapeRange),
 			setOnlyAttribute("desc", AttributeValueShapeSingle),
 			setOnlyAttribute("group", AttributeValueShapeSingle|AttributeValueShapeList),
-			setOnlyAttribute("period", AttributeValueShapeSingle),
 			setOnlyAttribute("store", AttributeValueShapeSingle|AttributeValueShapeList),
 		),
 		KindRules:      map[TokenKind]CountRule{},
@@ -390,6 +438,7 @@ var CommandSpecs = map[string]CommandSpec{
 		DefaultSubcommand: "default",
 		Subcommands: subcommands(
 			SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())},
+			SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withAttributeRule()},
 			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
 		),
 	},
@@ -461,7 +510,7 @@ var CommandSpecs = map[string]CommandSpec{
 		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())}),
 	},
 	"stats": defaultCommandSpec("stats"),
-	"sum": defaultCommandSpec("sum"),
+	"sum":   defaultCommandSpec("sum"),
 	"summary": {
 		Name:              "summary",
 		DefaultSubcommand: "",

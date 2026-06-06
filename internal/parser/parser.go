@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nschaetti/cashwarrior/internal/domain"
 	"github.com/pterm/pterm"
 )
 
@@ -36,29 +35,35 @@ func (e *ParseError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Message, e.Token)
 }
 
+type Attribute struct {
+	Key   string
+	Value AttributeValue
+}
+
+type Flag struct {
+	Key   string
+	Value string
+}
+
 // Token is a classified lexical unit extracted from the command line.
+// If the token is an attribute, attribute name and value are in Attribute
+// If the token is a flag, flag name and value are in Flag.
+// If the token is a text, it is in Raw.
+// If the token is a tag, it is in Tag.
 type Token struct {
-	Raw     string
-	Amount  float32
-	TransID domain.TransactionID
-	Period  domain.PeriodKind
-	Kind    TokenKind
-	Key     string
-	Value   string
+	Raw       string
+	Kind      TokenKind
+	Tag       string
+	Attribute Attribute
+	Flag      Flag
 }
 
 // String returns a debug-friendly string representation of a token.
 func (t Token) String() string {
-	if t.Kind == TokenAmount {
-		return fmt.Sprintf("<Token %s: %f>", t.Kind, t.Amount)
-	} else if t.Kind == TokenID {
-		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.TransID)
-	} else if t.Kind == TokenPeriod {
-		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Period)
-	} else if t.Kind == TokenAttribute {
-		return fmt.Sprintf("<Token %s: %s=%s>", t.Kind, t.Key, t.Value)
+	if t.Kind == TokenAttribute {
+		return fmt.Sprintf("<Token %s: %s=%s>", t.Kind, t.Attribute.Key, t.Attribute.Value)
 	} else if t.Kind == TokenAttributeClear {
-		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Key)
+		return fmt.Sprintf("<Token %s: %s>", t.Attribute.Key)
 	} else if t.Kind == TokenTag {
 		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
 	} else if t.Kind == TokenTagNegative {
@@ -66,10 +71,10 @@ func (t Token) String() string {
 	} else if t.Kind == TokenText {
 		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
 	} else if t.Kind == TokenFlag {
-		if t.Value == "" {
-			return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Key)
+		if t.Flag.Value == "" {
+			return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Flag.Key)
 		}
-		return fmt.Sprintf("<Token %s: %s=%s>", t.Kind, t.Key, t.Value)
+		return fmt.Sprintf("<Token %s: %s=%s>", t.Kind, t.Flag.Key, t.Flag.Value)
 	}
 	return fmt.Sprintf("<Token unknown %s: %s>", t.Kind, t.Raw)
 }
@@ -79,13 +84,10 @@ type TokenKind int
 
 const (
 	TokenUnknown TokenKind = iota
-	TokenAmount
 	TokenTag
 	TokenTagNegative
 	TokenAttribute
 	TokenAttributeClear
-	TokenID
-	TokenPeriod
 	TokenText
 	TokenFlag
 )
@@ -95,8 +97,6 @@ func (k TokenKind) String() string {
 	switch k {
 	case TokenUnknown:
 		return "unknown"
-	case TokenAmount:
-		return "amount"
 	case TokenTag:
 		return "tag"
 	case TokenTagNegative:
@@ -105,10 +105,6 @@ func (k TokenKind) String() string {
 		return "attribute"
 	case TokenAttributeClear:
 		return "attribute-clear"
-	case TokenID:
-		return "id"
-	case TokenPeriod:
-		return "period"
 	case TokenText:
 		return "text"
 	case TokenFlag:
@@ -128,7 +124,7 @@ var tokenRules = []TokenRule{
 	//classifyAmount,
 	//classifyID,
 	classifyAttribute,
-	classifyPeriod,
+	//classifyPeriod,
 	classifyText,
 }
 
@@ -207,9 +203,11 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 	}
 	argsTokens := ExtractTokens(rawArgs)
 
-	fmt.Printf("command: %s\n", command)
-	fmt.Printf("filter tokens: %v\n", filterTokens)
-	fmt.Printf("flag tokens: %v\n", flagTokens)
+	fmt.Printf("Command: %s\n", command)
+	fmt.Printf("Subcommand: %s\n", subcommand)
+	fmt.Printf("Filter tokens: %v\n", filterTokens)
+	fmt.Printf("Args tokens: %v\n", argsTokens)
+	fmt.Printf("Flag tokens: %v\n", flagTokens)
 	os.Exit(0)
 	// Put it all together
 	return ParsedCmdLine{

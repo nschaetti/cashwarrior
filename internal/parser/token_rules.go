@@ -2,8 +2,6 @@ package parser
 
 import (
 	"strings"
-
-	"github.com/nschaetti/cashwarrior/internal/domain"
 )
 
 func classifyFlag(raw string) (Token, bool) {
@@ -102,17 +100,17 @@ func classifyAttribute(raw string) (Token, bool) {
 //}
 
 // classifyPeriod classifies known period keywords (for example "today").
-func classifyPeriod(raw string) (Token, bool) {
-	period, err := domain.ParsePeriod(raw)
-	if err != nil {
-		return Token{}, false
-	}
-	return Token{
-		Raw:    raw,
-		Kind:   TokenPeriod,
-		Period: period,
-	}, true
-}
+//func classifyPeriod(raw string) (Token, bool) {
+//	period, err := domain.ParsePeriod(raw)
+//	if err != nil {
+//		return Token{}, false
+//	}
+//	return Token{
+//		Raw:    raw,
+//		Kind:   TokenPeriod,
+//		Period: period,
+//	}, true
+//}
 
 // classifyText is the fallback classifier for plain text tokens.
 func classifyText(raw string) (Token, bool) {
