@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/nschaetti/cashwarrior/internal/domain"
 	"github.com/pterm/pterm"
@@ -55,7 +56,7 @@ func (t Token) String() string {
 	} else if t.Kind == TokenPeriod {
 		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Period)
 	} else if t.Kind == TokenAttribute {
-		return fmt.Sprintf("<Token %s: %s:%s>", t.Kind, t.Key, t.Value)
+		return fmt.Sprintf("<Token %s: %s=%s>", t.Kind, t.Key, t.Value)
 	} else if t.Kind == TokenAttributeClear {
 		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Key)
 	} else if t.Kind == TokenTag {
@@ -124,8 +125,8 @@ var tokenRules = []TokenRule{
 	classifyFlag,
 	classifyNegativeTag,
 	classifyTag,
-	classifyAmount,
-	classifyID,
+	//classifyAmount,
+	//classifyID,
 	classifyAttribute,
 	classifyPeriod,
 	classifyText,
@@ -195,6 +196,8 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 	rawArgs, flagTokensRight := splitFlags(args[index+1:])
 	filterTokens := ExtractTokens(rawFilterTokens)
 	flagTokens := append(flagTokensLeft, flagTokensRight...)
+
+	// Subcommand
 	subcommand := commandSpec.DefaultSubcommand
 	if len(rawArgs) > 0 {
 		if _, ok := commandSpec.Subcommands[rawArgs[0]]; ok {
@@ -204,6 +207,10 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 	}
 	argsTokens := ExtractTokens(rawArgs)
 
+	fmt.Printf("command: %s\n", command)
+	fmt.Printf("filter tokens: %v\n", filterTokens)
+	fmt.Printf("flag tokens: %v\n", flagTokens)
+	os.Exit(0)
 	// Put it all together
 	return ParsedCmdLine{
 		Command:    command,

@@ -1,24 +1,28 @@
 package parser
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/nschaetti/cashwarrior/internal/domain"
 )
 
 func classifyFlag(raw string) (Token, bool) {
+	// -h help
 	if raw == "-h" {
 		return Token{Raw: raw, Key: "help", Kind: TokenFlag}, true
 	}
+	// alone --, not a flag
 	if !strings.HasPrefix(raw, "--") || len(raw) <= 2 {
 		return Token{}, false
 	}
 	trimmed := strings.TrimPrefix(raw, "--")
+	// --key=value
 	parts := strings.SplitN(trimmed, "=", 2)
+	// key
 	if len(parts) == 1 {
 		return Token{Raw: raw, Key: parts[0], Kind: TokenFlag}, true
 	}
+	// key=value
 	return Token{Raw: raw, Key: parts[0], Value: parts[1], Kind: TokenFlag}, true
 }
 
@@ -45,20 +49,21 @@ func classifyTag(raw string) (Token, bool) {
 }
 
 // classifyAmount classifies signed numeric tokens like "+12.50" or "-3".
-func classifyAmount(raw string) (Token, bool) {
-	if strings.HasPrefix(raw, "+") || strings.HasPrefix(raw, "-") {
-		// Try to parse as a float.
-		amount, err := strconv.ParseFloat(raw, 32)
-		if err == nil {
-			return Token{
-				Raw:    raw,
-				Amount: float32(amount),
-				Kind:   TokenAmount,
-			}, true
-		}
-	}
-	return Token{}, false
-}
+//func classifyAmount(raw string) (Token, bool) {
+//	// amounts have a dollar sign (even if not in dollars).
+//	if strings.HasPrefix(raw, "$") && len(raw) > 1 {
+//		// Try to parse as a float.
+//		amount, err := strconv.ParseFloat(raw[1:], 32)
+//		if err == nil {
+//			return Token{
+//				Raw:    raw,
+//				Amount: float32(amount),
+//				Kind:   TokenAmount,
+//			}, true
+//		}
+//	}
+//	return Token{}, false
+//}
 
 // classifyAttribute classifies tokens like "key:value" and "key:".
 func classifyAttribute(raw string) (Token, bool) {
@@ -81,17 +86,20 @@ func classifyAttribute(raw string) (Token, bool) {
 }
 
 // classifyID classifies transaction IDs in the public format.
-func classifyID(raw string) (Token, bool) {
-	transactionId, err := domain.ParseTransactionID(raw)
-	if err != nil {
-		return Token{}, false
-	}
-	return Token{
-		Raw:     raw,
-		TransID: transactionId,
-		Kind:    TokenID,
-	}, true
-}
+//func classifyID(raw string) (Token, bool) {
+//	fmt.Printf("classifyID: %s\n", raw)
+//	transactionId, err := domain.ParseTransactionID(raw)
+//	fmt.Printf("classifyID: %s\n", transactionId)
+//	fmt.Printf("classifyID: %v\n", err)
+//	if err != nil {
+//		return Token{}, false
+//	}
+//	return Token{
+//		Raw:     raw,
+//		TransID: transactionId,
+//		Kind:    TokenID,
+//	}, true
+//}
 
 // classifyPeriod classifies known period keywords (for example "today").
 func classifyPeriod(raw string) (Token, bool) {
