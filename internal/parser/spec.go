@@ -5,15 +5,46 @@ import (
 	"sort"
 )
 
+// region AttributeSpecs
+
+// AttributeValueShape are the shapes of an attribute value (single, list, range, operator)
 type AttributeValueShape uint8
 
 const (
-	AttributeValueShapeSingle AttributeValueShape = 1 << iota
-	AttributeValueShapeList
-	AttributeValueShapeRange
-	AttributeValueShapeOperator
+	AttributeValueShapeSingle AttributeValueShape = 1 << iota // Attribute value can be a single value
+	AttributeValueShapeList                                   // Attribute value can be a list of values
+	AttributeValueShapeRange                                  // Attribute value can be a range of values
 )
 
+// IsSingle returns true if the attribute value is a single value
+func (s AttributeValueShape) IsSingle() bool {
+	return s&AttributeValueShapeSingle != 0
+}
+
+// IsList returns true if the attribute value is a list of values
+func (s AttributeValueShape) IsList() bool {
+	return s&AttributeValueShapeList != 0
+}
+
+// IsRange returns true if the attribute value is a range of values
+func (s AttributeValueShape) IsRange() bool {
+	return s&AttributeValueShapeRange != 0
+}
+
+func (s AttributeValueShape) String() string {
+	switch s {
+	case AttributeValueShapeSingle:
+		return "single"
+	case AttributeValueShapeList:
+		return "list"
+	case AttributeValueShapeRange:
+		return "range"
+	default:
+		return "unknown"
+	}
+}
+
+// AttributeValueType are the value types of an attribute token (string, int, float, etc)
 type AttributeValueType uint8
 
 const (
@@ -25,14 +56,52 @@ const (
 	AttributeValueTypeFile
 )
 
-type AttributeSpec struct {
-	Name      string
-	Shapes    AttributeValueShape
-	Type      AttributeValueType
-	Settable  bool
-	Clearable bool
+// String returns a string representation of the attribute value type.
+func (t AttributeValueType) String() string {
+	switch t {
+	case AttributeValueTypeString:
+		return "string"
+	case AttributeValueTypeInteger:
+		return "integer"
+	case AttributeValueTypeFloat:
+		return "float"
+	case AttributeValueTypeDate:
+		return "date"
+	default:
+		panic("unhandled default case")
+	}
 }
 
+// AttributeSpec is the specifications of an attribute token
+type AttributeSpec struct {
+	Name          string              // Name of the attribute
+	AllowedShapes AttributeValueShape // Allowed Shapes of the attributes (single, list, range, operator)
+	Shapes        AttributeValueShape // Shapes of the attribute (single, list, range, operator)
+	Type          AttributeValueType  // Type of the value (String, int, float, etc)
+	AllowSettable bool                // Settable allowed
+	AllowClear    bool                // AllowClear allowed
+	Settable      bool                // Can be set (modify) or only for filters
+	Clearable     bool                // Can be cleared (modify)
+}
+
+// String returns a string representation of the attribute spec.
+func (s AttributeSpec) String() string {
+	return fmt.Sprintf(
+		"<AttributeSpec name=%s, allowed_shapes=%s, shapes=%s, type=%s, settable=%t, clearable=%t>",
+		s.Name,
+		s.Shapes,
+		s.Type,
+		s.Settable,
+		s.Clearable,
+	)
+}
+
+func (s AttributeSpec) SetShapes(shapes AttributeValueShape) AttributeSpec {
+	s.Shapes = s.AllowedShapes & shapes
+	return s
+}
+
+// AllowsSet AllowSet returns true if the attribute can be set (modify) or only for filters
 func (s AttributeSpec) AllowsSet() bool {
 	if !s.Settable && !s.Clearable {
 		return true
@@ -40,88 +109,310 @@ func (s AttributeSpec) AllowsSet() bool {
 	return s.Settable
 }
 
+// AllowsClear returns true if the attribute can be cleared (modify)
 func (s AttributeSpec) AllowsClear() bool {
 	return s.Clearable
 }
 
+// getAttributeSpec returns the AttributeSpec for the given name.
+func getAttributeSpec(name string) (AttributeSpec, error) {
+	attrSpec, ok := AttributeSpecs[name]
+	if !ok {
+		return AttributeSpec{}, fmt.Errorf("unknown attribute %s", name)
+	}
+	return attrSpec, nil
+}
+
+func buildCompleteAttributeSpec(
+	name string,
+	shapes AttributeValueShape,
+	settable bool,
+	clearable bool,
+) AttributeSpec {
+	attrSpec, err := getAttributeSpec(name)
+	if err != nil {
+		panic(err)
+	}
+	if settable && !attrSpec.AllowSettable {
+		panic(fmt.Errorf("attribute %s is not settable", name))
+	}
+	if clearable && !attrSpec.AllowClear {
+		panic(fmt.Errorf("attribute %s is not clearable", name))
+	}
+	attrSpec.Settable = settable
+	attrSpec.Clearable = clearable
+	attrSpec.Shapes = shapes
+	return attrSpec
+}
+
+func buildAttributeSpec(name string) AttributeSpec {
+	attrSpec, err := getAttributeSpec(name)
+	if err != nil {
+		panic(err)
+	}
+	return attrSpec
+}
+
+// settableOnlyAttribute creates an AttributeSpec with the given name and shapes and sets the attribute as settable.
+func settableOnlyAttribute(name string) AttributeSpec {
+	attrSpec, err := getAttributeSpec(name)
+	if err != nil {
+		panic(err)
+	}
+	if !attrSpec.AllowSettable {
+		panic(fmt.Errorf("attribute %s is not settable", name))
+	}
+	attrSpec.Settable = true
+	return attrSpec
+}
+
+// settableOnlyAttribute creates an AttributeSpec with the given name and shapes and sets the attribute as clearable.
+func setOrClearAttribute(name string) AttributeSpec {
+	attrSpec := settableOnlyAttribute(name)
+	if !attrSpec.AllowClear {
+		panic(fmt.Errorf("attribute %s is not clearable", name))
+	}
+	attrSpec.Clearable = true
+	return attrSpec
+}
+
+// AttributeSpecs is a map of all the attributes that can be used in a transaction.
 var AttributeSpecs = map[string]AttributeSpec{
 	"amount": {
-		Name:      "amount",
-		Shapes:    AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
-		Type:      AttributeValueTypeFloat,
-		Settable:  true,
-		Clearable: false,
+		Name:   "amount",
+		Shapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:   AttributeValueTypeFloat,
 	},
 	"account": {
-		Name:      "account",
-		Shapes:    AttributeValueShapeSingle | AttributeValueShapeList,
-		Type:      AttributeValueTypeString,
-		Settable:  true,
-		Clearable: false,
+		Name:   "account",
+		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:   AttributeValueTypeString,
 	},
 	"category": {
-		Name:      "category",
-		Shapes:    AttributeValueShapeSingle | AttributeValueShapeList,
-		Type:      AttributeValueTypeString,
-		Settable:  true,
-		Clearable: true,
+		Name:   "category",
+		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:   AttributeValueTypeString,
 	},
 	"currency": {
-		Name:      "currency",
-		Shapes:    AttributeValueShapeSingle | AttributeValueShapeList,
-		Type:      AttributeValueTypeString,
-		Settable:  false,
-		Clearable: false,
+		Name:   "currency",
+		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:   AttributeValueTypeString,
 	},
 	"date": {
-		Name:      "date",
-		Shapes:    AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
-		Type:      AttributeValueTypeDate,
-		Settable:  true,
+		Name:   "date",
+		Shapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:   AttributeValueTypeDate,
 	},
 	"desc": {
-		Name:      "desc",
-		 Shapes:    AttributeValueShapeSingle,
-		 Type:      AttributeValueTypeBool,
-		 Settable:  true,
-		 Clearable: false,
+		Name:   "desc",
+		Shapes: AttributeValueShapeSingle,
+		Type:   AttributeValueTypeBool,
 	},
-},
+	"from": {
+		Name:   "from",
+		Shapes: AttributeValueShapeSingle,
+		Type:   AttributeValueTypeString,
+	},
+	"group": {
+		Name:   "group",
+		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:   AttributeValueTypeString,
+	},
+	"identifier": {
+		Name:   "identifier",
+		Shapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:   AttributeValueTypeString,
+	},
+	"initial-balance": {
+		Name:   "initial-balance",
+		Shapes: AttributeValueShapeSingle,
+		Type:   AttributeValueTypeFloat,
+	},
+	"output": {
+		Name:   "output",
+		Shapes: AttributeValueShapeSingle,
+		Type:   AttributeValueTypeFile,
+	},
+	"order": {
+		Name:   "order",
+		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:   AttributeValueTypeString,
+	},
+	"store": {
+		Name:   "store",
+		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:   AttributeValueTypeString,
+	},
+	"to": {
+		Name:   "to",
+		Shapes: AttributeValueShapeSingle,
+		Type:   AttributeValueTypeString,
+	},
+}
 
+var transactionFilterAttributes = []string{"account", "currency", "store", "desc", "date", "group", "identifier"}
+
+// endregion AttributeSpecs
+
+// region SideSpec
+
+// CountRule specifies the number of times a token of a given kind or attribute
+// must appear in a sequence.
 type CountRule struct {
-	Min int
-	Max int
+	Min int // Min number of times the token must appear.
+	Max int // Max number of times the token may appear.
 }
 
+// countRule creates a CountRule with the given minimum and maximum values.
+func countRule(min int, max int) CountRule {
+	return CountRule{Min: min, Max: max}
+}
+
+// exactlyOne creates a CountRule with eactly one occurrence.
+func exactlyOne() CountRule {
+	return CountRule{Min: 1, Max: 1}
+}
+
+// exactlyZero creates a CountRule with exactly zero occurrences.
+func atLeastOne() CountRule {
+	return CountRule{Min: 1}
+}
+
+// atMostOne creates a CountRule with at most one occurrence.
+func atMostOne() CountRule {
+	return CountRule{Max: 1}
+}
+
+// PresenceRule specifies that at least one of the given kinds or attributes
+// must appear in a sequence.
+// We can give :
+// - a list of token kinds, in which case the rule is satisfied if any of the given kinds appear.
+// - a list of attribute names, in which case the rule is satisfied if any of the given attributes appear.
+// - a list of token kinds and attribute names, in which case the rule is satisfied if any of the given kinds or attributes appear.
 type PresenceRule struct {
-	Kinds      []TokenKind
-	Attributes []string
-	Message    string
+	Kinds      []TokenKind // List of kinds that must appear.
+	Attributes []string    // List of attributes that must appear.
+	Message    string      // Error message to display if the rule is not met.
 }
 
+// SideSpec specifies the allowed tokens on either side of a command.
+// We can specify :
+// - a list of allowed token kinds.
+// - a list of allowed attributes.
+// - a minimum and maximum number of arguments.
+// - a list of CountRules for each kind.
+// - a list of CountRules for each attribute.
+// - a list of PresenceRules.
 type SideSpec struct {
-	AllowedKinds   map[TokenKind]bool
-	AllowAnyAttr   bool
-	Attributes     map[string]AttributeSpec
-	MinArgs        int
-	MaxArgs        int
-	KindRules      map[TokenKind]CountRule
-	AttributeRules map[string]CountRule
-	AtLeastOneOf   []PresenceRule
+	AllowedKinds   map[TokenKind]bool       // Allowed token kinds.
+	AllowAnyAttr   bool                     // Allow any attribute.
+	Attributes     map[string]AttributeSpec // List of allowed attributes.
+	MinArgs        int                      // Minimum number of arguments.
+	MaxArgs        int                      // Maximum number of arguments.
+	KindRules      map[TokenKind]CountRule  // Count rules for each kind.
+	AttributeRules map[string]CountRule     // Count rules for each attribute.
+	AtLeastOneOf   []PresenceRule           // List of PresenceRules.
 }
 
+// genericSideSpec specifies a side that accepts any token kind and any attribute.
+func genericSideSpec() SideSpec {
+	return SideSpec{
+		AllowedKinds:   allSupportedKinds(),       // all token kinds are allowed
+		AllowAnyAttr:   true,                      // any attribute is allowed
+		KindRules:      map[TokenKind]CountRule{}, // no count rules for token kinds
+		AttributeRules: map[string]CountRule{},    // no count rules for attributes
+		AtLeastOneOf:   []PresenceRule{},          // no PresenceRules
+	}
+}
+
+// emptySideSpec specifies a side that accepts no tokens.
+func emptySideSpec() SideSpec {
+	return SideSpec{
+		AllowedKinds:   map[TokenKind]bool{},       // no token kinds are allowed
+		Attributes:     map[string]AttributeSpec{}, // no attributes are allowed
+		KindRules:      map[TokenKind]CountRule{},  // no count rules for token kinds
+		AttributeRules: map[string]CountRule{},     // no count rules for attributes
+		AtLeastOneOf:   []PresenceRule{},           // no PresenceRules
+	}
+}
+
+// sideSpec specifies a side that accepts a list of token kinds and a list of attributes.
+func sideSpec(kinds []TokenKind, attrs ...AttributeSpec) SideSpec {
+	return SideSpec{
+		AllowedKinds:   allowKinds(kinds...),      // allowed token kinds are given by the list of kinds
+		Attributes:     attributes(attrs...),      // allowed attributes are given by the list of attributes
+		KindRules:      map[TokenKind]CountRule{}, // no count rules for token kinds
+		AttributeRules: map[string]CountRule{},    // no count rules for attributes
+		AtLeastOneOf:   []PresenceRule{},          // no PresenceRules
+	}
+}
+
+// sideSpecWithAttributes specifies a side that accepts a list of token kinds and a list of attributes.
+func sideSpecWithAnyAttributes(kinds ...TokenKind) SideSpec {
+	return SideSpec{
+		AllowedKinds:   allowKinds(kinds...),      // allowed token kinds are given by the list of kinds
+		AllowAnyAttr:   true,                      // any attribute is allowed
+		KindRules:      map[TokenKind]CountRule{}, // no count rules for token kinds
+		AttributeRules: map[string]CountRule{},    // no count rules for attributes
+		AtLeastOneOf:   []PresenceRule{},          // no PresenceRules
+	}
+}
+
+// WithArgs specifies the minimum and maximum number of arguments in a SideSpec.
+func (s SideSpec) WithArgs(min int, max int) SideSpec {
+	s.MinArgs = min
+	s.MaxArgs = max
+	return s
+}
+
+func (s SideSpec) WithKindRule(kind TokenKind, rule CountRule) SideSpec {
+	if s.KindRules == nil {
+		s.KindRules = map[TokenKind]CountRule{}
+	}
+	s.KindRules[kind] = rule
+	return s
+}
+
+// WithAttributeRule specifies a CountRule for an attribute in a SideSpec.
+func (s SideSpec) WithAttributeRule(name string, rule CountRule) SideSpec {
+	if s.AttributeRules == nil {
+		s.AttributeRules = map[string]CountRule{}
+	}
+	s.AttributeRules[name] = rule
+	return s
+}
+
+// WithAtLeastOneOf specifies a PresenceRule in a SideSpec.
+func (s SideSpec) WithAtLeastOneOf(rule PresenceRule) SideSpec {
+	s.AtLeastOneOf = append(s.AtLeastOneOf, rule)
+	return s
+}
+
+// endregion SideSpec
+
+// SubcommandSpec specifies a subcommand of a command.
+// We can specify :
+// - the left side of the subcommand.
+// - the right side of the subcommand.
+// - the default subcommand.
 type SubcommandSpec struct {
 	Name  string
 	Left  SideSpec
 	Right SideSpec
 }
 
+// CommandSpec specifies a command.
+// We can specify :
+// - the name of the command.
+// - the default subcommand.
+// - a list of subcommands.
 type CommandSpec struct {
 	Name              string
 	DefaultSubcommand string
 	Subcommands       map[string]SubcommandSpec
 }
 
+// String returns a string representation of the command spec.
 func (c CommandSpec) String() string {
 	return fmt.Sprintf(
 		"<CommandSpec name=%s, default=%s, subcommands=%v>",
@@ -131,6 +422,7 @@ func (c CommandSpec) String() string {
 	)
 }
 
+// allowKinds returns a map with TokenKind as key and true as value
 func allowKinds(kinds ...TokenKind) map[TokenKind]bool {
 	allowed := make(map[TokenKind]bool, len(kinds))
 	for _, kind := range kinds {
@@ -139,6 +431,7 @@ func allowKinds(kinds ...TokenKind) map[TokenKind]bool {
 	return allowed
 }
 
+// attributes maps attribute names to attribute specs
 func attributes(specs ...AttributeSpec) map[string]AttributeSpec {
 	attrs := make(map[string]AttributeSpec, len(specs))
 	for _, spec := range specs {
@@ -147,6 +440,7 @@ func attributes(specs ...AttributeSpec) map[string]AttributeSpec {
 	return attrs
 }
 
+// subcommands maps subcommand names to subcommand specs
 func subcommands(specs ...SubcommandSpec) map[string]SubcommandSpec {
 	items := make(map[string]SubcommandSpec, len(specs))
 	for _, spec := range specs {
@@ -155,6 +449,7 @@ func subcommands(specs ...SubcommandSpec) map[string]SubcommandSpec {
 	return items
 }
 
+// allSupportedKinds returns supported all token kinds as supported
 func allSupportedKinds() map[TokenKind]bool {
 	return allowKinds(
 		TokenTag,
@@ -165,124 +460,31 @@ func allSupportedKinds() map[TokenKind]bool {
 	)
 }
 
-func genericSideSpec() SideSpec {
-	return SideSpec{
-		AllowedKinds:   allSupportedKinds(),
-		AllowAnyAttr:   true,
-		KindRules:      map[TokenKind]CountRule{},
-		AttributeRules: map[string]CountRule{},
-		AtLeastOneOf:   []PresenceRule{},
-	}
-}
-
-// emptySideSpec specifies a side that accepts no tokens.
-func emptySideSpec() SideSpec {
-	return SideSpec{
-		AllowedKinds:   map[TokenKind]bool{},
-		Attributes:     map[string]AttributeSpec{},
-		KindRules:      map[TokenKind]CountRule{},
-		AttributeRules: map[string]CountRule{},
-		AtLeastOneOf:   []PresenceRule{},
-	}
-}
-
-func sideSpec(kinds []TokenKind, attrs ...AttributeSpec) SideSpec {
-	return SideSpec{
-		AllowedKinds:   allowKinds(kinds...),
-		Attributes:     attributes(attrs...),
-		KindRules:      map[TokenKind]CountRule{},
-		AttributeRules: map[string]CountRule{},
-		AtLeastOneOf:   []PresenceRule{},
-	}
-}
-
-func sideSpecWithAnyAttributes(kinds ...TokenKind) SideSpec {
-	return SideSpec{
-		AllowedKinds:   allowKinds(kinds...),
-		AllowAnyAttr:   true,
-		KindRules:      map[TokenKind]CountRule{},
-		AttributeRules: map[string]CountRule{},
-		AtLeastOneOf:   []PresenceRule{},
-	}
-}
-
-func countRule(min int, max int) CountRule {
-	return CountRule{Min: min, Max: max}
-}
-
-func exactlyOne() CountRule {
-	return CountRule{Min: 1, Max: 1}
-}
-
-func atLeastOne() CountRule {
-	return CountRule{Min: 1}
-}
-
-func atMostOne() CountRule {
-	return CountRule{Max: 1}
-}
-
-func withArgs(side SideSpec, min int, max int) SideSpec {
-	side.MinArgs = min
-	side.MaxArgs = max
-	return side
-}
-
-func withKindRule(side SideSpec, kind TokenKind, rule CountRule) SideSpec {
-	if side.KindRules == nil {
-		side.KindRules = map[TokenKind]CountRule{}
-	}
-	side.KindRules[kind] = rule
-	return side
-}
-
-func withAttributeRule(side SideSpec, name string, rule CountRule) SideSpec {
-	if side.AttributeRules == nil {
-		side.AttributeRules = map[string]CountRule{}
-	}
-	side.AttributeRules[name] = rule
-	return side
-}
-
-func withAtLeastOneOf(side SideSpec, rule PresenceRule) SideSpec {
-	side.AtLeastOneOf = append(side.AtLeastOneOf, rule)
-	return side
-}
-
-func setOnlyAttribute(name string, shapes AttributeValueShape) AttributeSpec {
-	return AttributeSpec{Name: name, Shapes: shapes, Settable: true}
-}
-
-func setOrClearAttribute(name string, shapes AttributeValueShape) AttributeSpec {
-	return AttributeSpec{Name: name, Shapes: shapes, Settable: true, Clearable: true}
-}
-
+// transactionFilterSideSpec specifies the left side as a filter for transactions.
 func transactionFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 	base := []AttributeSpec{
-		{Name: "account", Shapes: AttributeValueShapeSingle | AttributeValueShapeList},
-		{Name: "currency", Shapes: AttributeValueShapeSingle | AttributeValueShapeList},
-		{Name: "store", Shapes: AttributeValueShapeSingle | AttributeValueShapeList},
-		{Name: "desc", Shapes: AttributeValueShapeSingle},
-		{Name: "date", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange | AttributeValueShapeList},
-		{Name: "period", Shapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange},
-		{Name: "group", Shapes: AttributeValueShapeSingle | AttributeValueShapeList},
-		{Name: "identifier", Shapes: AttributeValueShapeSingle | AttributeValueShapeList},
+		buildAttributeSpec("account").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		buildAttributeSpec("category").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		buildAttributeSpec("date").SetShapes(AttributeValueShapeSingle | AttributeValueShapeRange | AttributeValueShapeList),
+		buildAttributeSpec("desc").SetShapes(AttributeValueShapeSingle),
+		buildAttributeSpec("store").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		buildAttributeSpec("identifier").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
+		buildAttributeSpec("group").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
 	}
 	base = append(base, extraAttrs...)
 	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
 }
 
+// transactionFilterSideSpecWithoutAccount specifies the left side as a filter for transactions.
 func transactionFilterSideSpecWithoutAccount(extraAttrs ...AttributeSpec) SideSpec {
 	base := []AttributeSpec{
-		{Name: "currency", Shapes: AttributeValueShapeSingle},
-		{Name: "store", Shapes: AttributeValueShapeSingle},
-		{Name: "desc", Shapes: AttributeValueShapeSingle},
-		{Name: "date", Shapes: AttributeValueShapeSingle | AttributeValueShapeRange},
-		{Name: "period", Shapes: AttributeValueShapeSingle},
-		{Name: "group", Shapes: AttributeValueShapeSingle},
-		{Name: "identifier", Shapes: AttributeValueShapeSingle},
+		buildAttributeSpec("category").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		buildAttributeSpec("date").SetShapes(AttributeValueShapeSingle | AttributeValueShapeRange | AttributeValueShapeList),
+		buildAttributeSpec("desc").SetShapes(AttributeValueShapeSingle),
+		buildAttributeSpec("store").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		buildAttributeSpec("identifier").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
+		buildAttributeSpec("group").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
 	}
-	base = append(base, extraAttrs...)
 	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
 }
 
@@ -290,36 +492,35 @@ func transactionFilterSideSpecWithoutAccount(extraAttrs ...AttributeSpec) SideSp
 func addRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]TokenKind{TokenTag, TokenAttribute, TokenText},
-		setOnlyAttribute("date", AttributeValueShapeSingle),
-		setOnlyAttribute("store", AttributeValueShapeSingle),
-		setOnlyAttribute("account", AttributeValueShapeSingle),
-		setOnlyAttribute("category", AttributeValueShapeSingle),
-		setOnlyAttribute("group", AttributeValueShapeSingle),
-	)
-	side = withArgs(side, 2, 0)
-	side = withAttributeRule(side, "amount", exactlyOne())
-	for _, name := range []string{"datetime", "date", "time", "store", "account", "category", "group"} {
-		side = withAttributeRule(side, name, atMostOne())
+		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("store").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
+		setOrClearAttribute("category").SetShapes(AttributeValueShapeSingle),
+		setOrClearAttribute("group").SetShapes(AttributeValueShapeSingle),
+	).WithArgs(2, 0).
+		WithAttributeRule("amount", exactlyOne()).
+		WithAttributeRule("store", exactlyOne())
+	for _, name := range []string{"date", "account", "category", "group"} {
+		side.WithAttributeRule(name, atMostOne())
 	}
-	side = withAtLeastOneOf(side, PresenceRule{Kinds: []TokenKind{TokenText}, Message: "add requires a description"})
+	side.WithAtLeastOneOf(PresenceRule{Kinds: []TokenKind{TokenText}, Message: "add requires a description"})
 	return side
 }
 
 func modifyRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]TokenKind{TokenAttribute, TokenAttributeClear, TokenTag, TokenTagNegative},
-		setOnlyAttribute("identifier", AttributeValueShapeSingle),
-		setOnlyAttribute("amount", AttributeValueShapeSingle),
-		setOnlyAttribute("desc", AttributeValueShapeSingle),
-		setOnlyAttribute("date", AttributeValueShapeSingle),
-		setOnlyAttribute("account", AttributeValueShapeSingle),
-		setOrClearAttribute("category", AttributeValueShapeSingle),
-		setOnlyAttribute("store", AttributeValueShapeSingle),
-		setOrClearAttribute("group", AttributeValueShapeSingle),
-	)
-	side = withArgs(side, 1, 0)
+		settableOnlyAttribute("identifier").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("amount").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
+		setOrClearAttribute("category").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("store").SetShapes(AttributeValueShapeSingle),
+		setOrClearAttribute("group").SetShapes(AttributeValueShapeSingle),
+	).WithArgs(1, 0)
 	for _, name := range []string{"identifier", "amount", "desc", "date", "time", "datetime", "account", "category", "store", "group"} {
-		side = withAttributeRule(side, name, atMostOne())
+		side.WithAttributeRule(name, atMostOne())
 	}
 	return side
 }
@@ -327,29 +528,28 @@ func modifyRightSideSpec() SideSpec {
 func transferRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]TokenKind{TokenAttribute, TokenText},
-		setOnlyAttribute("from", AttributeValueShapeSingle),
-		setOnlyAttribute("to", AttributeValueShapeSingle),
-		setOnlyAttribute("date", AttributeValueShapeSingle),
+		settableOnlyAttribute("from").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("to").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle),
 	)
-	side = withAttributeRule(side, "amount", exactlyOne())
-	side = withAttributeRule(side, "from", exactlyOne())
-	side = withAttributeRule(side, "to", exactlyOne())
-	side = withAttributeRule(side, "date", atMostOne())
+	side.WithAttributeRule("amount", exactlyOne()).
+		WithAttributeRule("from", exactlyOne()).
+		WithAttributeRule("to", exactlyOne()).
+		WithAttributeRule("date", atMostOne())
 	return side
 }
 
 func fakeitRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]TokenKind{TokenAttribute, TokenText},
-		setOnlyAttribute("account", AttributeValueShapeSingle),
-		setOnlyAttribute("category", AttributeValueShapeSingle),
-		setOnlyAttribute("type", AttributeValueShapeSingle),
-		setOnlyAttribute("year", AttributeValueShapeSingle),
-		setOnlyAttribute("month", AttributeValueShapeSingle),
-	)
-	side = withKindRule(side, TokenText, atMostOne())
+		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("type").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("year").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("month").SetShapes(AttributeValueShapeSingle),
+	).WithKindRule(TokenText, atMostOne())
 	for _, name := range []string{"account", "category", "type", "year", "month"} {
-		side = withAttributeRule(side, name, atMostOne())
+		side.WithAttributeRule(name, atMostOne())
 	}
 	return side
 }
@@ -358,13 +558,13 @@ func budgetSideSpec() SideSpec {
 	return SideSpec{
 		AllowedKinds: allSupportedKinds(),
 		Attributes: attributes(
-			setOnlyAttribute("account", AttributeValueShapeSingle|AttributeValueShapeList),
-			setOnlyAttribute("category", AttributeValueShapeSingle|AttributeValueShapeList),
-			setOnlyAttribute("currency", AttributeValueShapeSingle|AttributeValueShapeList),
-			setOnlyAttribute("date", AttributeValueShapeSingle|AttributeValueShapeRange),
-			setOnlyAttribute("desc", AttributeValueShapeSingle),
-			setOnlyAttribute("group", AttributeValueShapeSingle|AttributeValueShapeList),
-			setOnlyAttribute("store", AttributeValueShapeSingle|AttributeValueShapeList),
+			settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
+			settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
+			settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
+			settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle|AttributeValueShapeRange),
+			settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
+			settableOnlyAttribute("group").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
+			settableOnlyAttribute("store").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
 		),
 		KindRules:      map[TokenKind]CountRule{},
 		AttributeRules: map[string]CountRule{},
@@ -384,161 +584,646 @@ func defaultCommandSpec(name string) CommandSpec {
 	}
 }
 
+// accountsCommandSpec specifies the command spec for the "accounts" command.
+// Specifications:
+// cash accounts list
+// cash accounts balance <account name>
+// cash accounts add <account name> [currency] [initial balance]
+// cash accounts modify <account name> [currency] [initial balance]
+// cash accounts initial-balance <account name> [initial-balance|amount]
+// cash accounts rename <account name> <new account name>
+// cash accounts delete <account name>
+var accountsCommandSpec = CommandSpec{
+	Name:              "accounts",
+	DefaultSubcommand: "list",
+	Subcommands: subcommands(
+		// list subcommand (list accounts)
+		SubcommandSpec{
+			Name: "list",
+			// cash accounts list
+			Left:  emptySideSpec(),                // Nothing on the left
+			Right: emptySideSpec().WithArgs(0, 0), // No arguments on the right
+		},
+		// balance subcommand (show balance history of an account)
+		SubcommandSpec{
+			Name: "balance",
+			// cash accounts balance <account name>
+			Left: transactionFilterSideSpecWithoutAccount(), // filter on transactions (but not account)
+			Right: sideSpec([]TokenKind{TokenText}).
+				WithAtLeastOneOf(PresenceRule{Kinds: []TokenKind{TokenText}, Message: "accounts balance requires an account name"}).
+				WithArgs(1, 1),
+		},
+		// add subcommand (add an account)
+		SubcommandSpec{
+			Name: "add",
+			Left: emptySideSpec(),
+			// cash accounts add <account name> [currency] [initial balance]
+			Right: sideSpec(
+				[]TokenKind{TokenText, TokenAttribute},
+				settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle),
+			).
+				WithKindRule(TokenText, exactlyOne()).
+				WithArgs(1, 3).
+				WithAttributeRule("currency", atMostOne()).
+				WithAttributeRule("initial_balance", atMostOne()).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Kinds:      []TokenKind{TokenText},
+						Attributes: []string{"account"},
+						Message:    "accounts add requires an account name",
+					},
+				),
+		},
+		// modify subcommand (modify account(s))
+		SubcommandSpec{
+			Name: "modify",
+			// cash accounts modify <account name> [currency] [initial balance]
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText, TokenAttribute},
+				settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("initial_balance").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(2, 4).
+				WithKindRule(TokenText, exactlyOne()).
+				WithAttributeRule("account", atMostOne()).
+				WithAttributeRule("currency", atMostOne()).
+				WithAttributeRule("initial_balance", atMostOne()).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Attributes: []string{"account", "currency", "initial_balance"},
+						Message:    "accounts modify requires at least one modification",
+					},
+				),
+		},
+		// initial-balance subcommand (set initial balance of an account)
+		// cash accounts initial-balance <account name> [initial-balance|amount]
+		SubcommandSpec{
+			Name: "initial-balance",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenAttribute},
+				settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("amount").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(2, 2).
+				WithAttributeRule("account", exactlyOne()).
+				WithAttributeRule("amount", atMostOne()).
+				WithAttributeRule("initial-balance", atMostOne()).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Attributes: []string{"amount", "initial-balance"},
+						Message:    "requires an initial balance (initial-balance or amount)",
+					},
+				),
+		},
+		// rename subcommand (rename an account)
+		// cash accounts rename <account name> <new account name>
+		SubcommandSpec{
+			Name: "rename",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText},
+			).
+				WithArgs(2, 2).
+				WithKindRule(TokenText, countRule(2, 2)),
+		},
+		// delete subcommand (delete an account)
+		// cash accounts delete <account name>
+		SubcommandSpec{
+			Name: "delete",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText, TokenAttribute},
+				settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(1, 1).
+				WithAttributeRule("account", atMostOne()).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Kinds:      []TokenKind{TokenText},
+						Attributes: []string{"account"},
+						Message:    "accounts delete requires an account name",
+					},
+				),
+		},
+	),
+}
+
+// addCommandSpec specifies the command spec for the "add" command.
+// cash add <amount> <store> <desc...> [date] [account] [category] [group]
+// amount is required
+// store is required
+// desc is required
+// date is optional (current date)
+// account is optional (default account)
+// category is optional (no category)
+// group is optional (no group)
+//
+// Examples:
+// cash add amount:-100 store:SuperM category:groceries date:2020-01-01 Bought some groceries at SuperM
+var addCommandSpec = CommandSpec{
+	Name:              "add",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name:  "default",
+			Left:  emptySideSpec(),
+			Right: addRightSideSpec(),
+		},
+	),
+}
+
+// backupCommandSpec specifies the command spec for the "backup" command.
+// cash backup [output]
+// output is optional (default is stdout)
+//
+// Examples:
+// cash backup output:backup.db
+// cash backup
+var backupCommandSpec = CommandSpec{
+	Name:              "backup",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name: "default",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenAttribute},
+				settableOnlyAttribute("output").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(0, 1).
+				WithAttributeRule("output", atMostOne()),
+		},
+	),
+}
+
+// budgetCommandSpec specifies the command spec for the "budget" command.
+// cash budget list
+// cash budget add <account> <category> <amount> <date> <desc> [group] [store]
+// account is required
+// category is required
+// amount is required
+// date is required
+// desc is required
+// group is optional (no group)
+// store is optional (no store)
+var budgetCommandSpec = CommandSpec{
+	Name:              "budget",
+	DefaultSubcommand: "list",
+	Subcommands: subcommands(
+		// cash budget list
+		SubcommandSpec{
+			Name:  "list",
+			Left:  budgetSideSpec(),
+			Right: budgetSideSpec(),
+		},
+		// cash budget add <account> <category> <amount> <date> <desc> [group] [store]
+		SubcommandSpec{
+			Name:  "add",
+			Left:  budgetSideSpec(),
+			Right: budgetSideSpec(),
+		},
+	),
+}
+
+// categoriesCommandSpec specifies the command spec for the "categories" command.
+// cash categories list
+// cash categories add <category name> [parent]
+// cash categories modify <category name> [parent]
+// cash categories delete <category name>
+//
+// Examples:
+// cash categories add groceries
+// cash categories modify groceries parent:groceries
+// cash categories delete groceries
+var categoriesCommandSpec = CommandSpec{
+	Name:              "categories",
+	DefaultSubcommand: "list",
+	Subcommands: subcommands(
+		// cash categories list
+		SubcommandSpec{
+			Name:  "list",
+			Left:  emptySideSpec(),
+			Right: emptySideSpec().WithArgs(0, 0),
+		},
+		// cash categories add <category name> [parent]
+		SubcommandSpec{
+			Name: "add",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText, TokenAttribute},
+				settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("parent").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(1, 2).
+				WithAttributeRule("parent", atMostOne()).
+				WithAtLeastOneOf(PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"category"}, Message: "categories add requires a category name"}),
+		},
+		// cash categories modify <category name> [parent]
+		SubcommandSpec{
+			Name: "modify",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText, TokenAttribute},
+				settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("parent").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(2, 3).
+				WithKindRule(TokenText, exactlyOne()).
+				WithAttributeRule("category", atMostOne()).
+				WithAttributeRule("parent", atMostOne()).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Attributes: []string{"category", "parent"},
+						Message:    "categories modify requires at least one modification",
+					},
+				),
+		},
+		// cash categories delete <category name>
+		SubcommandSpec{
+			Name: "delete",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText, TokenAttribute},
+				settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(1, 1).
+				WithAttributeRule("category", atMostOne()).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Kinds:      []TokenKind{TokenText},
+						Attributes: []string{"category"},
+						Message:    "categories delete requires a category name",
+					},
+				),
+		},
+	),
+}
+
+// configCommandSpec specifies the command spec for the "config" command.
+// cash config default <attribute> <value>
+// cash config default <attribute>
+//
+// Examples:
+// cash config default currency:USD
+// cash config default currency
+var configCommandSpec = CommandSpec{
+	Name:              "config",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name: "default",
+			Left: emptySideSpec(),
+			Right: sideSpecWithAnyAttributes(TokenAttribute).
+				WithArgs(0, 1),
+		},
+	),
+}
+
+// deleteCommandSpec specifies the command spec for the "delete" command.
+// cash delete <id> [identifier] [T]
+// id is required
+// identifier is optional
+// T is optional
+//
+// Examples:
+// cash delete identifier:2026-05-12
+// cash delete T:2026-05-12
+var deleteCommandSpec = CommandSpec{
+	Name:              "delete",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name: "default",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{},
+				settableOnlyAttribute("id").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(1, 1).
+				WithKindRule(TokenAttribute, exactlyOne()).
+				WithAttributeRule("id", atMostOne()).
+				WithAttributeRule("identifier", atMostOne()).
+				WithAttributeRule("T", atMostOne()).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Kinds:      []TokenKind{TokenAttribute},
+						Attributes: []string{"id", "identifier", "T"},
+						Message:    "delete requires an id",
+					},
+				),
+		},
+		SubcommandSpec{
+			Name:  "list",
+			Left:  emptySideSpec(),
+			Right: emptySideSpec().WithArgs(0, 0),
+		},
+	),
+}
+
+// fakeitCommandSpec specifies the command spec for the "fake-it" command.
+// cash fake-it <account> <category> <type> <year> <month>
+// account is optional
+// category is optional
+// type is optional
+// year is optional
+// month is optional
+//
+// Examples:
+// cash fake-it account:groceries category:groceries type:groceries year:2020 month:1
+var fakeitCommandSpec = CommandSpec{
+	Name:              "fake-it",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name:  "default",
+			Left:  emptySideSpec(),
+			Right: fakeitRightSideSpec(),
+		},
+	),
+}
+
+// groupCommandSpec specifies the command spec for the "group" command.
+// cash group list
+// cash group add <group name> [desc]
+// cash group modify <group name> [desc]
+// cash group delete <group name>
+//
+// Examples:
+// cash group add groceries
+// cash group modify groceries desc:groceries
+// cash group delete groceries
+var groupCommandSpec = CommandSpec{
+	Name:              "group",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		// cash group list
+		SubcommandSpec{
+			Name:  "default",
+			Left:  emptySideSpec(),
+			Right: sideSpec([]TokenKind{TokenText}).WithArgs(2, 0),
+		},
+	),
+}
+
+// groupsCommandSpec specifies the command spec for the "groups" command.
+// cash groups list
+//
+// Examples:
+// cash groups list
+var groupsCommandSpec = CommandSpec{
+	Name:              "groups",
+	DefaultSubcommand: "list",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name: "list",
+			Left: sideSpec(
+				[]TokenKind{TokenAttribute},
+				settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
+			),
+			Right: emptySideSpec().WithArgs(0, 0),
+		},
+	),
+}
+
+// importCommandSpec specifies the command spec for the "import" command.
+// cash import <file>
+// file is required
+//
+// Examples:
+// cash import file:transactions.csv
+var importCommandSpec = CommandSpec{
+	Name:              "import",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name:  "default",
+			Left:  emptySideSpec(),
+			Right: sideSpec([]TokenKind{TokenText}).WithArgs(1, 1),
+		},
+	),
+}
+
+// listCommandSpec specifies the command spec for the "list" command.
+// cash list <account> <category> <group> <store>
+// account is optional
+// category is optional
+// group is optional
+// store is optional
+//
+// Examples:
+// cash list account:groceries
+// cash list account:groceries category:groceries
+var listCommandSpec = CommandSpec{
+	Name:              "list",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name: "default",
+			Left: transactionFilterSideSpec(
+				settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
+			),
+			Right: genericSideSpec(),
+		},
+	),
+}
+
+// modifyCommandSpec specifies the command spec for the "modify" command.
+// cash modify <account> <category> <group> <store> <attribute> <value>
+// account is optional
+// category is optional
+// group is optional
+// store is optional
+// attribute is required
+// value is required
+//
+// Examples:
+var modifyCommandSpec = CommandSpec{
+	Name:              "modify",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name:  "default",
+			Left:  transactionFilterSideSpec(),
+			Right: modifyRightSideSpec(),
+		},
+	),
+}
+
+// storesCommandSpec specifies the command spec for the "stores" command.
+var storesCommandSpec = CommandSpec{
+	Name:              "stores",
+	DefaultSubcommand: "list",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name:  "list",
+			Left:  emptySideSpec(),
+			Right: emptySideSpec().WithArgs(0, 0),
+		},
+		SubcommandSpec{
+			Name: "rename",
+			Left: emptySideSpec(),
+			Right: sideSpec([]TokenKind{TokenText}).
+				WithArgs(2, 2).
+				WithKindRule(TokenText, countRule(2, 2)),
+		},
+	),
+}
+
+// purgeCommandSpec specifies the command spec for the "purge" command.
+// cash purge <account> <category> <group> <store>
+// account is optional
+// category is optional
+// group is optional
+// store is optional
+//
+// Examples:
+// cash purge account:groceries
+// cash purge account:groceries category:groceries
+var purgeCommandSpec = CommandSpec{
+	Name:              "purge",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		// cash purge list
+		SubcommandSpec{
+			Name: "default",
+			Left: emptySideSpec(),
+			Right: sideSpec([]TokenKind{}).
+				WithArgs(1, 1).
+				WithAttributeRule("id", exactlyOne()),
+		},
+	),
+}
+
+// restoreCommandSpec
+var restoreCommandSpec = CommandSpec{
+	Name:              "restore",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name: "default",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{},
+			).
+				WithArgs(1, 1).
+				WithAttributeRule("id", exactlyOne()),
+		},
+		SubcommandSpec{
+			Name:  "list",
+			Left:  emptySideSpec(),
+			Right: emptySideSpec().WithArgs(0, 0),
+		},
+	),
+}
+
+// showCommandSpec specifies the command spec for the "show" command.
+// cash show <account> <category> <group> <store> <attribute>
+// account is optional
+// category is optional
+// group is optional
+// store is optional
+// attribute is required
+//
+// Examples:
+// cash show account:groceries
+var showCommandSpec = CommandSpec{
+	Name:              "show",
+	DefaultSubcommand: "default",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name: "default",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{},
+			).
+				WithArgs(1, 1).
+				WithAttributeRule("id", exactlyOne()),
+		},
+	),
+}
+
+// summaryCommandSpec
+var summaryCommandSpec = CommandSpec{
+	Name:              "summary",
+	DefaultSubcommand: "",
+	Subcommands: subcommands(
+		SubcommandSpec{Name: "days", Left: transactionFilterSideSpec(), Right: transactionFilterSideSpec()},
+	),
+}
+
+var tagsCommandSpec = CommandSpec{
+	Name:              "tags",
+	DefaultSubcommand: "list",
+	Subcommands: subcommands(
+		SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
+		SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, settableOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags add requires a tag name"})},
+		SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, settableOnlyAttribute("tag", AttributeValueShapeSingle)), 2, 2), TokenText, exactlyOne()), "tag", exactlyOne()), PresenceRule{Attributes: []string{"tag"}, Message: "tags modify requires a new tag name"})},
+		SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, settableOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags delete requires a tag name"})},
+	),
+}
+
+var themeCommandSpec = CommandSpec{
+	Name:              "theme",
+	DefaultSubcommand: "default",
+	Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 0, 1)}),
+}
+
+var transferCommandSpec = CommandSpec{
+	Name:              "transfer",
+	DefaultSubcommand: "default",
+	Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: transferRightSideSpec()}),
+}
+
+// CommandSpecs is a map of command names to their specifications.
+// accounts: list, balance, add, modify, initial-balance, rename, delete
+// add: add a transaction
+// backup: backup the database
+// budget: list, add, check budgets
+// categories: list, add, modify, delete categories
+// config: set or get config values
+// delete: delete transaction(s)
+// fakeit: create fake data
+// import: import data from a file
+// group: default
+// groups: list
 var CommandSpecs = map[string]CommandSpec{
-	"accounts": {
-		Name:              "accounts",
-		DefaultSubcommand: "list",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-			SubcommandSpec{Name: "balance", Left: transactionFilterSideSpecWithoutAccount(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle)), 1, 1), "account", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"account"}, Message: "accounts balance requires an account name"})},
-			SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle), setOnlyAttribute("currency", AttributeValueShapeSingle), setOnlyAttribute("initial_balance", AttributeValueShapeSingle)), 1, 3), "currency", atMostOne()), "initial_balance", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"account"}, Message: "accounts add requires an account name"})},
-			SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withAttributeRule(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle), setOnlyAttribute("currency", AttributeValueShapeSingle), setOnlyAttribute("initial_balance", AttributeValueShapeSingle)), 2, 4), TokenText, exactlyOne()), "account", atMostOne()), "currency", atMostOne()), "initial_balance", atMostOne()), PresenceRule{Attributes: []string{"account", "currency", "initial_balance"}, Message: "accounts modify requires at least one modification"})},
-			SubcommandSpec{Name: "initial-balance", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle), setOnlyAttribute("amount", AttributeValueShapeSingle), setOnlyAttribute("initial_balance", AttributeValueShapeSingle)), 2, 2)},
-			SubcommandSpec{Name: "rename", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenText}), 2, 2), TokenText, countRule(2, 2))},
-			SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("account", AttributeValueShapeSingle)), 1, 1), "account", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"account"}, Message: "accounts delete requires an account name"})},
-		),
-	},
-	"add": {
-		Name:              "add",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: addRightSideSpec()}),
-	},
-	"backup": {
-		Name:              "backup",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withAttributeRule(withArgs(sideSpec([]TokenKind{TokenAttribute}, setOnlyAttribute("output", AttributeValueShapeSingle)), 0, 1), "output", atMostOne())}),
-	},
-	"balance": defaultCommandSpec("balance"),
-	"budget": {
-		Name:              "budget",
-		DefaultSubcommand: "list",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: budgetSideSpec(), Right: budgetSideSpec()},
-			SubcommandSpec{Name: "add", Left: budgetSideSpec(), Right: budgetSideSpec()},
-		),
-	},
-	"by": defaultCommandSpec("by"),
-	"categories": {
-		Name:              "categories",
-		DefaultSubcommand: "list",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-			SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("category", AttributeValueShapeSingle), setOnlyAttribute("parent", AttributeValueShapeSingle)), 1, 2), "parent", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"category"}, Message: "categories add requires a category name"})},
-			SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("category", AttributeValueShapeSingle), setOnlyAttribute("parent", AttributeValueShapeSingle)), 2, 3), TokenText, exactlyOne()), "category", atMostOne()), "parent", atMostOne()), PresenceRule{Attributes: []string{"category", "parent"}, Message: "categories modify requires at least one modification"})},
-			SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("category", AttributeValueShapeSingle)), 1, 1), "category", atMostOne()), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"category"}, Message: "categories delete requires a category name"})},
-		),
-	},
-	"config": {
-		Name:              "config",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpecWithAnyAttributes(TokenAttribute), 0, 1)}),
-	},
-	"delete": {
-		Name:              "delete",
-		DefaultSubcommand: "default",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())},
-			SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withAttributeRule()},
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-		),
-	},
-	"fakeit": {
-		Name:              "fakeit",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: fakeitRightSideSpec()}),
-	},
-	"group": {
-		Name:              "group",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 2, 0)}),
-	},
-	"groups": {
-		Name:              "groups",
-		DefaultSubcommand: "list",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: sideSpec([]TokenKind{TokenAttribute},
-				AttributeSpec{Name: "order", Shapes: AttributeValueShapeSingle},
-				AttributeSpec{Name: "desc", Shapes: AttributeValueShapeSingle},
-			), Right: withArgs(emptySideSpec(), 0, 0)},
-		),
-	},
-	"import": {
-		Name:              "import",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 1, 1)}),
-	},
-	"init": defaultCommandSpec("init"),
-	"list": {
-		Name:              "list",
-		DefaultSubcommand: "default",
-		Subcommands: subcommands(SubcommandSpec{Name: "default", Left: transactionFilterSideSpec(
-			AttributeSpec{Name: "order", Shapes: AttributeValueShapeSingle},
-			AttributeSpec{Name: "desc", Shapes: AttributeValueShapeSingle},
-		), Right: genericSideSpec()}),
-	},
-	"modify": {
-		Name:              "modify",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: transactionFilterSideSpec(), Right: modifyRightSideSpec()}),
-	},
-	"places": {
-		Name:              "places",
-		DefaultSubcommand: "list",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-			SubcommandSpec{Name: "rename", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenText}), 2, 2), TokenText, countRule(2, 2))},
-		),
-	},
-	"purge": {
-		Name:              "purge",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())}),
-	},
-	"report": defaultCommandSpec("report"),
-	"restore": {
-		Name:              "restore",
-		DefaultSubcommand: "default",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())},
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-		),
-	},
+	"accounts":    accountsCommandSpec,
+	"add":         addCommandSpec,
+	"backup":      backupCommandSpec,
+	"balance":     defaultCommandSpec("balance"),
+	"budget":      budgetCommandSpec,
+	"by":          defaultCommandSpec("by"),
+	"categories":  categoriesCommandSpec,
+	"config":      configCommandSpec,
+	"delete":      deleteCommandSpec,
+	"export":      defaultCommandSpec("export"),
+	"fakeit":      fakeitCommandSpec,
+	"group":       groupCommandSpec,
+	"groups":      groupsCommandSpec,
+	"import":      importCommandSpec,
+	"list":        listCommandSpec,
+	"modify":      modifyCommandSpec,
+	"stores":      storesCommandSpec,
+	"purge":       purgeCommandSpec,
+	"report":      defaultCommandSpec("report"),
+	"restore":     restoreCommandSpec,
 	"set-balance": defaultCommandSpec("set-balance"),
-	"show": {
-		Name:              "show",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withKindRule(withArgs(sideSpec([]TokenKind{TokenID}), 1, 1), TokenID, exactlyOne())}),
-	},
-	"stats": defaultCommandSpec("stats"),
-	"sum":   defaultCommandSpec("sum"),
-	"summary": {
-		Name:              "summary",
-		DefaultSubcommand: "",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "days", Left: transactionFilterSideSpec(), Right: transactionFilterSideSpec()},
-		),
-	},
-	"tags": {
-		Name:              "tags",
-		DefaultSubcommand: "list",
-		Subcommands: subcommands(
-			SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-			SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags add requires a tag name"})},
-			SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("tag", AttributeValueShapeSingle)), 2, 2), TokenText, exactlyOne()), "tag", exactlyOne()), PresenceRule{Attributes: []string{"tag"}, Message: "tags modify requires a new tag name"})},
-			SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, setOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags delete requires a tag name"})},
-		),
-	},
-	"theme": {
-		Name:              "theme",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 0, 1)}),
-	},
-	"transfer": {
-		Name:              "transfer",
-		DefaultSubcommand: "default",
-		Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: transferRightSideSpec()}),
-	},
-	"undo": defaultCommandSpec("undo"),
+	"show":        showCommandSpec,
+	"stats":       defaultCommandSpec("stats"),
+	"sum":         defaultCommandSpec("sum"),
+	"summary":     summaryCommandSpec,
+	"tags":        tagsCommandSpec,
+	"theme":       themeCommandSpec,
+	"transfer":    transferCommandSpec,
+	"undo":        defaultCommandSpec("undo"),
 }
 
 func GetCommandSpec(name string) (CommandSpec, bool) {

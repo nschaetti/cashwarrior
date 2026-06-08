@@ -182,6 +182,7 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 		return ParsedCmdLine{}, err
 	}
 
+	// Get command spec
 	commandSpec, ok := GetCommandSpec(command)
 	if !ok {
 		return ParsedCmdLine{}, &ParseError{Code: ParseErrorNoCommand, Message: fmt.Sprintf("unknown command: %s", command)}
