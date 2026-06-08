@@ -1155,7 +1155,11 @@ var summaryCommandSpec = CommandSpec{
 	Name:              "summary",
 	DefaultSubcommand: "",
 	Subcommands: subcommands(
-		SubcommandSpec{Name: "days", Left: transactionFilterSideSpec(), Right: transactionFilterSideSpec()},
+		SubcommandSpec{
+			Name:  "days",
+			Left:  transactionFilterSideSpec(),
+			Right: transactionFilterSideSpec(),
+		},
 	),
 }
 
@@ -1163,10 +1167,37 @@ var tagsCommandSpec = CommandSpec{
 	Name:              "tags",
 	DefaultSubcommand: "list",
 	Subcommands: subcommands(
-		SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: withArgs(emptySideSpec(), 0, 0)},
-		SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, settableOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags add requires a tag name"})},
-		SubcommandSpec{Name: "modify", Left: emptySideSpec(), Right: withAtLeastOneOf(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, settableOnlyAttribute("tag", AttributeValueShapeSingle)), 2, 2), TokenText, exactlyOne()), "tag", exactlyOne()), PresenceRule{Attributes: []string{"tag"}, Message: "tags modify requires a new tag name"})},
-		SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, settableOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags delete requires a tag name"})},
+		SubcommandSpec{
+			Name:  "list",
+			Left:  emptySideSpec(),
+			Right: emptySideSpec().WithArgs(0, 0),
+		},
+		SubcommandSpec{
+			Name: "add",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText, TokenAttribute},
+				settableOnlyAttribute("tag").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(1, 1).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Kinds:      []TokenKind{TokenText},
+						Attributes: []string{"tag"},
+						Message:    "tags add requires a tag name",
+					},
+				),
+		},
+		SubcommandSpec{
+			Name:  "modify",
+			Left:  emptySideSpec(),
+			Right: withAtLeastOneOf(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, settableOnlyAttribute("tag", AttributeValueShapeSingle)), 2, 2), TokenText, exactlyOne()), "tag", exactlyOne()), PresenceRule{Attributes: []string{"tag"}, Message: "tags modify requires a new tag name"}),
+		},
+		SubcommandSpec{
+			Name:  "delete",
+			Left:  emptySideSpec(),
+			Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, settableOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags delete requires a tag name"}),
+		},
 	),
 }
 
