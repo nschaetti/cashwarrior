@@ -488,8 +488,50 @@ func transactionFilterSideSpecWithoutAccount(extraAttrs ...AttributeSpec) SideSp
 	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
 }
 
-// addRightSideSpec specifies the right side of the add command.
-func addRightSideSpec() SideSpec {
+// accountFilterSideSpec specifies the left side as a filter for accounts.
+func accountFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
+	base := []AttributeSpec{
+		buildAttributeSpec("account").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		buildAttributeSpec("currency").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		buildAttributeSpec("initial-balance").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
+		buildAttributeSpec("balance").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
+	}
+	base = append(base, extraAttrs...)
+	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
+}
+
+// groupFilterSideSpec specifies the left side as a filter for groups.
+func groupFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
+	base := []AttributeSpec{
+		buildAttributeSpec("group").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		buildAttributeSpec("size").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
+	}
+	base = append(base, extraAttrs...)
+	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
+}
+
+// tagFilterSideSpec specifies the left side as a filter for tags.
+func tagFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
+	base := []AttributeSpec{
+		buildAttributeSpec("tag").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		buildAttributeSpec("size").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
+	}
+	base = append(base, extraAttrs...)
+	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
+}
+
+// placesFilterSideSpec specifies the left side as a filter for places.
+func placesFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
+	base := []AttributeSpec{
+		buildAttributeSpec("place").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		buildAttributeSpec("size").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
+	}
+	base = append(base, extraAttrs...)
+	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
+}
+
+// addCommandRightSideSpec specifies the right side of the add command.
+func addCommandRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]TokenKind{TokenTag, TokenAttribute, TokenText},
 		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle),
@@ -539,19 +581,38 @@ func transferRightSideSpec() SideSpec {
 	return side
 }
 
-func fakeitRightSideSpec() SideSpec {
+func fakeitTransactionsRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]TokenKind{TokenAttribute, TokenText},
-		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
-		settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
-		settableOnlyAttribute("type").SetShapes(AttributeValueShapeSingle),
-		settableOnlyAttribute("year").SetShapes(AttributeValueShapeSingle),
-		settableOnlyAttribute("month").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
+		settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
+		settableOnlyAttribute("year").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList|AttributeValueShapeRange),
+		settableOnlyAttribute("month").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList|AttributeValueShapeRange),
 	).WithKindRule(TokenText, atMostOne())
-	for _, name := range []string{"account", "category", "type", "year", "month"} {
+	for _, name := range []string{"account", "category", "year", "month"} {
 		side.WithAttributeRule(name, atMostOne())
 	}
 	return side
+}
+
+func fakeitStoresRightSideSpec() SideSpec {
+	return emptySideSpec()
+}
+
+func fakeitAccountsRightSideSpec() SideSpec {
+	return emptySideSpec()
+}
+
+func fakeitGroupsRightSideSpec() SideSpec {
+	return emptySideSpec()
+}
+
+func fakeitTagsRightSideSpec() SideSpec {
+	return emptySideSpec()
+}
+
+func fakeitCategoriesRightSideSpec() SideSpec {
+	return emptySideSpec()
 }
 
 func budgetSideSpec() SideSpec {
@@ -585,10 +646,17 @@ func defaultCommandSpec(name string) CommandSpec {
 }
 
 func accountsListSubcommandSpec(subcommandName string) SubcommandSpec {
+	// cash [balance] [name] [currency] [account] accounts list
 	return SubcommandSpec{
 		Name: subcommandName,
 		// cash accounts list
-		Left:  emptySideSpec(),                // Nothing on the left
+		Left: sideSpec(
+			[]TokenKind{TokenAttribute, TokenTag, TokenTagNegative},
+			settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
+			settableOnlyAttribute("name").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
+			settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
+			settableOnlyAttribute("balance").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList|AttributeValueShapeRange),
+		),
 		Right: emptySideSpec().WithArgs(0, 0), // No arguments on the right
 	}
 }
@@ -617,129 +685,157 @@ func createSubcommandAlias(
 // region CommandSpec
 
 // accountsCommandSpec specifies the command spec for the "accounts" command.
-// Specifications:
-// cash accounts list
-// cash accounts balance <account name>
-// cash accounts add <account name> [currency] [initial balance]
-// cash accounts modify <account name> [currency] [initial balance]
-// cash accounts initial-balance <account name> [initial-balance|amount]
-// cash accounts rename <account name> <new account name>
-// cash accounts delete <account name>
-var accountsCommandSpec = CommandSpec{
-	Name:              "accounts",
-	DefaultSubcommand: "list",
-	Subcommands: subcommands(
-		// list subcommand (list accounts)
-		accountsListSubcommandSpec("list"),
-		// balance subcommand (show balance history of an account)
-		SubcommandSpec{
-			Name: "balance",
-			// cash accounts balance <account name>
-			Left: transactionFilterSideSpecWithoutAccount(), // filter on transactions (but not account)
-			Right: sideSpec([]TokenKind{TokenText}).
-				WithAtLeastOneOf(PresenceRule{Kinds: []TokenKind{TokenText}, Message: "accounts balance requires an account name"}).
-				WithArgs(1, 1),
-		},
-		// add subcommand (add an account)
-		SubcommandSpec{
-			Name: "add",
-			Left: emptySideSpec(),
-			// cash accounts add <account name> [currency] [initial balance]
-			Right: sideSpec(
-				[]TokenKind{TokenText, TokenAttribute},
-				settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle),
-			).
-				WithKindRule(TokenText, exactlyOne()).
-				WithArgs(1, 3).
-				WithAttributeRule("currency", atMostOne()).
-				WithAttributeRule("initial_balance", atMostOne()).
-				WithAtLeastOneOf(
-					PresenceRule{
-						Kinds:      []TokenKind{TokenText},
-						Attributes: []string{"account"},
-						Message:    "accounts add requires an account name",
-					},
+//
+// Subcommand:
+// - list
+// - add
+// - modify
+// - initial-balance
+// - rename
+// - delete
+var accountsCommandSpec = createSubcommandAlias(
+	CommandSpec{
+		Name:              "accounts",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			// > Subcommand: list
+			// $ cash [account-filter] accounts list
+			// [balance] is a filter on the balance attribute
+			// [name] is a filter on the account name field
+			// [currency] is a filter on the currency attribute
+			// [account] is a filter on the account name field
+			accountsListSubcommandSpec("list"),
+			// > Subcommand: balance
+			// cash [transaction filter] accounts balance <account name>
+			// category, date, desc, store, identifier, group are all optional filter attributes.
+			SubcommandSpec{
+				Name: "balance",
+				Left: transactionFilterSideSpecWithoutAccount(),
+				Right: sideSpec(
+					[]TokenKind{TokenText},
+					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("name").SetShapes(AttributeValueShapeSingle),
+				).
+					WithAtLeastOneOf(
+						PresenceRule{
+							Kinds:      []TokenKind{TokenText},
+							Attributes: []string{"account", "name"},
+							Message:    "accounts balance requires an account name",
+						},
+					).
+					WithArgs(1, 1),
+			},
+			// > Subcommand: add
+			// $ cash accounts add <account name> [currency] [initial balance]
+			// <account name> is the name of the account to add
+			// [currency] is the currency of the account to add (default is default currency)
+			// [initial balance] is the initial balance of the account to add (default is 0)
+			SubcommandSpec{
+				Name: "add",
+				Left: emptySideSpec(),
+				Right: sideSpec(
+					[]TokenKind{TokenText, TokenAttribute},
+					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle),
+				).
+					WithKindRule(TokenText, atMostOne()).
+					WithArgs(1, 3).
+					WithAttributeRule("currency", atMostOne()).
+					WithAttributeRule("initial_balance", atMostOne()).
+					WithAtLeastOneOf(
+						PresenceRule{
+							Kinds:      []TokenKind{TokenText},
+							Attributes: []string{"account"},
+							Message:    "accounts add requires an account name",
+						},
+					),
+			},
+			// > Subcommand: modify
+			// $ cash <account> accounts modify [currency] [initial balance] [name]
+			// <account> is the account to modify
+			// [currency] is the currency of the account to modify (default is default currency)
+			// [initial balance] is the initial balance of the account to modify (default is 0)
+			// [name] is the new name of the account
+			SubcommandSpec{
+				Name: "modify",
+				// cash accounts modify <account name> [currency] [initial balance]
+				Left: sideSpec(
+					[]TokenKind{TokenAttribute},
+					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 				),
-		},
-		// modify subcommand (modify account(s))
-		SubcommandSpec{
-			Name: "modify",
-			// cash accounts modify <account name> [currency] [initial balance]
-			Left: emptySideSpec(),
-			Right: sideSpec(
-				[]TokenKind{TokenText, TokenAttribute},
-				settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("initial_balance").SetShapes(AttributeValueShapeSingle),
-			).
-				WithArgs(2, 4).
-				WithKindRule(TokenText, exactlyOne()).
-				WithAttributeRule("account", atMostOne()).
-				WithAttributeRule("currency", atMostOne()).
-				WithAttributeRule("initial_balance", atMostOne()).
-				WithAtLeastOneOf(
-					PresenceRule{
-						Attributes: []string{"account", "currency", "initial_balance"},
-						Message:    "accounts modify requires at least one modification",
-					},
+				Right: sideSpec(
+					[]TokenKind{TokenText, TokenAttribute},
+					settableOnlyAttribute("name").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("initial_balance").SetShapes(AttributeValueShapeSingle),
+				).
+					WithArgs(2, 3).
+					WithKindRule(TokenText, atMostOne()).
+					WithAttributeRule("name", atMostOne()).
+					WithAttributeRule("currency", atMostOne()).
+					WithAttributeRule("initial_balance", atMostOne()).
+					WithAtLeastOneOf(
+						PresenceRule{
+							Kinds:      []TokenKind{TokenText},
+							Attributes: []string{"name", "currency", "initial_balance"},
+							Message:    "accounts modify requires at least one modification",
+						},
+					),
+			},
+			// > Subcommand: initial-balance
+			// $ cash <account> accounts initial-balance [initial balance]
+			// initial-balance subcommand (set initial balance of an account)
+			// cash accounts initial-balance <account name> [initial-balance|amount]
+			SubcommandSpec{
+				Name: "initial-balance",
+				Left: sideSpec(
+					[]TokenKind{TokenAttribute},
+					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 				),
-		},
-		// initial-balance subcommand (set initial balance of an account)
-		// cash accounts initial-balance <account name> [initial-balance|amount]
-		SubcommandSpec{
-			Name: "initial-balance",
-			Left: emptySideSpec(),
-			Right: sideSpec(
-				[]TokenKind{TokenAttribute},
-				settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("amount").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle),
-			).
-				WithArgs(2, 2).
-				WithAttributeRule("account", exactlyOne()).
-				WithAttributeRule("amount", atMostOne()).
-				WithAttributeRule("initial-balance", atMostOne()).
-				WithAtLeastOneOf(
-					PresenceRule{
-						Attributes: []string{"amount", "initial-balance"},
-						Message:    "requires an initial balance (initial-balance or amount)",
-					},
+				Right: sideSpec(
+					[]TokenKind{TokenAttribute},
+					settableOnlyAttribute("amount").SetShapes(AttributeValueShapeSingle),
+				).
+					WithArgs(1, 1).
+					WithAttributeRule("amount", exactlyOne()),
+			},
+			// > Subcommand: rename
+			// $ cash <account> accounts rename <new account name>
+			SubcommandSpec{
+				Name: "rename",
+				Left: sideSpec(
+					[]TokenKind{TokenAttribute},
+					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 				),
-		},
-		// rename subcommand (rename an account)
-		// cash accounts rename <account name> <new account name>
-		SubcommandSpec{
-			Name: "rename",
-			Left: emptySideSpec(),
-			Right: sideSpec(
-				[]TokenKind{TokenText},
-			).
-				WithArgs(2, 2).
-				WithKindRule(TokenText, countRule(2, 2)),
-		},
-		// delete subcommand (delete an account)
-		// cash accounts delete <account name>
-		SubcommandSpec{
-			Name: "delete",
-			Left: emptySideSpec(),
-			Right: sideSpec(
-				[]TokenKind{TokenText, TokenAttribute},
-				settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
-			).
-				WithArgs(1, 1).
-				WithAttributeRule("account", atMostOne()).
-				WithAtLeastOneOf(
-					PresenceRule{
-						Kinds:      []TokenKind{TokenText},
-						Attributes: []string{"account"},
-						Message:    "accounts delete requires an account name",
-					},
+				Right: sideSpec(
+					[]TokenKind{TokenText},
+				).
+					WithArgs(1, 1).
+					WithKindRule(TokenText, countRule(1, 1)),
+			},
+			// > Subcommand: delete
+			// $ cash <account> accounts delete
+			// delete subcommand (delete an account)
+			SubcommandSpec{
+				Name: "delete",
+				Left: sideSpec(
+					[]TokenKind{TokenAttribute},
+					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 				),
-		},
-	),
-}
+				Right: emptySideSpec().WithArgs(0, 0),
+			},
+		),
+	},
+	[]SubcommandAlias{
+		{"list", "ls"},
+		{"add", "create"},
+		{"modify", "update"},
+		{"initial-balance", "set-initial-balance"},
+		{"rename", "mv"},
+		{"delete", "rm"},
+	},
+)
 
 // addCommandSpec specifies the command spec for the "add" command.
 // cash add <amount> <store> <desc...> [date] [account] [category] [group]
@@ -757,10 +853,12 @@ var addCommandSpec = CommandSpec{
 	Name:              "add",
 	DefaultSubcommand: "default",
 	Subcommands: subcommands(
+		// > Subcommand: default (add)
+		// cash add <amount> <store> <desc...> [date] [account] [category] [group]
 		SubcommandSpec{
 			Name:  "default",
 			Left:  emptySideSpec(),
-			Right: addRightSideSpec(),
+			Right: addCommandRightSideSpec(),
 		},
 	),
 }
@@ -774,10 +872,12 @@ var addCommandSpec = CommandSpec{
 // cash backup
 var backupCommandSpec = CommandSpec{
 	Name:              "backup",
-	DefaultSubcommand: "default",
+	DefaultSubcommand: "now",
 	Subcommands: subcommands(
+		// > Subcommand: now (backup)
+		// cash backup now [output]
 		SubcommandSpec{
-			Name: "default",
+			Name: "now",
 			Left: emptySideSpec(),
 			Right: sideSpec(
 				[]TokenKind{TokenAttribute},
@@ -785,6 +885,18 @@ var backupCommandSpec = CommandSpec{
 			).
 				WithArgs(0, 1).
 				WithAttributeRule("output", atMostOne()),
+		},
+		// > Subcommand: to (backup)
+		// cash backup to <output>
+		SubcommandSpec{
+			Name: "to",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenAttribute},
+				settableOnlyAttribute("output").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(1, 1).
+				WithAttributeRule("output", exactlyOne()),
 		},
 	),
 }
@@ -799,24 +911,29 @@ var backupCommandSpec = CommandSpec{
 // desc is required
 // group is optional (no group)
 // store is optional (no store)
-var budgetCommandSpec = CommandSpec{
-	Name:              "budget",
-	DefaultSubcommand: "list",
-	Subcommands: subcommands(
-		// cash budget list
-		SubcommandSpec{
-			Name:  "list",
-			Left:  budgetSideSpec(),
-			Right: budgetSideSpec(),
-		},
-		// cash budget add <account> <category> <amount> <date> <desc> [group] [store]
-		SubcommandSpec{
-			Name:  "add",
-			Left:  budgetSideSpec(),
-			Right: budgetSideSpec(),
-		},
-	),
-}
+var budgetCommandSpec = createSubcommandAlias(
+	CommandSpec{
+		Name:              "budget",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			// cash budget list
+			SubcommandSpec{
+				Name:  "list",
+				Left:  budgetSideSpec(),
+				Right: budgetSideSpec(),
+			},
+			// cash budget add <account> <category> <amount> <date> <desc> [group] [store]
+			SubcommandSpec{
+				Name:  "add",
+				Left:  budgetSideSpec(),
+				Right: budgetSideSpec(),
+			},
+		),
+	},
+	[]SubcommandAlias{
+		{"list", "ls"},
+	},
+)
 
 // categoriesListSubcommandSpec creates a subcommand for categories listening
 func categoriesListSubcommandSpec(commandName string) SubcommandSpec {
@@ -837,65 +954,72 @@ func categoriesListSubcommandSpec(commandName string) SubcommandSpec {
 // cash categories add groceries
 // cash categories modify groceries parent:groceries
 // cash categories delete groceries
-var categoriesCommandSpec = CommandSpec{
-	Name:              "categories",
-	DefaultSubcommand: "list",
-	Subcommands: subcommands(
-		// cash categories list
-		categoriesListSubcommandSpec("list"),
-		// cash categories add <category name> [parent]
-		SubcommandSpec{
-			Name: "add",
-			Left: emptySideSpec(),
-			Right: sideSpec(
-				[]TokenKind{TokenText, TokenAttribute},
-				settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("parent").SetShapes(AttributeValueShapeSingle),
-			).
-				WithArgs(1, 2).
-				WithAttributeRule("parent", atMostOne()).
-				WithAtLeastOneOf(PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"category"}, Message: "categories add requires a category name"}),
-		},
-		// cash categories modify <category name> [parent]
-		SubcommandSpec{
-			Name: "modify",
-			Left: emptySideSpec(),
-			Right: sideSpec(
-				[]TokenKind{TokenText, TokenAttribute},
-				settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("parent").SetShapes(AttributeValueShapeSingle),
-			).
-				WithArgs(2, 3).
-				WithKindRule(TokenText, exactlyOne()).
-				WithAttributeRule("category", atMostOne()).
-				WithAttributeRule("parent", atMostOne()).
-				WithAtLeastOneOf(
-					PresenceRule{
-						Attributes: []string{"category", "parent"},
-						Message:    "categories modify requires at least one modification",
-					},
-				),
-		},
-		// cash categories delete <category name>
-		SubcommandSpec{
-			Name: "delete",
-			Left: emptySideSpec(),
-			Right: sideSpec(
-				[]TokenKind{TokenText, TokenAttribute},
-				settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
-			).
-				WithArgs(1, 1).
-				WithAttributeRule("category", atMostOne()).
-				WithAtLeastOneOf(
-					PresenceRule{
-						Kinds:      []TokenKind{TokenText},
-						Attributes: []string{"category"},
-						Message:    "categories delete requires a category name",
-					},
-				),
-		},
-	),
-}
+var categoriesCommandSpec = createSubcommandAlias(
+	CommandSpec{
+		Name:              "categories",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			// cash categories list
+			categoriesListSubcommandSpec("list"),
+			// cash categories add <category name> [parent]
+			SubcommandSpec{
+				Name: "add",
+				Left: emptySideSpec(),
+				Right: sideSpec(
+					[]TokenKind{TokenText, TokenAttribute},
+					settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("parent").SetShapes(AttributeValueShapeSingle),
+				).
+					WithArgs(1, 2).
+					WithAttributeRule("parent", atMostOne()).
+					WithAtLeastOneOf(PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"category"}, Message: "categories add requires a category name"}),
+			},
+			// cash categories modify <category name> [parent]
+			SubcommandSpec{
+				Name: "modify",
+				Left: emptySideSpec(),
+				Right: sideSpec(
+					[]TokenKind{TokenText, TokenAttribute},
+					settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("parent").SetShapes(AttributeValueShapeSingle),
+				).
+					WithArgs(2, 3).
+					WithKindRule(TokenText, exactlyOne()).
+					WithAttributeRule("category", atMostOne()).
+					WithAttributeRule("parent", atMostOne()).
+					WithAtLeastOneOf(
+						PresenceRule{
+							Attributes: []string{"category", "parent"},
+							Message:    "categories modify requires at least one modification",
+						},
+					),
+			},
+			// cash categories delete <category name>
+			SubcommandSpec{
+				Name: "delete",
+				Left: emptySideSpec(),
+				Right: sideSpec(
+					[]TokenKind{TokenText, TokenAttribute},
+					settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
+				).
+					WithArgs(1, 1).
+					WithAttributeRule("category", atMostOne()).
+					WithAtLeastOneOf(
+						PresenceRule{
+							Kinds:      []TokenKind{TokenText},
+							Attributes: []string{"category"},
+							Message:    "categories delete requires a category name",
+						},
+					),
+			},
+		),
+	},
+	[]SubcommandAlias{
+		{"list", "ls"},
+		{"modify", "update"},
+		{"delete", "rm"},
+	},
+)
 
 // configCommandSpec specifies the command spec for the "config" command.
 // cash config default <attribute> <value>
@@ -906,19 +1030,42 @@ var categoriesCommandSpec = CommandSpec{
 // cash config default currency
 var configCommandSpec = CommandSpec{
 	Name:              "config",
-	DefaultSubcommand: "default",
+	DefaultSubcommand: "print",
 	Subcommands: subcommands(
+		// > Subcommand: print (config)
+		// $ cash config print
 		SubcommandSpec{
-			Name: "default",
+			Name:  "print",
+			Left:  emptySideSpec(),
+			Right: emptySideSpec().WithArgs(0, 0),
+		},
+		// > Subcommand: get
+		// $ cash config get <key>
+		SubcommandSpec{
+			Name: "get",
 			Left: emptySideSpec(),
-			Right: sideSpecWithAnyAttributes(TokenAttribute).
-				WithArgs(0, 1),
+			Right: sideSpec(
+				[]TokenKind{TokenText},
+			).
+				WithArgs(1, 1).
+				WithKindRule(TokenText, countRule(1, 1)),
+		},
+		// > Subcommand: set
+		// $ cash config set <key> <value>
+		SubcommandSpec{
+			Name: "set",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText},
+			).
+				WithArgs(2, 2).
+				WithKindRule(TokenText, CountRule{Min: 2, Max: 2}),
 		},
 	),
 }
 
 // deleteCommandSpec specifies the command spec for the "delete" command.
-// cash delete <id> [identifier] [T]
+// $ cash <filter> delete [transaction|list]
 // id is required
 // identifier is optional
 // T is optional
@@ -928,31 +1075,22 @@ var configCommandSpec = CommandSpec{
 // cash delete T:2026-05-12
 var deleteCommandSpec = CommandSpec{
 	Name:              "delete",
-	DefaultSubcommand: "default",
+	DefaultSubcommand: "transaction",
 	Subcommands: subcommands(
+		// > Subcommand: transaction (delete)
+		// Delete a transaction.
+		// $ cash <filter> delete
 		SubcommandSpec{
-			Name: "default",
-			Left: emptySideSpec(),
-			Right: sideSpec(
-				[]TokenKind{},
-				settableOnlyAttribute("id").SetShapes(AttributeValueShapeSingle),
-			).
-				WithArgs(1, 1).
-				WithKindRule(TokenAttribute, exactlyOne()).
-				WithAttributeRule("id", atMostOne()).
-				WithAttributeRule("identifier", atMostOne()).
-				WithAttributeRule("T", atMostOne()).
-				WithAtLeastOneOf(
-					PresenceRule{
-						Kinds:      []TokenKind{TokenAttribute},
-						Attributes: []string{"id", "identifier", "T"},
-						Message:    "delete requires an id",
-					},
-				),
+			Name:  "transaction",
+			Left:  transactionFilterSideSpec(),
+			Right: emptySideSpec().WithArgs(0, 0),
 		},
+		// > Subcommand: list (delete)
+		// List deleted transactions.
+		// $ cash <filter> delete list
 		SubcommandSpec{
 			Name:  "list",
-			Left:  emptySideSpec(),
+			Left:  transactionFilterSideSpec(),
 			Right: emptySideSpec().WithArgs(0, 0),
 		},
 	),
@@ -970,12 +1108,49 @@ var deleteCommandSpec = CommandSpec{
 // cash fake-it account:groceries category:groceries type:groceries year:2020 month:1
 var fakeitCommandSpec = CommandSpec{
 	Name:              "fake-it",
-	DefaultSubcommand: "default",
+	DefaultSubcommand: "transactions",
 	Subcommands: subcommands(
+		// > Subcommand: generate (fake-it)
+		// Generate fake transactions.
 		SubcommandSpec{
-			Name:  "default",
+			Name:  "transactions",
 			Left:  emptySideSpec(),
-			Right: fakeitRightSideSpec(),
+			Right: fakeitTransactionsRightSideSpec(),
+		},
+		// > Subcommand: categories (fake-it)
+		// Generate fake categories.
+		SubcommandSpec{
+			Name:  "categories",
+			Left:  emptySideSpec(),
+			Right: fakeitCategoriesRightSideSpec(),
+		},
+		// > Subcommand: accounts (fake-it)
+		// Generate fake accounts.
+		SubcommandSpec{
+			Name:  "accounts",
+			Left:  emptySideSpec(),
+			Right: fakeitAccountsRightSideSpec(),
+		},
+		// > Subcommand: stores (fake-it)
+		// Generate fake stores
+		SubcommandSpec{
+			Name:  "stores",
+			Left:  emptySideSpec(),
+			Right: fakeitStoresRightSideSpec(),
+		},
+		// > Subcommand: groups (fake-it)
+		// Generate fake groups.
+		SubcommandSpec{
+			Name:  "groups",
+			Left:  emptySideSpec(),
+			Right: fakeitGroupsRightSideSpec(),
+		},
+		// > Subcommand: tags (fake-it)
+		// Generate fake tags.
+		SubcommandSpec{
+			Name:  "tags",
+			Left:  emptySideSpec(),
+			Right: fakeitTagsRightSideSpec(),
 		},
 	),
 }
@@ -1077,10 +1252,12 @@ var groupsCommandSpec = createSubcommandAlias(
 // importCommandSpec specifies the command spec for the "import" command.
 var importCommandSpec = CommandSpec{
 	Name:              "import",
-	DefaultSubcommand: "default",
+	DefaultSubcommand: "csv",
 	Subcommands: subcommands(
+		// > Subcommand: csv (import)
+		// $ cash import csv <file>
 		SubcommandSpec{
-			Name:  "default",
+			Name:  "csv",
 			Left:  emptySideSpec(),
 			Right: sideSpec([]TokenKind{TokenText}).WithArgs(1, 1),
 		},
@@ -1097,20 +1274,57 @@ var importCommandSpec = CommandSpec{
 // Examples:
 // cash list account:groceries
 // cash list account:groceries category:groceries
-var listCommandSpec = CommandSpec{
-	Name:              "list",
-	DefaultSubcommand: "default",
-	Subcommands: subcommands(
-		SubcommandSpec{
-			Name: "default",
-			Left: transactionFilterSideSpec(
-				settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
-			),
-			Right: genericSideSpec(),
-		},
-	),
-}
+var listCommandSpec = createSubcommandAlias(
+	CommandSpec{
+		Name:              "list",
+		DefaultSubcommand: "transactions",
+		Subcommands: subcommands(
+			// > Subcommand: transactions (list)
+			// $ cash list transactions
+			SubcommandSpec{
+				Name: "transactions",
+				Left: transactionFilterSideSpec(
+					settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
+				),
+				Right: genericSideSpec(),
+			},
+			// > Subcommand: accounts (list)
+			// $ cash list accounts
+			SubcommandSpec{
+				Name: "accounts",
+				Left: accountFilterSideSpec(
+					settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
+				),
+			},
+			// > Subcommand: stores (list)
+			// $ cash list stores
+			SubcommandSpec{
+				Name: "groups",
+				Left: groupFilterSideSpec(
+					settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
+				),
+			},
+			// > Subcommand: categories (list)
+			// $ cash list categories
+			SubcommandSpec{
+				Name: "tags",
+				Left: tagFilterSideSpec(
+					settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
+				),
+			},
+		),
+	},
+	[]SubcommandAlias{
+		{"transactions", "t"},
+		{"accounts", "a"},
+		{"groups", "g"},
+		{"tags", "ta"},
+	},
+)
 
 // modifyCommandSpec specifies the command spec for the "modify" command.
 // cash modify <account> <category> <group> <store> <attribute> <value>
@@ -1126,6 +1340,9 @@ var modifyCommandSpec = CommandSpec{
 	Name:              "modify",
 	DefaultSubcommand: "default",
 	Subcommands: subcommands(
+		// > Subcommand: default (modify)
+		// Modify a transaction.
+		// $ cash modify <transaction attributes>
 		SubcommandSpec{
 			Name:  "default",
 			Left:  transactionFilterSideSpec(),
@@ -1135,24 +1352,53 @@ var modifyCommandSpec = CommandSpec{
 }
 
 // storesCommandSpec specifies the command spec for the "stores" command.
-var storesCommandSpec = CommandSpec{
-	Name:              "stores",
-	DefaultSubcommand: "list",
-	Subcommands: subcommands(
-		SubcommandSpec{
-			Name:  "list",
-			Left:  emptySideSpec(),
-			Right: emptySideSpec().WithArgs(0, 0),
-		},
-		SubcommandSpec{
-			Name: "rename",
-			Left: emptySideSpec(),
-			Right: sideSpec([]TokenKind{TokenText}).
-				WithArgs(2, 2).
-				WithKindRule(TokenText, countRule(2, 2)),
-		},
-	),
-}
+var storesCommandSpec = createSubcommandAlias(
+	CommandSpec{
+		Name:              "stores",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			// > Subcommand: list (stores)
+			// $ cash stores list
+			SubcommandSpec{
+				Name:  "list",
+				Left:  emptySideSpec(),
+				Right: emptySideSpec().WithArgs(0, 0),
+			},
+			// > Subcommand: add
+			// $ cash stores add <store name>
+			SubcommandSpec{
+				Name: "add",
+				Left: emptySideSpec(),
+				Right: sideSpec(
+					[]TokenKind{TokenText},
+				).WithArgs(1, 1),
+			},
+			// > Subcommand: rename
+			// $ cash stores modify <store name> <new name>
+			SubcommandSpec{
+				Name: "rename",
+				Left: emptySideSpec(),
+				Right: sideSpec([]TokenKind{TokenText}).
+					WithArgs(2, 2).
+					WithKindRule(TokenText, countRule(2, 2)),
+			},
+			// > Subcommand: delete
+			// $ cash stores delete <store name>
+			SubcommandSpec{
+				Name: "delete",
+				Left: emptySideSpec(),
+				Right: sideSpec([]TokenKind{TokenText}).
+					WithArgs(1, 1).
+					WithKindRule(TokenText, exactlyOne()),
+			},
+		),
+	},
+	[]SubcommandAlias{
+		{"list", "ls"},
+		{"rename", "rn"},
+		{"delete", "rm"},
+	},
+)
 
 // purgeCommandSpec specifies the command spec for the "purge" command.
 // cash purge <account> <category> <group> <store>
@@ -1170,11 +1416,9 @@ var purgeCommandSpec = CommandSpec{
 	Subcommands: subcommands(
 		// cash purge list
 		SubcommandSpec{
-			Name: "default",
-			Left: emptySideSpec(),
-			Right: sideSpec([]TokenKind{}).
-				WithArgs(1, 1).
-				WithAttributeRule("id", exactlyOne()),
+			Name:  "default",
+			Left:  transactionFilterSideSpec(),
+			Right: emptySideSpec(),
 		},
 	),
 }

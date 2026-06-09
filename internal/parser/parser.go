@@ -246,17 +246,29 @@ func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
 	// Get command specification
 	_, ok := GetCommandSpec(parsed.Command)
 	if !ok {
-		return &ParseError{Code: ParseErrorNoCommand, Message: fmt.Sprintf("unknown command: %s", parsed.Command)}
+		return &ParseError{
+			Code:    ParseErrorNoCommand,
+			Message: fmt.Sprintf("unknown command: %s", parsed.Command),
+		}
 	}
 
+	// Get subcommand specification
 	subcommandSpec, ok := GetSubcommandSpec(parsed.Command, parsed.Subcommand)
 	if !ok {
-		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("unknown subcommand %s for command %s", parsed.Subcommand, parsed.Command)}
+		return &ParseError{
+			Code:    ParseErrorInvalidInput,
+			Message: fmt.Sprintf("unknown subcommand %s for command %s", parsed.Subcommand, parsed.Command),
+		}
 	}
 
+	// Validate tokens on the left (filter)
 	for _, token := range parsed.Filters {
 		if token.Kind == TokenUnknown {
-			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: "unknown token in filters"}
+			return &ParseError{
+				Code:    ParseErrorUnknownToken,
+				Token:   token.Raw,
+				Message: "unknown token in filters",
+			}
 		}
 		if err := validateTokenAgainstSideSpec(token, subcommandSpec.Left, "left side"); err != nil {
 			return err
@@ -266,6 +278,7 @@ func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
 		return err
 	}
 
+	// Validate tokens on the right (arguments)
 	for _, token := range parsed.Args {
 		if token.Kind == TokenUnknown {
 			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: "unknown token in arguments"}
@@ -282,10 +295,16 @@ func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
 }
 
 func validateTokenAgainstSideSpec(token Token, side SideSpec, sideName string) *ParseError {
+	// Check if the token is allowed on the side
 	if !side.AllowedKinds[token.Kind] {
-		return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: fmt.Sprintf("token kind %s is not allowed on %s", token.Kind, sideName)}
+		return &ParseError{
+			Code:    ParseErrorUnknownToken,
+			Token:   token.Raw,
+			Message: fmt.Sprintf("token kind %s is not allowed on %s", token.Kind, sideName),
+		}
 	}
 
+	// Check if the token is allowed to be set
 	if token.Kind != TokenAttribute && token.Kind != TokenAttributeClear {
 		return nil
 	}
@@ -293,26 +312,53 @@ func validateTokenAgainstSideSpec(token Token, side SideSpec, sideName string) *
 		return nil
 	}
 
-	attributeSpec, ok := side.Attributes[token.Key]
+	// Get attribute specification
+	attributeSpec, ok := side.Attributes[token.Attribute.Key]
 	if !ok {
-		return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: fmt.Sprintf("attribute %s is not allowed on %s", token.Key, sideName)}
+		return &ParseError{
+			Code:    ParseErrorUnknownToken,
+			Token:   token.Raw,
+			Message: fmt.Sprintf("attribute %s is not allowed on %s", token.Attribute.Key, sideName),
+		}
 	}
+
+	// Check if clear attribute is allowed
 	if token.Kind == TokenAttributeClear {
 		if !attributeSpec.AllowsClear() {
-			return &ParseError{Code: ParseErrorInvalidInput, Token: token.Raw, Message: fmt.Sprintf("attribute %s cannot be cleared", token.Key)}
+			return &ParseError{
+				Code:    ParseErrorInvalidInput,
+				Token:   token.Raw,
+				Message: fmt.Sprintf("attribute %s cannot be cleared", token.Attribute.Key),
+			}
 		}
 		return nil
 	}
+
+	// If not a clear, then it is a set attribute
+	// and must be allowed to be set
 	if !attributeSpec.AllowsSet() {
-		return &ParseError{Code: ParseErrorInvalidInput, Token: token.Raw, Message: fmt.Sprintf("attribute %s cannot be set", token.Key)}
+		return &ParseError{
+			Code:    ParseErrorInvalidInput,
+			Token:   token.Raw,
+			Message: fmt.Sprintf("attribute %s cannot be set", token.Attribute.Key),
+		}
 	}
 
-	value, err := ParseAttributeValue(token.Value)
+	// Check if the attribute value (single, list, range) is allowed
+	value, err := ParseAttributeValue(token.Attribute.Value.Raw)
 	if err != nil {
-		return &ParseError{Code: ParseErrorInvalidInput, Token: token.Raw, Message: err.Error()}
+		return &ParseError{
+			Code:    ParseErrorInvalidInput,
+			Token:   token.Raw,
+			Message: err.Error(),
+		}
 	}
 	if !attributeSpec.Shapes.Allows(value) {
-		return &ParseError{Code: ParseErrorInvalidInput, Token: token.Raw, Message: fmt.Sprintf("attribute %s does not accept %s values", token.Key, value.Kind)}
+		return &ParseError{
+			Code:    ParseErrorInvalidInput,
+			Token:   token.Raw,
+			Message: fmt.Sprintf("attribute %s does not accept %s values", token.Attribute.Key, value.Kind),
+		}
 	}
 
 	return nil
@@ -364,7 +410,7 @@ func validateAttributeRules(tokens []Token, side SideSpec, sideName string) *Par
 		if token.Kind != TokenAttribute && token.Kind != TokenAttributeClear {
 			continue
 		}
-		counts[token.Key]++
+		counts[token.Attribute.Key]++
 	}
 	for name, rule := range side.AttributeRules {
 		if err := validateCountRule(counts[name], rule, sideName, fmt.Sprintf("attribute %s", name)); err != nil {
@@ -394,7 +440,7 @@ func validatePresenceRules(tokens []Token, side SideSpec, sideName string) *Pars
 	for _, token := range tokens {
 		kindCounts[token.Kind]++
 		if token.Kind == TokenAttribute || token.Kind == TokenAttributeClear {
-			attributeCounts[token.Key]++
+			attributeCounts[token.Attribute.Key]++
 		}
 	}
 

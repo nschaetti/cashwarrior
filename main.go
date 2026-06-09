@@ -49,7 +49,7 @@ func createHelpCmdLine() parser.ParsedCmdLine {
 		Subcommand: "",
 		Filters:    []parser.Token{},
 		Args:       []parser.Token{},
-		Flags:      []parser.Token{{Raw: "--help", Key: "help", Kind: parser.TokenFlag}},
+		Flags:      []parser.Token{{Raw: "--help", Kind: parser.TokenFlag}},
 	}
 }
 
