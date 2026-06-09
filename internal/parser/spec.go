@@ -584,6 +584,38 @@ func defaultCommandSpec(name string) CommandSpec {
 	}
 }
 
+func accountsListSubcommandSpec(subcommandName string) SubcommandSpec {
+	return SubcommandSpec{
+		Name: subcommandName,
+		// cash accounts list
+		Left:  emptySideSpec(),                // Nothing on the left
+		Right: emptySideSpec().WithArgs(0, 0), // No arguments on the right
+	}
+}
+
+type SubcommandAlias struct {
+	SubcommandName  string
+	SubcommandAlias string
+}
+
+// createSubcommandAlias creates a subcommand alias for a command.
+// This is useful for creating aliases for subcommands.
+func createSubcommandAlias(
+	command CommandSpec,
+	aliases []SubcommandAlias,
+) CommandSpec {
+	for _, alias := range aliases {
+		subCommand, ok := command.Subcommands[alias.SubcommandName]
+		if !ok {
+			panic(fmt.Sprintf("subcommand %s not found in command %s", alias.SubcommandName, command.Name))
+		}
+		command.Subcommands[alias.SubcommandAlias] = subCommand
+	}
+	return command
+}
+
+// region CommandSpec
+
 // accountsCommandSpec specifies the command spec for the "accounts" command.
 // Specifications:
 // cash accounts list
@@ -598,12 +630,7 @@ var accountsCommandSpec = CommandSpec{
 	DefaultSubcommand: "list",
 	Subcommands: subcommands(
 		// list subcommand (list accounts)
-		SubcommandSpec{
-			Name: "list",
-			// cash accounts list
-			Left:  emptySideSpec(),                // Nothing on the left
-			Right: emptySideSpec().WithArgs(0, 0), // No arguments on the right
-		},
+		accountsListSubcommandSpec("list"),
 		// balance subcommand (show balance history of an account)
 		SubcommandSpec{
 			Name: "balance",
@@ -791,6 +818,15 @@ var budgetCommandSpec = CommandSpec{
 	),
 }
 
+// categoriesListSubcommandSpec creates a subcommand for categories listening
+func categoriesListSubcommandSpec(commandName string) SubcommandSpec {
+	return SubcommandSpec{
+		Name:  commandName,
+		Left:  emptySideSpec(),
+		Right: emptySideSpec().WithArgs(0, 0),
+	}
+}
+
 // categoriesCommandSpec specifies the command spec for the "categories" command.
 // cash categories list
 // cash categories add <category name> [parent]
@@ -806,11 +842,7 @@ var categoriesCommandSpec = CommandSpec{
 	DefaultSubcommand: "list",
 	Subcommands: subcommands(
 		// cash categories list
-		SubcommandSpec{
-			Name:  "list",
-			Left:  emptySideSpec(),
-			Right: emptySideSpec().WithArgs(0, 0),
-		},
+		categoriesListSubcommandSpec("list"),
 		// cash categories add <category name> [parent]
 		SubcommandSpec{
 			Name: "add",
@@ -948,56 +980,101 @@ var fakeitCommandSpec = CommandSpec{
 	),
 }
 
-// groupCommandSpec specifies the command spec for the "group" command.
-// cash group list
-// cash group add <group name> [desc]
-// cash group modify <group name> [desc]
-// cash group delete <group name>
-//
-// Examples:
-// cash group add groceries
-// cash group modify groceries desc:groceries
-// cash group delete groceries
-var groupCommandSpec = CommandSpec{
-	Name:              "group",
-	DefaultSubcommand: "default",
-	Subcommands: subcommands(
-		// cash group list
-		SubcommandSpec{
-			Name:  "default",
-			Left:  emptySideSpec(),
-			Right: sideSpec([]TokenKind{TokenText}).WithArgs(2, 0),
-		},
-	),
-}
-
 // groupsCommandSpec specifies the command spec for the "groups" command.
 // cash groups list
 //
 // Examples:
 // cash groups list
-var groupsCommandSpec = CommandSpec{
-	Name:              "groups",
-	DefaultSubcommand: "list",
-	Subcommands: subcommands(
-		SubcommandSpec{
-			Name: "list",
-			Left: sideSpec(
-				[]TokenKind{TokenAttribute},
-				settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
-			),
-			Right: emptySideSpec().WithArgs(0, 0),
-		},
-	),
-}
+var groupsCommandSpec = createSubcommandAlias(
+	CommandSpec{
+		Name:              "groups",
+		DefaultSubcommand: "list",
+		Subcommands: subcommands(
+			// cash groups list
+			SubcommandSpec{
+				Name: "list",
+				Left: sideSpec(
+					[]TokenKind{TokenAttribute},
+					settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
+				),
+				Right: emptySideSpec().WithArgs(0, 0),
+			},
+			// cash groups add
+			SubcommandSpec{
+				Name: "add",
+				Left: emptySideSpec(),
+				Right: sideSpec(
+					[]TokenKind{TokenText, TokenAttribute},
+				).WithArgs(2, 0).
+					WithKindRule(TokenText, atMostOne()).
+					WithAttributeRule("group", atMostOne()).
+					WithAtLeastOneOf(
+						PresenceRule{
+							Kinds:      []TokenKind{TokenText},
+							Attributes: []string{"group"},
+							Message:    "groups add requires a group name",
+						},
+					).
+					WithAtLeastOneOf(
+						PresenceRule{
+							Kinds:      []TokenKind{TokenAttribute},
+							Attributes: []string{"id", "identifier", "T"},
+							Message:    "groups add requires at least one transaction id",
+						},
+					),
+			},
+			// cash groups modify
+			SubcommandSpec{
+				Name: "modify",
+				Left: emptySideSpec(),
+				Right: sideSpec(
+					[]TokenKind{TokenText, TokenAttribute},
+				).WithArgs(2, 2).
+					WithKindRule(TokenAttribute, atMostOne()).
+					WithKindRule(TokenText, atMostOne()),
+			},
+			// cash groups delete
+			SubcommandSpec{
+				Name: "delete",
+				Left: emptySideSpec(),
+				Right: sideSpec(
+					[]TokenKind{TokenText},
+				).
+					WithArgs(1, 1).
+					WithKindRule(TokenText, exactlyOne()),
+			},
+			// cash groups remove <transaction> <group>
+			SubcommandSpec{
+				Name: "remove",
+				Left: emptySideSpec(),
+				Right: sideSpec(
+					[]TokenKind{TokenAttribute},
+				).
+					WithArgs(2, 2).
+					WithAttributeRule("id", atMostOne()).
+					WithAttributeRule("identifier", atMostOne()).
+					WithAttributeRule("T", atMostOne()).
+					WithAttributeRule("group", exactlyOne()).
+					WithAtLeastOneOf(
+						PresenceRule{
+							Kinds:      []TokenKind{TokenAttribute},
+							Attributes: []string{"id", "identifier", "T", "group"},
+							Message:    "groups remove requires at least one transaction id",
+						},
+					),
+			},
+		),
+	},
+	[]SubcommandAlias{
+		{SubcommandName: "list", SubcommandAlias: "ls"},
+		{SubcommandName: "modify", SubcommandAlias: "rename"},
+		{SubcommandName: "modify", SubcommandAlias: "rn"},
+		{SubcommandName: "delete", SubcommandAlias: "rm"},
+	},
+)
 
 // importCommandSpec specifies the command spec for the "import" command.
-// cash import <file>
-// file is required
-//
-// Examples:
-// cash import file:transactions.csv
 var importCommandSpec = CommandSpec{
 	Name:              "import",
 	DefaultSubcommand: "default",
@@ -1126,27 +1203,40 @@ var restoreCommandSpec = CommandSpec{
 
 // showCommandSpec specifies the command spec for the "show" command.
 // cash show <account> <category> <group> <store> <attribute>
-// account is optional
-// category is optional
-// group is optional
-// store is optional
-// attribute is required
 //
-// Examples:
-// cash show account:groceries
+// Subcommands :
+//
+// - transaction: show transaction informations
+// - accounts: show accounts
+// - tags: show tags
+// - categories: show categories
 var showCommandSpec = CommandSpec{
 	Name:              "show",
-	DefaultSubcommand: "default",
+	DefaultSubcommand: "transaction",
 	Subcommands: subcommands(
+		// cash show infos <id|T|identifier>
 		SubcommandSpec{
-			Name: "default",
+			Name: "transaction",
 			Left: emptySideSpec(),
 			Right: sideSpec(
 				[]TokenKind{},
 			).
 				WithArgs(1, 1).
-				WithAttributeRule("id", exactlyOne()),
+				WithAttributeRule("id", atMostOne()).
+				WithAttributeRule("T", atMostOne()).
+				WithAttributeRule("identifier", atMostOne()).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Kinds:      []TokenKind{TokenAttribute},
+						Attributes: []string{"id", "T", "identifier"},
+						Message:    "show requires an id",
+					},
+				),
 		},
+		// cash show categories
+		categoriesListSubcommandSpec("categories"),
+		// cash show accounts
+		accountsListSubcommandSpec("accounts"),
 	),
 }
 
@@ -1163,15 +1253,25 @@ var summaryCommandSpec = CommandSpec{
 	),
 }
 
+// tagsCommandSpec specifies the command spec for the "tags" command.
+//
+// Subcommands:
+//
+//   - list
+//   - add
+//   - modify
+//   - delete
 var tagsCommandSpec = CommandSpec{
 	Name:              "tags",
 	DefaultSubcommand: "list",
 	Subcommands: subcommands(
+		// cash tags list
 		SubcommandSpec{
 			Name:  "list",
 			Left:  emptySideSpec(),
 			Right: emptySideSpec().WithArgs(0, 0),
 		},
+		// add
 		SubcommandSpec{
 			Name: "add",
 			Left: emptySideSpec(),
@@ -1188,29 +1288,124 @@ var tagsCommandSpec = CommandSpec{
 					},
 				),
 		},
+		// cash tags modify <tag name> [desc]
 		SubcommandSpec{
-			Name:  "modify",
-			Left:  emptySideSpec(),
-			Right: withAtLeastOneOf(withAttributeRule(withKindRule(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, settableOnlyAttribute("tag", AttributeValueShapeSingle)), 2, 2), TokenText, exactlyOne()), "tag", exactlyOne()), PresenceRule{Attributes: []string{"tag"}, Message: "tags modify requires a new tag name"}),
+			Name: "modify",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText, TokenAttribute},
+				settableOnlyAttribute("tag").SetShapes(AttributeValueShapeSingle),
+			).
+				WithKindRule(TokenText, exactlyOne()).
+				WithArgs(2, 2).
+				WithAttributeRule("tag", exactlyOne()).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Attributes: []string{"tag"},
+						Message:    "tags modify requires a new tag name",
+					},
+				),
 		},
+		// cash tags delete <tag name>
 		SubcommandSpec{
-			Name:  "delete",
-			Left:  emptySideSpec(),
-			Right: withAtLeastOneOf(withArgs(sideSpec([]TokenKind{TokenText, TokenAttribute}, settableOnlyAttribute("tag", AttributeValueShapeSingle)), 1, 1), PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"tag"}, Message: "tags delete requires a tag name"}),
+			Name: "delete",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText, TokenAttribute},
+				settableOnlyAttribute("tag").SetShapes(AttributeValueShapeSingle),
+			).WithArgs(1, 1).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Kinds:      []TokenKind{TokenText},
+						Attributes: []string{"tag"},
+						Message:    "tags delete requires a tag name"},
+				),
 		},
 	),
 }
 
+// themeCommandSpec specifies specs for the command "theme" and its subcommand.
+// cash theme [theme name] : list theme if empty, set theme otherwise
+//
+// Subcommands:
+//
+//   - default: list all themes or set
+//   - list: list all themes
+//   - set: set theme to the specified theme name
 var themeCommandSpec = CommandSpec{
 	Name:              "theme",
 	DefaultSubcommand: "default",
-	Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: withArgs(sideSpec([]TokenKind{TokenText}), 0, 1)}),
+	Subcommands: subcommands(
+		// default
+		// cash theme default <theme name>
+		SubcommandSpec{
+			Name: "default",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText},
+			).WithArgs(0, 1),
+		},
+		// cash theme list
+		SubcommandSpec{
+			Name:  "list",
+			Left:  emptySideSpec(),
+			Right: emptySideSpec().WithArgs(0, 0),
+		},
+		// cash theme set <theme name>
+		SubcommandSpec{
+			Name: "set",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]TokenKind{TokenText},
+			).WithArgs(1, 1),
+		},
+	),
 }
 
+// transferCommandSpec specifies the command spec for the "transfer" command.
+// cash transfer [add|delete] <account> <amount> <desc> [group] [store] [date]
+//
+// Subcommands:
+//
+//   - add
+//   - delete
+//   - list
 var transferCommandSpec = CommandSpec{
 	Name:              "transfer",
-	DefaultSubcommand: "default",
-	Subcommands:       subcommands(SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: transferRightSideSpec()}),
+	DefaultSubcommand: "add",
+	Subcommands: subcommands(
+		// cash transfer add <account> <amount> <desc> [group] [store] [date]
+		SubcommandSpec{
+			Name:  "add",
+			Left:  emptySideSpec(),
+			Right: transferRightSideSpec(),
+		},
+		// cash transfer delete <id>
+		// similar to cash delete
+		SubcommandSpec{
+			Name: "delete",
+			Left: emptySideSpec(),
+			Right: sideSpec([]TokenKind{TokenAttribute}).
+				WithArgs(1, 1).
+				WithKindRule(TokenAttribute, exactlyOne()).
+				WithAttributeRule("id", atMostOne()).
+				WithAttributeRule("identifier", atMostOne()).
+				WithAttributeRule("T", atMostOne()).
+				WithAtLeastOneOf(
+					PresenceRule{
+						Kinds:      []TokenKind{TokenAttribute},
+						Attributes: []string{"id"},
+						Message:    "transfer delete requires an id",
+					},
+				),
+		},
+		// cash transfer list
+		SubcommandSpec{
+			Name:  "list",
+			Left:  emptySideSpec(),
+			Right: emptySideSpec().WithArgs(0, 0),
+		},
+	),
 }
 
 // CommandSpecs is a map of command names to their specifications.
@@ -1237,7 +1432,6 @@ var CommandSpecs = map[string]CommandSpec{
 	"delete":      deleteCommandSpec,
 	"export":      defaultCommandSpec("export"),
 	"fakeit":      fakeitCommandSpec,
-	"group":       groupCommandSpec,
 	"groups":      groupsCommandSpec,
 	"import":      importCommandSpec,
 	"list":        listCommandSpec,
@@ -1256,6 +1450,8 @@ var CommandSpecs = map[string]CommandSpec{
 	"transfer":    transferCommandSpec,
 	"undo":        defaultCommandSpec("undo"),
 }
+
+// endregion CommandSpec
 
 func GetCommandSpec(name string) (CommandSpec, bool) {
 	spec, ok := CommandSpecs[name]
