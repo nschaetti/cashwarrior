@@ -38,6 +38,7 @@ var Handlers = map[string]CommandFunc{
 	"summary":     Summary,
 	"groups":      Groups,
 	"places":      Places,
+	"help":        Help,
 }
 
 func Dispatch(parsed parser.ParsedCmdLine, cfg config.Config, tx db.DBTX) error {

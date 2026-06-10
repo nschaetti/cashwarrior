@@ -3,8 +3,6 @@ package parser
 import (
 	"fmt"
 	"os"
-
-	"github.com/pterm/pterm"
 )
 
 type ParseErrorCode string
@@ -18,6 +16,16 @@ const (
 	ParseErrorInvalidInput ParseErrorCode = "INVALID_INPUT"
 	// ParseErrorEmptyCommandLine indicates an empty command line.
 	ParseErrorEmptyCommandLine = "EMPTY_COMMAND_LINE"
+	// ParseErrorInvalidLeftTokens indicates that the left side of the command line is invalid.
+	ParseErrorInvalidLeftTokens = "INVALID_LEFT_TOKENS"
+	// ParseErrorInvalidRightTokens indicates that the right side of the command line is invalid.
+	ParseErrorInvalidRightTokens = "INVALID_RIGHT_TOKENS"
+	// ParseErrorErrorExtractingTokens indicates that the left side of the command line is invalid.
+	ParseErrorErrorExtractingTokens = "ERROR_EXTRACTING_TOKENS"
+	// ParseErrorInvalidCommand ParseErrorNoCommand indicates that no command was specified.
+	ParseErrorInvalidCommand = "INVALID_COMMAND"
+	// ParseErrorInvalidSubcommand indicates that the subcommand is invalid.
+	ParseErrorInvalidSubcommand = "INVALID_SUBCOMMAND"
 )
 
 // ParseError represents a structured parser or validation error.
@@ -55,6 +63,17 @@ func createAttribute(key string, value AttributeValue) Attribute {
 type Flag struct {
 	Key   string
 	Value string
+}
+
+func (f Flag) String() string {
+	if f.Value == "" {
+		return f.Key
+	}
+	return fmt.Sprintf("%s=%s", f.Key, f.Value)
+}
+
+func (f Flag) IsEmpty() bool {
+	return f.Value == ""
 }
 
 // Token is a classified lexical unit extracted from the command line.
@@ -131,10 +150,10 @@ func (t Token) String() string {
 	} else if t.Kind == TokenText {
 		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
 	} else if t.Kind == TokenFlag {
-		if t.Flag.Value == "" {
-			return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Flag.Key)
+		if t.Flag.IsEmpty() {
+			return fmt.Sprintf("<Token %s \"%s\" activated>", t.Kind, t.Flag.Key)
 		}
-		return fmt.Sprintf("<Token %s: %s=%s>", t.Kind, t.Flag.Key, t.Flag.Value)
+		return fmt.Sprintf("<Token %s: %s set to \"%s\">", t.Kind, t.Flag.Key, t.Flag.Value)
 	}
 	return fmt.Sprintf("<Token unknown %s: %s>", t.Kind, t.Raw)
 }
@@ -175,17 +194,24 @@ func (k TokenKind) String() string {
 }
 
 // TokenRule classifies a raw token and reports whether it matched.
-type TokenRule func(raw string) (Token, bool)
+type TokenRule func(raw string) bool
 
-var tokenRules = []TokenRule{
-	classifyFlag,
-	classifyNegativeTag,
-	classifyTag,
-	//classifyAmount,
-	//classifyID,
-	classifyAttribute,
-	//classifyPeriod,
-	classifyText,
+var tokenRules = map[TokenKind]TokenRule{
+	TokenFlag:        classifyFlag,
+	TokenTagNegative: classifyNegativeTag,
+	TokenTag:         classifyTag,
+	TokenAttribute:   classifyAttribute,
+	TokenText:        classifyText,
+}
+
+type TokenParser func(raw string) (Token, error)
+
+var tokenParsers = map[TokenKind]TokenParser{
+	TokenFlag:        ParseTokenFlag,
+	TokenTag:         ParseTokenTag,
+	TokenTagNegative: ParseTokenTagNegative,
+	TokenAttribute:   ParseTokenAttribute,
+	TokenText:        ParseTokenText,
 }
 
 func isCommand(s string) bool {
@@ -193,14 +219,14 @@ func isCommand(s string) bool {
 }
 
 // ClassifyToken classifies a raw token using the configured rule order.
-func ClassifyToken(raw string) Token {
-	for _, rule := range tokenRules {
-		token, ok := rule(raw)
+func ClassifyToken(raw string) TokenKind {
+	for kind, rule := range tokenRules {
+		ok := rule(raw)
 		if ok {
-			return token
+			return kind
 		}
 	}
-	return Token{Raw: raw, Kind: TokenUnknown}
+	return TokenUnknown
 }
 
 // FindCommand returns the first command found in args and its index.
@@ -218,12 +244,22 @@ func FindCommand(args []string) (command string, index int, parseErr *ParseError
 }
 
 // ExtractTokens classifies each raw argument into a Token.
-func ExtractTokens(args []string) []Token {
+func ExtractTokens(args []string) ([]Token, error) {
 	var tokens []Token
 	for _, arg := range args {
-		tokens = append(tokens, ClassifyToken(arg))
+		kind := ClassifyToken(arg)
+		if kind != TokenUnknown {
+			tokenParser := tokenParsers[kind]
+			token, err := tokenParser(arg)
+			if err != nil {
+				return nil, err
+			}
+			tokens = append(tokens, token)
+		} else {
+			return nil, fmt.Errorf("unknown argument: %s", arg)
+		}
 	}
-	return tokens
+	return tokens, nil
 }
 
 // ParseCmdLine extracts command, filters, and arguments from args.
@@ -233,27 +269,33 @@ func ExtractTokens(args []string) []Token {
 func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 	// Find the command
 	command, index, err := FindCommand(args)
-	if err != nil && err.Code == ParseErrorNoCommand {
-		command = "list"
-		args = append(args, command)
-		index = len(args) - 1
-		pterm.Warning.Println("no command specified, defaulting to 'list'")
-	} else if err != nil {
+	if err != nil {
 		return ParsedCmdLine{}, err
 	}
 
 	// Get command spec
 	commandSpec, ok := GetCommandSpec(command)
 	if !ok {
-		return ParsedCmdLine{}, &ParseError{Code: ParseErrorNoCommand, Message: fmt.Sprintf("unknown command: %s", command)}
+		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidCommand, Message: fmt.Sprintf("unknown command: %s", command)}
 	}
 
 	// Extract filters and arguments
-	rawFilterTokens, flagTokensLeft := splitFlags(args[:index])
-	rawArgs, flagTokensRight := splitFlags(args[index+1:])
-	filterTokens := ExtractTokens(rawFilterTokens)
-	flagTokens := append(flagTokensLeft, flagTokensRight...)
+	rawFilterTokens, flagTokensLeft, sErr := splitFlags(args[:index])
+	if sErr != nil {
+		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidLeftTokens, Message: fmt.Sprintf("Error splitting left side: %s", sErr.Error())}
+	}
 
+	rawArgs, flagTokensRight, sErr := splitFlags(args[index+1:])
+	if sErr != nil {
+		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidRightTokens, Message: fmt.Sprintf("Error splitting right side: %s", sErr.Error())}
+	}
+
+	filterTokens, fErr := ExtractTokens(rawFilterTokens)
+	if fErr != nil {
+		return ParsedCmdLine{}, &ParseError{Code: ParseErrorErrorExtractingTokens, Message: fmt.Sprintf("Error parsing arguments: %s", fErr.Error())}
+	}
+
+	flagTokens := append(flagTokensLeft, flagTokensRight...)
 	// Subcommand
 	subcommand := commandSpec.DefaultSubcommand
 	if len(rawArgs) > 0 {
@@ -262,7 +304,11 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 			rawArgs = rawArgs[1:]
 		}
 	}
-	argsTokens := ExtractTokens(rawArgs)
+
+	argsTokens, fErr := ExtractTokens(rawArgs)
+	if fErr != nil {
+		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidInput, Message: err.Error()}
+	}
 
 	fmt.Printf("Command: %s\n", command)
 	fmt.Printf("Subcommand: %s\n", subcommand)
@@ -280,18 +326,23 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 	}, nil
 }
 
-func splitFlags(args []string) ([]string, []Token) {
+func splitFlags(args []string) ([]string, []Token, error) {
 	nonFlags := make([]string, 0, len(args))
 	flags := make([]Token, 0)
 	for _, arg := range args {
-		tok, ok := classifyFlag(arg)
+		ok := classifyFlag(arg)
 		if ok {
-			flags = append(flags, tok)
+			flagParser := tokenParsers[TokenFlag]
+			token, err := flagParser(arg)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to parse flag: %s", err)
+			}
+			flags = append(flags, token)
 			continue
 		}
 		nonFlags = append(nonFlags, arg)
 	}
-	return nonFlags, flags
+	return nonFlags, flags, nil
 }
 
 // ValidateParsedCmdLine validates the parsed structure and token kinds.

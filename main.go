@@ -45,8 +45,8 @@ func closeAndRollback(cashDb *sql.DB, tx *sql.Tx) {
 
 func createHelpCmdLine() parser.ParsedCmdLine {
 	return parser.ParsedCmdLine{
-		Command:    "",
-		Subcommand: "",
+		Command:    "help",
+		Subcommand: "show",
 		Filters:    []parser.Token{},
 		Args:       []parser.Token{},
 		Flags:      []parser.Token{{Raw: "--help", Kind: parser.TokenFlag}},
@@ -96,8 +96,10 @@ func run() error {
 			}
 		}
 	} else if parseErr != nil && parseErr.Code == parser.ParseErrorEmptyCommandLine {
-		pterm.Error.Println("Empty command line, you must specify a command.")
+		pterm.Warning.Println("Empty command line, you must specify a command.")
 		parsedCmd = createHelpCmdLine()
+	} else if parseErr != nil {
+		return fmt.Errorf("error parsing command line: %w", parseErr)
 	}
 
 	// Open the database

@@ -5,8 +5,15 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nschaetti/cashwarrior/internal/config"
+	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
+
+func Help(parsed parser.ParsedCmdLine, config config.Config, db db.DBTX) error {
+	printGlobalHelp()
+	return nil
+}
 
 // printHelp prints the help for the given command.
 func printHelp(parsed parser.ParsedCmdLine) {

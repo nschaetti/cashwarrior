@@ -118,7 +118,7 @@ func (s AttributeSpec) AllowsClear() bool {
 func getAttributeSpec(name string) (AttributeSpec, error) {
 	attrSpec, ok := AttributeSpecs[name]
 	if !ok {
-		return AttributeSpec{}, fmt.Errorf("unknown attribute %s", name)
+		return AttributeSpec{}, fmt.Errorf("unknown attribute \"%s\"", name)
 	}
 	return attrSpec, nil
 }
@@ -179,74 +179,131 @@ func setOrClearAttribute(name string) AttributeSpec {
 // AttributeSpecs is a map of all the attributes that can be used in a transaction.
 var AttributeSpecs = map[string]AttributeSpec{
 	"amount": {
-		Name:   "amount",
-		Shapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
-		Type:   AttributeValueTypeFloat,
+		Name:          "amount",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:          AttributeValueTypeFloat,
+		AllowSettable: true,
 	},
 	"account": {
-		Name:   "account",
-		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
-		Type:   AttributeValueTypeString,
+		Name:          "account",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
+	},
+	"balance": {
+		Name:          "balance",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:          AttributeValueTypeFloat,
+		AllowSettable: true,
 	},
 	"category": {
-		Name:   "category",
-		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
-		Type:   AttributeValueTypeString,
+		Name:          "category",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
+		AllowClear:    true,
 	},
 	"currency": {
-		Name:   "currency",
-		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
-		Type:   AttributeValueTypeString,
+		Name:          "currency",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
 	},
 	"date": {
-		Name:   "date",
-		Shapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
-		Type:   AttributeValueTypeDate,
+		Name:          "date",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:          AttributeValueTypeDate,
+		AllowSettable: true,
 	},
 	"desc": {
-		Name:   "desc",
-		Shapes: AttributeValueShapeSingle,
-		Type:   AttributeValueTypeBool,
+		Name:          "desc",
+		Shapes:        AttributeValueShapeSingle,
+		Type:          AttributeValueTypeBool,
+		AllowSettable: true,
 	},
 	"from": {
-		Name:   "from",
-		Shapes: AttributeValueShapeSingle,
-		Type:   AttributeValueTypeString,
+		Name:          "from",
+		Shapes:        AttributeValueShapeSingle,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
 	},
 	"group": {
-		Name:   "group",
-		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
-		Type:   AttributeValueTypeString,
+		Name:          "group",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
+		AllowClear:    true,
 	},
 	"identifier": {
-		Name:   "identifier",
-		Shapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
-		Type:   AttributeValueTypeString,
+		Name:          "identifier",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
 	},
 	"initial-balance": {
-		Name:   "initial-balance",
-		Shapes: AttributeValueShapeSingle,
-		Type:   AttributeValueTypeFloat,
+		Name:          "initial-balance",
+		Shapes:        AttributeValueShapeSingle,
+		Type:          AttributeValueTypeFloat,
+		AllowSettable: true,
+	},
+	"month": {
+		Name:          "month",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
+	},
+	"name": {
+		Name:          "name",
+		Shapes:        AttributeValueShapeSingle,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
 	},
 	"output": {
-		Name:   "output",
-		Shapes: AttributeValueShapeSingle,
-		Type:   AttributeValueTypeFile,
+		Name:          "output",
+		Shapes:        AttributeValueShapeSingle,
+		Type:          AttributeValueTypeFile,
+		AllowSettable: true,
 	},
 	"order": {
-		Name:   "order",
-		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
-		Type:   AttributeValueTypeString,
+		Name:          "order",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
+	},
+	"parent": {
+		Name:          "parent",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
+	},
+	"size": {
+		Name:   "size",
+		Shapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:   AttributeValueTypeInteger,
 	},
 	"store": {
-		Name:   "store",
-		Shapes: AttributeValueShapeSingle | AttributeValueShapeList,
-		Type:   AttributeValueTypeString,
+		Name:          "store",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
+	},
+	"tag": {
+		Name:          "tag",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
 	},
 	"to": {
-		Name:   "to",
-		Shapes: AttributeValueShapeSingle,
-		Type:   AttributeValueTypeString,
+		Name:          "to",
+		Shapes:        AttributeValueShapeSingle,
+		Type:          AttributeValueTypeString,
+		AllowSettable: true,
+	},
+	"year": {
+		Name:          "year",
+		Shapes:        AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange,
+		Type:          AttributeValueTypeInteger,
+		AllowSettable: true,
 	},
 }
 
@@ -344,6 +401,16 @@ func sideSpec(kinds []TokenKind, attrs ...AttributeSpec) SideSpec {
 		KindRules:      map[TokenKind]CountRule{}, // no count rules for token kinds
 		AttributeRules: map[string]CountRule{},    // no count rules for attributes
 		AtLeastOneOf:   []PresenceRule{},          // no PresenceRules
+	}
+}
+
+func sideSpecAnything() SideSpec {
+	return SideSpec{
+		AllowedKinds:   allSupportedKinds(),
+		AllowAnyAttr:   true,
+		KindRules:      map[TokenKind]CountRule{},
+		AttributeRules: map[string]CountRule{},
+		AtLeastOneOf:   []PresenceRule{},
 	}
 }
 
@@ -517,7 +584,7 @@ func tagFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 		buildAttributeSpec("size").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
+	return sideSpec([]TokenKind{TokenTag, TokenAttribute}, base...)
 }
 
 // placesFilterSideSpec specifies the left side as a filter for places.
@@ -742,7 +809,7 @@ var accountsCommandSpec = createSubcommandAlias(
 					WithKindRule(TokenText, atMostOne()).
 					WithArgs(1, 3).
 					WithAttributeRule("currency", atMostOne()).
-					WithAttributeRule("initial_balance", atMostOne()).
+					WithAttributeRule("initial-balance", atMostOne()).
 					WithAtLeastOneOf(
 						PresenceRule{
 							Kinds:      []TokenKind{TokenText},
@@ -768,17 +835,17 @@ var accountsCommandSpec = createSubcommandAlias(
 					[]TokenKind{TokenText, TokenAttribute},
 					settableOnlyAttribute("name").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle),
-					settableOnlyAttribute("initial_balance").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle),
 				).
 					WithArgs(2, 3).
 					WithKindRule(TokenText, atMostOne()).
 					WithAttributeRule("name", atMostOne()).
 					WithAttributeRule("currency", atMostOne()).
-					WithAttributeRule("initial_balance", atMostOne()).
+					WithAttributeRule("initial-balance", atMostOne()).
 					WithAtLeastOneOf(
 						PresenceRule{
 							Kinds:      []TokenKind{TokenText},
-							Attributes: []string{"name", "currency", "initial_balance"},
+							Attributes: []string{"name", "currency", "initial-balance"},
 							Message:    "accounts modify requires at least one modification",
 						},
 					),
@@ -1249,6 +1316,21 @@ var groupsCommandSpec = createSubcommandAlias(
 	},
 )
 
+var helpCommandSpec = CommandSpec{
+	Name:              "help",
+	DefaultSubcommand: "show",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name: "show",
+			Left: sideSpecAnything(),
+			Right: sideSpec(
+				[]TokenKind{TokenText},
+			).
+				WithArgs(0, 1).
+				WithKindRule(TokenText, atMostOne()),
+		}),
+}
+
 // importCommandSpec specifies the command spec for the "import" command.
 var importCommandSpec = CommandSpec{
 	Name:              "import",
@@ -1308,7 +1390,7 @@ var listCommandSpec = createSubcommandAlias(
 				),
 			},
 			// > Subcommand: categories (list)
-			// $ cash list categories
+			// $ cash list tags
 			SubcommandSpec{
 				Name: "tags",
 				Left: tagFilterSideSpec(
@@ -1677,6 +1759,7 @@ var CommandSpecs = map[string]CommandSpec{
 	"export":      defaultCommandSpec("export"),
 	"fakeit":      fakeitCommandSpec,
 	"groups":      groupsCommandSpec,
+	"help":        helpCommandSpec,
 	"import":      importCommandSpec,
 	"list":        listCommandSpec,
 	"modify":      modifyCommandSpec,
