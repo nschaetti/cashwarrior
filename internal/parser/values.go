@@ -22,6 +22,38 @@ type AttributeValue struct {
 	Clear bool
 }
 
+func (v AttributeValue) IsEmpty() bool {
+	return v.Raw == ""
+}
+
+func (v AttributeValue) IsClear() bool {
+	return v.Clear
+}
+
+func (v AttributeValue) IsSingle() bool {
+	return v.Kind == AttributeValueKindSingle
+}
+
+func (v AttributeValue) IsList() bool {
+	return v.Kind == AttributeValueKindList
+}
+
+func (v AttributeValue) IsRange() bool {
+	return v.Kind == AttributeValueKindRange
+}
+
+func createSingleAttributeValue(raw string) AttributeValue {
+	return AttributeValue{Kind: AttributeValueKindSingle, Raw: raw}
+}
+
+func createListAttributeValue(raw ...string) AttributeValue {
+	return AttributeValue{Kind: AttributeValueKindList, Items: raw}
+}
+
+func createRangeAttributeValue(start string, end string) AttributeValue {
+	return AttributeValue{Kind: AttributeValueKindRange, Start: start, End: end}
+}
+
 func (v AttributeValue) String() string {
 	switch v.Kind {
 	case AttributeValueKindList:

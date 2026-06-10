@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/domain"
 	"github.com/nschaetti/cashwarrior/internal/parser"
-	"github.com/pterm/pterm"
 )
 
 var CommandValidations = []func(
@@ -31,50 +29,51 @@ func validateAmount(
 	counts map[parser.TokenKind]int,
 ) (parser.ParsedCmdLine, error) {
 	// Zero or multiple amounts => problem
-	if counts[parser.TokenAmount] > 1 {
-		name, err := pterm.DefaultInteractiveTextInput.
-			WithDefaultText("y").
-			Show("You specified multiple amounts. Would you like to sum them up?:")
-		if err != nil {
-			return parsed, err
-		}
-		if name != "y" {
-			return parsed, fmt.Errorf("multiple amounts specified, only one allowed if not summed up")
-		}
-
-		// Sum up amounts
-		var sumAmount float32
-		for _, amount := range parsed.GetAmounts() {
-			sumAmount += amount.Amount
-		}
-
-		// No zero amount allowed
-		if sumAmount == 0 {
-			return parsed, fmt.Errorf("summed up amount is zero")
-		}
-
-		// Remove amounts from parsed command line
-		parsed.RemoveByKind(parser.TokenAmount)
-
-		// Add summed up amount
-		parsed.Append(parser.Token{
-			Raw:    strconv.FormatFloat(float64(sumAmount), 'f', 2, 32),
-			Amount: sumAmount,
-			Kind:   parser.TokenAmount,
-		}, false)
-
-		return parsed, nil
-	}
+	//if counts[parser.TokenAmount] > 1 {
+	//	name, err := pterm.DefaultInteractiveTextInput.
+	//		WithDefaultText("y").
+	//		Show("You specified multiple amounts. Would you like to sum them up?:")
+	//	if err != nil {
+	//		return parsed, err
+	//	}
+	//	if name != "y" {
+	//		return parsed, fmt.Errorf("multiple amounts specified, only one allowed if not summed up")
+	//	}
+	//
+	//	// Sum up amounts
+	//	var sumAmount float32
+	//	for _, amount := range parsed.GetAmounts() {
+	//		sumAmount += amount.Amount
+	//	}
+	//
+	//	// No zero amount allowed
+	//	if sumAmount == 0 {
+	//		return parsed, fmt.Errorf("summed up amount is zero")
+	//	}
+	//
+	//	// Remove amounts from parsed command line
+	//	parsed.RemoveByKind(parser.TokenAmount)
+	//
+	//	// Add summed up amount
+	//	parsed.Append(parser.Token{
+	//		Raw:    strconv.FormatFloat(float64(sumAmount), 'f', 2, 32),
+	//		Amount: sumAmount,
+	//		Kind:   parser.TokenAmount,
+	//	}, false)
+	//
+	//	return parsed, nil
+	//}
 
 	// We have an amount, check if it's valid
-	amount := parsed.GetAmounts()[0]
+	//amount := parsed.GetAmounts()[0]
 
 	// No zero amount allowed
-	if amount.Amount == 0 {
-		return parsed, fmt.Errorf("amount cannot be zero")
-	}
+	//if amount.Amount == 0 {
+	//	return parsed, fmt.Errorf("amount cannot be zero")
+	//}
 
-	return parsed, nil
+	//return parsed, nil
+	return parser.ParsedCmdLine{}, nil
 }
 
 func runCommandLineValidation(parsed parser.ParsedCmdLine, config config.Config, db db.DBTX, counts map[parser.TokenKind]int) (parser.ParsedCmdLine, error) {
@@ -114,7 +113,8 @@ func getNextIdentifier(cashDb db.DBTX, transactionTime time.Time) (domain.Transa
 }
 
 func getTransactionAmount(parsed parser.ParsedCmdLine, counts map[parser.TokenKind]int) float32 {
-	return parsed.GetAmounts()[0].Amount
+	//return parsed.GetAmounts()[0].Amount
+	return 0.0
 }
 
 func getTransactionDatetime(
@@ -201,13 +201,13 @@ func getTransactionDatetime(
 	return toDateOnly(time.Now()), nil
 }
 
-func getAttributes(parsed parser.ParsedCmdLine) map[string]string {
-	var attributes map[string]string = make(map[string]string)
+func getAttributes(parsed parser.ParsedCmdLine) map[string]parser.AttributeValue {
+	var attributes map[string]parser.AttributeValue = make(map[string]parser.AttributeValue)
 	for _, arg := range parsed.Args {
 		if arg.Kind != parser.TokenAttribute {
 			continue
 		}
-		attributes[arg.Key] = arg.Value
+		attributes[arg.Attribute.Key] = arg.Attribute.Value
 	}
 	return attributes
 }
@@ -306,77 +306,77 @@ func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) erro
 	}
 
 	// Get attributes
-	attributes := getAttributes(parsed)
+	// attributes := getAttributes(parsed)
 
 	// Get transaction description (merge it if necessary) & amount
-	desc := getTransactionDescription(parsed, tokenKindsCount)
-	amount := getTransactionAmount(parsed, tokenKindsCount)
+	// desc := getTransactionDescription(parsed, tokenKindsCount)
+	// amount := getTransactionAmount(parsed, tokenKindsCount)
 
 	// Get transaction datetime
-	transactionTime, err := getTransactionDatetime(attributes, config)
-	if err != nil {
-		return err
-	}
-
-	// Get next transaction identifier for the transaction month
-	nextIdentifier, err := getNextIdentifier(cashDb, transactionTime)
-	if err != nil {
-		return err
-	}
-
-	// Transaction type
-	var transactionType string
-	if amount < 0.0 {
-		transactionType = "expense"
-	} else {
-		transactionType = "income"
-	}
-
-	// Get store
-	transactionStore, err := getTransactionStore(cashDb, attributes)
-	if err != nil {
-		return err
-	}
-
-	// Get account
-	transactionAccount, err := getTransactionAccount(cashDb, attributes, config)
-	if err != nil {
-		return err
-	}
-
-	// Get category
-	transactionCategory, err := getTransactionCategory(cashDb, attributes)
-	if err != nil {
-		return err
-	}
-
-	// Get group
-	transactionGroup, err := getTransactionGroup(cashDb, attributes)
-	if err != nil {
-		return err
-	}
-
-	// Insert transaction
-	transactionID, err := db.InsertTransaction(
-		cashDb,
-		db.CreateTransactionInput{
-			Identifier:  fmt.Sprintf("%s", nextIdentifier),
-			Type:        transactionType,
-			Amount:      float64(amount),
-			Description: desc,
-			Datetime:    transactionTime,
-			AccountID:   transactionAccount,
-			CategoryID:  db.NullInt64ToPtr(transactionCategory),
-			PlaceID:     db.NullInt64ToPtr(transactionStore),
-			GroupID:     db.NullInt64ToPtr(transactionGroup),
-		},
-	)
-	if err != nil {
-		return err
-	}
+	//transactionTime, err := getTransactionDatetime(attributes, config)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Get next transaction identifier for the transaction month
+	//nextIdentifier, err := getNextIdentifier(cashDb, transactionTime)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Transaction type
+	//var transactionType string
+	//if amount < 0.0 {
+	//	transactionType = "expense"
+	//} else {
+	//	transactionType = "income"
+	//}
+	//
+	//// Get store
+	//transactionStore, err := getTransactionStore(cashDb, attributes)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Get account
+	//transactionAccount, err := getTransactionAccount(cashDb, attributes, config)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Get category
+	//transactionCategory, err := getTransactionCategory(cashDb, attributes)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Get group
+	//transactionGroup, err := getTransactionGroup(cashDb, attributes)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Insert transaction
+	//transactionID, err := db.InsertTransaction(
+	//	cashDb,
+	//	db.CreateTransactionInput{
+	//		Identifier:  fmt.Sprintf("%s", nextIdentifier),
+	//		Type:        transactionType,
+	//		Amount:      float64(amount),
+	//		Description: desc,
+	//		Datetime:    transactionTime,
+	//		AccountID:   transactionAccount,
+	//		CategoryID:  db.NullInt64ToPtr(transactionCategory),
+	//		PlaceID:     db.NullInt64ToPtr(transactionStore),
+	//		GroupID:     db.NullInt64ToPtr(transactionGroup),
+	//	},
+	//)
+	//if err != nil {
+	//	return err
+	//}
 
 	// Show success message
-	pterm.Success.Println("Transaction added with id: " + strconv.FormatInt(transactionID, 10) + "")
+	// pterm.Success.Println("Transaction added with id: " + strconv.FormatInt(transactionID, 10) + "")
 
 	return nil
 }

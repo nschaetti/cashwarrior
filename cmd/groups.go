@@ -165,20 +165,20 @@ func parseGroupsSortOptions(parsed parser.ParsedCmdLine) (groupsSortOptions, err
 			continue
 		}
 
-		switch filter.Key {
+		switch filter.Attribute.Key {
 		case "order":
 			if orderSpecified {
 				return sortOptions, fmt.Errorf("order specified multiple times")
 			}
-			if filter.Value != "name" && filter.Value != "start_date" && filter.Value != "end_date" {
-				return sortOptions, fmt.Errorf("unsupported groups order field %s", filter.Value)
+			if filter.Attribute.Value.Raw != "name" && filter.Attribute.Value.Raw != "start_date" && filter.Attribute.Value.Raw != "end_date" {
+				return sortOptions, fmt.Errorf("unsupported groups order field %s", filter.Attribute.Value.Raw)
 			}
-			sortOptions.Field = filter.Value
+			sortOptions.Field = filter.Attribute.Value.Raw
 			orderSpecified = true
 		case "desc":
-			desc, err := strconv.ParseBool(filter.Value)
+			desc, err := strconv.ParseBool(filter.Attribute.Value.Raw)
 			if err != nil {
-				return sortOptions, fmt.Errorf("invalid desc value %s", filter.Value)
+				return sortOptions, fmt.Errorf("invalid desc value %s", filter.Attribute.Value.Raw)
 			}
 			sortOptions.Desc = desc
 		}

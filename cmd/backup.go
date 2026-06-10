@@ -12,8 +12,8 @@ import (
 
 func Backup(parsed parser.ParsedCmdLine, cfg config.Config, _ db.DBTX) error {
 	attributes := getAttributes(parsed)
-	if outputPath := attributes["output"]; outputPath != "" {
-		if err := backuputil.CopyToPath(cfg.Database, outputPath); err != nil {
+	if outputPath := attributes["output"]; outputPath.Raw != "" {
+		if err := backuputil.CopyToPath(cfg.Database, outputPath.Raw); err != nil {
 			return err
 		}
 		fmt.Printf("Database backed up to %s\n", outputPath)

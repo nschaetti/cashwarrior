@@ -25,7 +25,7 @@ type ParsedCmdLine struct {
 
 func (p *ParsedCmdLine) HasFlag(name string) bool {
 	for _, flag := range p.Flags {
-		if flag.Kind == TokenFlag && flag.Key == name {
+		if flag.Kind == TokenFlag && flag.Flag.Key == name {
 			return true
 		}
 	}
@@ -51,7 +51,7 @@ func (p *ParsedCmdLine) GetAttributesCount(filter bool) map[string]int {
 			if parsedToken.Kind != TokenAttribute {
 				continue
 			}
-			count[parsedToken.Key]++
+			count[parsedToken.Attribute.Key]++
 		}
 		return count
 	}
@@ -59,19 +59,9 @@ func (p *ParsedCmdLine) GetAttributesCount(filter bool) map[string]int {
 		if parsedToken.Kind != TokenAttribute {
 			continue
 		}
-		count[parsedToken.Key]++
+		count[parsedToken.Attribute.Key]++
 	}
 	return count
-}
-
-func (p *ParsedCmdLine) GetAmounts() []*Token {
-	var amounts []*Token
-	for i := range p.Args {
-		if p.Args[i].Kind == TokenAmount {
-			amounts = append(amounts, &p.Args[i])
-		}
-	}
-	return amounts
 }
 
 func (p *ParsedCmdLine) RemoveByKind(kind TokenKind) {

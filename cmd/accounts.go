@@ -43,11 +43,11 @@ func setAccountInitialBalance(parsed parser.ParsedCmdLine, cashDb db.DBTX) error
 
 	for _, arg := range parsed.Args {
 		if arg.Kind == parser.TokenAttribute {
-			switch arg.Key {
+			switch arg.Attribute.Key {
 			case "account":
-				accountName = strings.TrimSpace(arg.Value)
+				accountName = strings.TrimSpace(arg.Attribute.Value.Raw)
 			case "amount", "initial_balance":
-				amountValue = strings.TrimSpace(arg.Value)
+				amountValue = strings.TrimSpace(arg.Attribute.Value.Raw)
 			}
 		}
 	}
@@ -121,8 +121,8 @@ func getAccountNameArg(token parser.Token) (string, error) {
 		}
 		return token.Raw, nil
 	}
-	if token.Kind == parser.TokenAttribute && token.Key == "account" && token.Value != "" {
-		return token.Value, nil
+	if token.Kind == parser.TokenAttribute && token.Attribute.Key == "account" && !token.Attribute.Value.IsEmpty() {
+		return token.Attribute.Value.Raw, nil
 	}
 	return "", fmt.Errorf("account name is required")
 }
@@ -133,7 +133,7 @@ func getAttributesFromTokens(tokens []parser.Token) map[string]string {
 		if token.Kind != parser.TokenAttribute {
 			continue
 		}
-		attributes[token.Key] = token.Value
+		attributes[token.Attribute.Key] = token.Attribute.Value.Raw
 	}
 	return attributes
 }

@@ -228,20 +228,20 @@ func parseListSortOptions(parsed parser.ParsedCmdLine) (parser.ParsedCmdLine, li
 			return false, nil
 		}
 
-		switch token.Key {
+		switch token.Attribute.Key {
 		case "order":
 			if sortOptions.Field != "" {
 				return false, fmt.Errorf("order specified multiple times")
 			}
-			if !isSupportedListOrderField(token.Value) {
-				return false, fmt.Errorf("unsupported order field %s", token.Value)
+			if !isSupportedListOrderField(token.Attribute.Value.Raw) {
+				return false, fmt.Errorf("unsupported order field %s", token.Attribute.Value)
 			}
-			sortOptions.Field = token.Value
+			sortOptions.Field = token.Attribute.Value.Raw
 			return true, nil
 		case "desc":
-			desc, err := strconv.ParseBool(token.Value)
+			desc, err := strconv.ParseBool(token.Attribute.Value.Raw)
 			if err != nil {
-				return false, fmt.Errorf("invalid desc value %s", token.Value)
+				return false, fmt.Errorf("invalid desc value %s", token.Attribute.Value)
 			}
 			sortOptions.Desc = desc
 			return true, nil

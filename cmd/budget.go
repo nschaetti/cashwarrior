@@ -36,7 +36,7 @@ func writeBudgetTokens(builder *strings.Builder, tokens []parser.Token) {
 	for _, token := range tokens {
 		builder.WriteString(fmt.Sprintf("  - %s", token.String()))
 		if token.Kind == parser.TokenAttribute {
-			value, err := parser.ParseAttributeValue(token.Value)
+			value, err := parser.ParseAttributeValue(token.Attribute.Value.Raw)
 			if err == nil {
 				builder.WriteString(fmt.Sprintf(" => %s", value.String()))
 			}

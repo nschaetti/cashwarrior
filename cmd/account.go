@@ -54,10 +54,10 @@ func accountBalance(parsed parser.ParsedCmdLine, config config.Config, cashDb db
 func getAccountCommandName(parsed parser.ParsedCmdLine) (string, error) {
 	arg := parsed.Args[0]
 	if arg.Kind == parser.TokenAttribute {
-		if arg.Key != "account" || arg.Value == "" {
+		if arg.Attribute.Key != "account" || arg.Attribute.Value.IsEmpty() {
 			return "", fmt.Errorf("account command requires an account name")
 		}
-		return arg.Value, nil
+		return arg.Attribute.Value.Raw, nil
 	}
 	if arg.Raw == "" {
 		return "", fmt.Errorf("account command requires an account name")

@@ -7,7 +7,7 @@ import (
 func classifyFlag(raw string) (Token, bool) {
 	// -h help
 	if raw == "-h" {
-		return Token{Raw: raw, Key: "help", Kind: TokenFlag}, true
+		return createSingleFlagTokenWithRaw(raw, "help"), true
 	}
 	// alone --, not a flag
 	if !strings.HasPrefix(raw, "--") || len(raw) <= 2 {
@@ -18,10 +18,10 @@ func classifyFlag(raw string) (Token, bool) {
 	parts := strings.SplitN(trimmed, "=", 2)
 	// key
 	if len(parts) == 1 {
-		return Token{Raw: raw, Key: parts[0], Kind: TokenFlag}, true
+		return createSingleFlagTokenWithRaw(raw, parts[0]), true
 	}
 	// key=value
-	return Token{Raw: raw, Key: parts[0], Value: parts[1], Kind: TokenFlag}, true
+	return createFlagTokenWithRaw(raw, parts[0], parts[1]), true
 }
 
 // classifyNegativeTag classifies tokens like "-@groceries".
@@ -67,18 +67,12 @@ func classifyTag(raw string) (Token, bool) {
 func classifyAttribute(raw string) (Token, bool) {
 	if strings.Contains(raw, ":") {
 		if strings.HasSuffix(raw, ":") {
-			return Token{
-				Raw:  raw,
-				Key:  strings.SplitN(raw, ":", 2)[0],
-				Kind: TokenAttributeClear,
-			}, true
+			return createClearAttributeTokenWithRaw(raw, strings.SplitN(raw, ":", 2)[0]), true
 		}
-		return Token{
-			Raw:   raw,
-			Key:   strings.SplitN(raw, ":", 2)[0],
-			Value: strings.SplitN(raw, ":", 2)[1],
-			Kind:  TokenAttribute,
-		}, true
+		return createAttributeToken(
+			strings.SplitN(raw, ":", 2)[0],
+			createSingleAttributeValue(strings.SplitN(raw, ":", 2)[1]),
+		), true
 	}
 	return Token{}, false
 }

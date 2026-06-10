@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -94,115 +93,115 @@ func Modify(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) erro
 
 func parseTransactionModifications(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) (transactionModifications, error) {
 	modifications := transactionModifications{}
-	attributes := getAttributes(parsed)
-	dateExists := false
-	timeExists := false
-	datetimeExists := false
+	//attributes := getAttributes(parsed)
+	//dateExists := false
+	//timeExists := false
+	//datetimeExists := false
 
-	for _, arg := range parsed.Args {
-		switch arg.Kind {
-		case parser.TokenTag:
-			tagName := strings.TrimPrefix(arg.Raw, "@")
-			tagID, err := getOrCreateTagID(cashDb, tagName)
-			if err != nil {
-				return transactionModifications{}, err
-			}
-			modifications.AddTagIDs = append(modifications.AddTagIDs, tagID)
-			continue
-		case parser.TokenTagNegative:
-			tagName := strings.TrimPrefix(arg.Raw, "-@")
-			tagID, err := getExistingTagID(cashDb, tagName)
-			if err != nil {
-				return transactionModifications{}, err
-			}
-			if tagID == nil {
-				continue
-			}
-			modifications.DropTagIDs = append(modifications.DropTagIDs, *tagID)
-			continue
-		}
-
-		switch arg.Key {
-		case "identifier":
-			return transactionModifications{}, fmt.Errorf("identifier is not modifiable")
-		case "desc":
-			description := arg.Value
-			modifications.Description = &description
-		case "amount":
-			amount, err := strconv.ParseFloat(arg.Value, 64)
-			if err != nil {
-				return transactionModifications{}, fmt.Errorf("invalid amount %q", arg.Value)
-			}
-			modifications.Amount = &amount
-		case "date":
-			dateExists = true
-		case "time":
-			timeExists = true
-		case "datetime":
-			datetimeExists = true
-		case "account":
-			accountID, err := getTransactionAccount(cashDb, attributes, cfg)
-			if err != nil {
-				return transactionModifications{}, err
-			}
-			modifications.AccountID = &accountID
-		case "category":
-			if arg.Kind == parser.TokenAttributeClear {
-				var categoryID *int64
-				modifications.CategoryID = &categoryID
-				continue
-			}
-			categoryID, err := getTransactionCategory(cashDb, attributes)
-			if err != nil {
-				return transactionModifications{}, err
-			}
-			if !categoryID.Valid {
-				return transactionModifications{}, fmt.Errorf("no category specified")
-			}
-			value := categoryID.Int64
-			ptr := &value
-			modifications.CategoryID = &ptr
-		case "store":
-			storeID, err := getTransactionStore(cashDb, attributes)
-			if err != nil {
-				return transactionModifications{}, err
-			}
-			if !storeID.Valid {
-				return transactionModifications{}, fmt.Errorf("no store specified")
-			}
-			modifications.PlaceID = &storeID.Int64
-		case "group":
-			if arg.Kind == parser.TokenAttributeClear {
-				var groupID *int64
-				modifications.GroupID = &groupID
-				continue
-			}
-			groupID, err := getTransactionGroup(cashDb, attributes)
-			if err != nil {
-				return transactionModifications{}, err
-			}
-			if !groupID.Valid {
-				return transactionModifications{}, fmt.Errorf("no group specified")
-			}
-			value := groupID.Int64
-			ptr := &value
-			modifications.GroupID = &ptr
-		default:
-			return transactionModifications{}, fmt.Errorf("attribute %s is not modifiable", arg.Key)
-		}
-	}
-
-	if datetimeExists && (dateExists || timeExists) {
-		return transactionModifications{}, fmt.Errorf("datetime and date/time specified, only one allowed")
-	}
-
-	modifiedDatetime, err := buildModifiedDatetime(attributes, cfg, datetimeExists, dateExists, timeExists)
-	if err != nil {
-		return transactionModifications{}, err
-	}
-	modifications.Date = modifiedDatetime.Date
-	modifications.Time = modifiedDatetime.Time
-	modifications.Datetime = modifiedDatetime.Datetime
+	//for _, arg := range parsed.Args {
+	//	switch arg.Kind {
+	//	case parser.TokenTag:
+	//		tagName := strings.TrimPrefix(arg.Raw, "@")
+	//		tagID, err := getOrCreateTagID(cashDb, tagName)
+	//		if err != nil {
+	//			return transactionModifications{}, err
+	//		}
+	//		modifications.AddTagIDs = append(modifications.AddTagIDs, tagID)
+	//		continue
+	//	case parser.TokenTagNegative:
+	//		tagName := strings.TrimPrefix(arg.Raw, "-@")
+	//		tagID, err := getExistingTagID(cashDb, tagName)
+	//		if err != nil {
+	//			return transactionModifications{}, err
+	//		}
+	//		if tagID == nil {
+	//			continue
+	//		}
+	//		modifications.DropTagIDs = append(modifications.DropTagIDs, *tagID)
+	//		continue
+	//	}
+	//
+	//	switch arg.Attribute.Key {
+	//	case "identifier":
+	//		return transactionModifications{}, fmt.Errorf("identifier is not modifiable")
+	//	case "desc":
+	//		description := arg.Attribute.Value
+	//		modifications.Description = &description
+	//	case "amount":
+	//		amount, err := strconv.ParseFloat(arg.Attribute.Value.Raw, 64)
+	//		if err != nil {
+	//			return transactionModifications{}, fmt.Errorf("invalid amount %q", arg.Attribute.Value)
+	//		}
+	//		modifications.Amount = &amount
+	//	case "date":
+	//		dateExists = true
+	//	case "time":
+	//		timeExists = true
+	//	case "datetime":
+	//		datetimeExists = true
+	//	case "account":
+	//		accountID, err := getTransactionAccount(cashDb, attributes, cfg)
+	//		if err != nil {
+	//			return transactionModifications{}, err
+	//		}
+	//		modifications.AccountID = &accountID
+	//	case "category":
+	//		if arg.Kind == parser.TokenAttributeClear {
+	//			var categoryID *int64
+	//			modifications.CategoryID = &categoryID
+	//			continue
+	//		}
+	//		categoryID, err := getTransactionCategory(cashDb, attributes)
+	//		if err != nil {
+	//			return transactionModifications{}, err
+	//		}
+	//		if !categoryID.Valid {
+	//			return transactionModifications{}, fmt.Errorf("no category specified")
+	//		}
+	//		value := categoryID.Int64
+	//		ptr := &value
+	//		modifications.CategoryID = &ptr
+	//	case "store":
+	//		storeID, err := getTransactionStore(cashDb, attributes)
+	//		if err != nil {
+	//			return transactionModifications{}, err
+	//		}
+	//		if !storeID.Valid {
+	//			return transactionModifications{}, fmt.Errorf("no store specified")
+	//		}
+	//		modifications.PlaceID = &storeID.Int64
+	//	case "group":
+	//		if arg.Kind == parser.TokenAttributeClear {
+	//			var groupID *int64
+	//			modifications.GroupID = &groupID
+	//			continue
+	//		}
+	//		groupID, err := getTransactionGroup(cashDb, attributes)
+	//		if err != nil {
+	//			return transactionModifications{}, err
+	//		}
+	//		if !groupID.Valid {
+	//			return transactionModifications{}, fmt.Errorf("no group specified")
+	//		}
+	//		value := groupID.Int64
+	//		ptr := &value
+	//		modifications.GroupID = &ptr
+	//	default:
+	//		return transactionModifications{}, fmt.Errorf("attribute %s is not modifiable", arg.Key)
+	//	}
+	//}
+	//
+	//if datetimeExists && (dateExists || timeExists) {
+	//	return transactionModifications{}, fmt.Errorf("datetime and date/time specified, only one allowed")
+	//}
+	//
+	//modifiedDatetime, err := buildModifiedDatetime(attributes, cfg, datetimeExists, dateExists, timeExists)
+	//if err != nil {
+	//	return transactionModifications{}, err
+	//}
+	//modifications.Date = modifiedDatetime.Date
+	//modifications.Time = modifiedDatetime.Time
+	//modifications.Datetime = modifiedDatetime.Datetime
 
 	return modifications, nil
 }

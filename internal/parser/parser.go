@@ -40,6 +40,18 @@ type Attribute struct {
 	Value AttributeValue
 }
 
+func (a Attribute) String() string {
+	return fmt.Sprintf("%s=%s", a.Key, a.Value)
+}
+
+func createClearAttribute(key string) Attribute {
+	return Attribute{Key: key, Value: AttributeValue{Clear: true}}
+}
+
+func createAttribute(key string, value AttributeValue) Attribute {
+	return Attribute{Key: key, Value: value}
+}
+
 type Flag struct {
 	Key   string
 	Value string
@@ -56,6 +68,54 @@ type Token struct {
 	Tag       string
 	Attribute Attribute
 	Flag      Flag
+}
+
+func createClearAttributeToken(key string) Token {
+	return Token{Kind: TokenAttributeClear, Attribute: createClearAttribute(key)}
+}
+
+func createClearAttributeTokenWithRaw(raw string, key string) Token {
+	return Token{Raw: raw, Kind: TokenAttributeClear, Attribute: createClearAttribute(key)}
+}
+
+func createAttributeToken(key string, value AttributeValue) Token {
+	return Token{Kind: TokenAttribute, Attribute: createAttribute(key, value)}
+}
+
+func createFlagToken(key string, value string) Token {
+	return Token{Kind: TokenFlag, Flag: Flag{Key: key, Value: value}}
+}
+
+func createSingleFlagToken(key string) Token {
+	return Token{Kind: TokenFlag, Flag: Flag{Key: key}}
+}
+
+func createFlagTokenWithRaw(raw string, key string, value string) Token {
+	return Token{Raw: raw, Kind: TokenFlag, Flag: Flag{Key: key, Value: value}}
+}
+
+func createSingleFlagTokenWithRaw(raw string, key string) Token {
+	return Token{Raw: raw, Kind: TokenFlag, Flag: Flag{Key: key}}
+}
+
+func createTextToken(raw string) Token {
+	return Token{Kind: TokenText, Raw: raw}
+}
+
+func (t Token) IsAttribute() bool {
+	return t.Kind == TokenAttribute || t.Kind == TokenAttributeClear
+}
+
+func (t Token) IsFlag() bool {
+	return t.Kind == TokenFlag
+}
+
+func (t Token) IsText() bool {
+	return t.Kind == TokenText
+}
+
+func (t Token) IsTag() bool {
+	return t.Kind == TokenTag || t.Kind == TokenTagNegative
 }
 
 // String returns a debug-friendly string representation of a token.

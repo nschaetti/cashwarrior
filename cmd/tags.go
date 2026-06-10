@@ -64,8 +64,8 @@ func getTagNameArg(token parser.Token) (string, error) {
 		}
 		return token.Raw, nil
 	}
-	if token.Kind == parser.TokenAttribute && token.Key == "tag" && token.Value != "" {
-		return token.Value, nil
+	if token.Kind == parser.TokenAttribute && token.Attribute.Key == "tag" && !token.Attribute.Value.IsEmpty() {
+		return token.Attribute.Value.Raw, nil
 	}
 	return "", fmt.Errorf("tag name is required")
 }
@@ -103,8 +103,8 @@ func modifyTag(parsed parser.ParsedCmdLine, query db.DBTX) error {
 	}
 	newName := ""
 	for _, token := range parsed.Args[1:] {
-		if token.Kind == parser.TokenAttribute && token.Key == "tag" {
-			newName = token.Value
+		if token.Kind == parser.TokenAttribute && token.Attribute.Key == "tag" {
+			newName = token.Attribute.Value.Raw
 		}
 	}
 	if newName == "" {

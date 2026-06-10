@@ -217,8 +217,8 @@ func getCategoryNameArg(token parser.Token) (string, error) {
 		}
 		return token.Raw, nil
 	}
-	if token.Kind == parser.TokenAttribute && token.Key == "category" && token.Value != "" {
-		return token.Value, nil
+	if token.Kind == parser.TokenAttribute && token.Attribute.Key == "category" && !token.Attribute.Value.IsEmpty() {
+		return token.Attribute.Value.Raw, nil
 	}
 	return "", fmt.Errorf("category name is required")
 }

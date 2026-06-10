@@ -121,27 +121,27 @@ func parseFakeitOptions(parsed parser.ParsedCmdLine) (fakeitOptions, error) {
 	for _, arg := range parsed.Args {
 		switch arg.Kind {
 		case parser.TokenAttribute:
-			switch arg.Key {
+			switch arg.Attribute.Key {
 			case "account":
-				options.AccountName = arg.Value
+				options.AccountName = arg.Attribute.Value.Raw
 			case "category":
-				options.CategoryName = arg.Value
+				options.CategoryName = arg.Attribute.Value.Raw
 			case "type":
-				transactionType := strings.ToLower(arg.Value)
+				transactionType := strings.ToLower(arg.Attribute.Value.Raw)
 				if transactionType != "expense" && transactionType != "income" && transactionType != "transfer" {
-					return options, fmt.Errorf("unsupported type %s", arg.Value)
+					return options, fmt.Errorf("unsupported type %s", arg.Attribute.Value)
 				}
 				options.Type = transactionType
 			case "year":
-				year, err := strconv.Atoi(arg.Value)
+				year, err := strconv.Atoi(arg.Attribute.Value.Raw)
 				if err != nil {
-					return options, fmt.Errorf("invalid year %s", arg.Value)
+					return options, fmt.Errorf("invalid year %s", arg.Attribute.Value)
 				}
 				options.Year = year
 			case "month":
-				month, ok := fakeitMonthNames[strings.ToLower(arg.Value)]
+				month, ok := fakeitMonthNames[strings.ToLower(arg.Attribute.Value.Raw)]
 				if !ok {
-					return options, fmt.Errorf("invalid month %s", arg.Value)
+					return options, fmt.Errorf("invalid month %s", arg.Attribute.Value)
 				}
 				options.Month = month
 			}
