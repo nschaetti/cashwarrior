@@ -82,7 +82,7 @@ func run() error {
 
 	// Parse the command line
 	argv := os.Args[1:]
-	parsedCmd, parseErr := parser.ParseAndValidateCmdLine(argv)
+	parsedCmd, parseErr := parser.ParseAndValidateCmdLine(argv, cfg)
 	if parseErr != nil && parseErr.Code == parser.ParseErrorNoCommand {
 		if containsHelpFlag(argv) {
 			parsedCmd = createHelpCmdLine()

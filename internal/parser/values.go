@@ -59,7 +59,7 @@ func (v AttributeValue) String() string {
 	case AttributeValueKindList:
 		return fmt.Sprintf("list(%s)", strings.Join(v.Items, ","))
 	case AttributeValueKindRange:
-		return fmt.Sprintf("range(%s-%s)", v.Start, v.End)
+		return fmt.Sprintf("range(%s,%s)", v.Start, v.End)
 	default:
 		return fmt.Sprintf("single(%s)", v.Raw)
 	}

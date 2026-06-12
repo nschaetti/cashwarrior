@@ -2,7 +2,8 @@ package parser
 
 import (
 	"fmt"
-	"os"
+
+	"github.com/nschaetti/cashwarrior/internal/config"
 )
 
 type ParseErrorCode string
@@ -196,15 +197,21 @@ func (k TokenKind) String() string {
 // TokenRule classifies a raw token and reports whether it matched.
 type TokenRule func(raw string) bool
 
-var tokenRules = map[TokenKind]TokenRule{
-	TokenFlag:        classifyFlag,
-	TokenTagNegative: classifyNegativeTag,
-	TokenTag:         classifyTag,
-	TokenAttribute:   classifyAttribute,
-	TokenText:        classifyText,
+// tokenRuleEntry Rule entry to keep the order
+type tokenRuleEntry struct {
+	kind TokenKind
+	rule TokenRule
 }
 
-type TokenParser func(raw string) (Token, error)
+var tokenRules = []tokenRuleEntry{
+	{kind: TokenFlag, rule: classifyFlag},
+	{kind: TokenTagNegative, rule: classifyNegativeTag},
+	{kind: TokenTag, rule: classifyTag},
+	{kind: TokenAttribute, rule: classifyAttribute},
+	{kind: TokenText, rule: classifyText},
+}
+
+type TokenParser func(raw string, config config.Config) (Token, error)
 
 var tokenParsers = map[TokenKind]TokenParser{
 	TokenFlag:        ParseTokenFlag,
@@ -220,10 +227,10 @@ func isCommand(s string) bool {
 
 // ClassifyToken classifies a raw token using the configured rule order.
 func ClassifyToken(raw string) TokenKind {
-	for kind, rule := range tokenRules {
-		ok := rule(raw)
+	for _, entry := range tokenRules {
+		ok := entry.rule(raw)
 		if ok {
-			return kind
+			return entry.kind
 		}
 	}
 	return TokenUnknown
@@ -244,13 +251,13 @@ func FindCommand(args []string) (command string, index int, parseErr *ParseError
 }
 
 // ExtractTokens classifies each raw argument into a Token.
-func ExtractTokens(args []string) ([]Token, error) {
+func ExtractTokens(args []string, config config.Config) ([]Token, error) {
 	var tokens []Token
 	for _, arg := range args {
 		kind := ClassifyToken(arg)
 		if kind != TokenUnknown {
 			tokenParser := tokenParsers[kind]
-			token, err := tokenParser(arg)
+			token, err := tokenParser(arg, config)
 			if err != nil {
 				return nil, err
 			}
@@ -266,7 +273,7 @@ func ExtractTokens(args []string) ([]Token, error) {
 //
 // The first recognized command can appear anywhere in the input.
 // Tokens before it are considered filters; tokens after it are arguments.
-func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
+func ParseCmdLine(args []string, config config.Config) (ParsedCmdLine, *ParseError) {
 	// Find the command
 	command, index, err := FindCommand(args)
 	if err != nil {
@@ -290,7 +297,7 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidRightTokens, Message: fmt.Sprintf("Error splitting right side: %s", sErr.Error())}
 	}
 
-	filterTokens, fErr := ExtractTokens(rawFilterTokens)
+	filterTokens, fErr := ExtractTokens(rawFilterTokens, config)
 	if fErr != nil {
 		return ParsedCmdLine{}, &ParseError{Code: ParseErrorErrorExtractingTokens, Message: fmt.Sprintf("Error parsing arguments: %s", fErr.Error())}
 	}
@@ -305,17 +312,16 @@ func ParseCmdLine(args []string) (ParsedCmdLine, *ParseError) {
 		}
 	}
 
-	argsTokens, fErr := ExtractTokens(rawArgs)
+	argsTokens, fErr := ExtractTokens(rawArgs, config)
 	if fErr != nil {
 		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidInput, Message: err.Error()}
 	}
-
-	fmt.Printf("Command: %s\n", command)
-	fmt.Printf("Subcommand: %s\n", subcommand)
-	fmt.Printf("Filter tokens: %v\n", filterTokens)
-	fmt.Printf("Args tokens: %v\n", argsTokens)
-	fmt.Printf("Flag tokens: %v\n", flagTokens)
-	os.Exit(0)
+	//fmt.Printf("Command: %s\n", command)
+	//fmt.Printf("Subcommand: %s\n", subcommand)
+	//fmt.Printf("Filter tokens: %v\n", filterTokens)
+	//fmt.Printf("Args tokens: %v\n", argsTokens)
+	//fmt.Printf("Flag tokens: %v\n", flagTokens)
+	//os.Exit(0)
 	// Put it all together
 	return ParsedCmdLine{
 		Command:    command,
@@ -333,7 +339,7 @@ func splitFlags(args []string) ([]string, []Token, error) {
 		ok := classifyFlag(arg)
 		if ok {
 			flagParser := tokenParsers[TokenFlag]
-			token, err := flagParser(arg)
+			token, err := flagParser(arg, config.Config{})
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to parse flag: %s", err)
 			}
@@ -584,9 +590,9 @@ func presenceRuleSatisfied(rule PresenceRule, kindCounts map[TokenKind]int, attr
 }
 
 // ParseAndValidateCmdLine parses args and then validates the parsed output.
-func ParseAndValidateCmdLine(args []string) (ParsedCmdLine, *ParseError) {
+func ParseAndValidateCmdLine(args []string, config config.Config) (ParsedCmdLine, *ParseError) {
 	// Parse the command line
-	parsed, err := ParseCmdLine(args)
+	parsed, err := ParseCmdLine(args, config)
 	if err != nil {
 		return ParsedCmdLine{}, err
 	}

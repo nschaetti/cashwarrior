@@ -3,6 +3,11 @@ package parser
 import (
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/nschaetti/cashwarrior/internal/config"
+	"github.com/nschaetti/cashwarrior/internal/domain"
+	"github.com/nschaetti/cashwarrior/internal/utils"
 )
 
 func trimFlagPrefix(raw string) string {
@@ -14,7 +19,7 @@ func trimFlagPrefix(raw string) string {
 	return raw
 }
 
-func ParseTokenFlag(raw string) (Token, error) {
+func ParseTokenFlag(raw string, config config.Config) (Token, error) {
 	var flagKey string
 	var flagValue string
 	var singleFlag bool
@@ -36,15 +41,15 @@ func ParseTokenFlag(raw string) (Token, error) {
 	return createFlagTokenWithRaw(raw, flagKey, flagValue), nil
 }
 
-func ParseTokenTag(raw string) (Token, error) {
+func ParseTokenTag(raw string, config config.Config) (Token, error) {
 	return Token{Kind: TokenTag, Raw: raw[1:]}, nil
 }
 
-func ParseTokenTagNegative(raw string) (Token, error) {
+func ParseTokenTagNegative(raw string, config config.Config) (Token, error) {
 	return Token{Kind: TokenTagNegative, Raw: raw[2:]}, nil
 }
 
-type TokenAttributeValueParser func(raw string) (AttributeValue, error)
+type TokenAttributeValueParser func(raw string, config config.Config) (AttributeValue, error)
 
 var tokenAttributeParsers = map[AttributeValueType]TokenAttributeValueParser{
 	AttributeValueTypeString:  parseTokenAttributeStringValue,
@@ -56,16 +61,16 @@ var tokenAttributeParsers = map[AttributeValueType]TokenAttributeValueParser{
 }
 
 func isRange(raw string) bool {
-	return strings.HasPrefix(raw, "[") && strings.Contains(raw, "-") && strings.HasSuffix(raw, "]")
+	return strings.Contains(raw, "..")
 }
 
 func isList(raw string) bool {
 	return strings.Contains(raw, ",")
 }
 
-func parseTokenAttributeStringValue(raw string) (AttributeValue, error) {
+func parseTokenAttributeStringValue(raw string, config config.Config) (AttributeValue, error) {
 	if isRange(raw) {
-		parts := strings.Split(raw, "-")
+		parts := strings.Split(raw, "..")
 		return AttributeValue{Kind: AttributeValueKindRange, Start: parts[0], End: parts[1]}, nil
 	} else if isList(raw) {
 		items := strings.Split(raw, ",")
@@ -79,9 +84,14 @@ func checkIntegerValue(raw string) bool {
 	return err == nil
 }
 
-func parseTokenAttributeIntegerValue(raw string) (AttributeValue, error) {
+func checkFloatValue(raw string) bool {
+	_, err := strconv.ParseFloat(raw, 64)
+	return err == nil
+}
+
+func parseTokenAttributeIntegerValue(raw string, config config.Config) (AttributeValue, error) {
 	if isRange(raw) {
-		parts := strings.Split(raw, "-")
+		parts := strings.Split(raw, "..")
 		startValue := parts[0]
 		endValue := parts[1]
 		if !checkIntegerValue(startValue) {
@@ -106,23 +116,82 @@ func parseTokenAttributeIntegerValue(raw string) (AttributeValue, error) {
 	return AttributeValue{Kind: AttributeValueKindSingle, Raw: raw}, nil
 }
 
-func parseTokenAttributeFloatValue(raw string) (AttributeValue, error) {
+func parseTokenAttributeFloatValue(raw string, config config.Config) (AttributeValue, error) {
+	if isRange(raw) {
+		parts := strings.Split(raw, "..")
+		startValue := parts[0]
+		endValue := parts[1]
+		if !checkFloatValue(startValue) {
+			return AttributeValue{}, &ParseError{Code: ParseErrorInvalidInput, Message: "invalid float range start"}
+		}
+		if !checkFloatValue(endValue) {
+			return AttributeValue{}, &ParseError{Code: ParseErrorInvalidInput, Message: "invalid float range end"}
+		}
+		return AttributeValue{Kind: AttributeValueKindRange, Start: parts[0], End: parts[1]}, nil
+	} else if isList(raw) {
+		items := strings.Split(raw, ",")
+		for _, item := range items {
+			if !checkFloatValue(item) {
+				return AttributeValue{}, &ParseError{Code: ParseErrorInvalidInput, Message: "invalid float list item"}
+			}
+		}
+		return AttributeValue{Kind: AttributeValueKindList, Items: items}, nil
+	}
+	if !checkFloatValue(raw) {
+		return AttributeValue{}, &ParseError{Code: ParseErrorInvalidInput, Message: "invalid float"}
+	}
 	return AttributeValue{Kind: AttributeValueKindSingle, Raw: raw}, nil
 }
 
-func parseTokenAttributeFileValue(raw string) (AttributeValue, error) {
+func IsValidPath(path string) bool {
+	return path != "" && !strings.ContainsRune(path, '\x00')
+}
+
+func parseTokenAttributeFileValue(raw string, config config.Config) (AttributeValue, error) {
+	if IsValidPath(raw) {
+		return AttributeValue{Kind: AttributeValueKindSingle, Raw: utils.ExpandPath(raw)}, nil
+	}
+	return AttributeValue{}, &ParseError{Code: ParseErrorInvalidInput, Message: "invalid file path"}
+}
+
+func checkDateValue(raw string, config config.Config) bool {
+	_, err := time.Parse(config.Display.DateFormat, raw)
+	isTS := domain.IsTimeShortcut(raw)
+	return err == nil || isTS
+}
+
+func parseTokenAttributeDateValue(raw string, config config.Config) (AttributeValue, error) {
+	if isRange(raw) {
+		parts := strings.Split(raw, "..")
+		startValue := parts[0]
+		endValue := parts[1]
+		if !checkDateValue(startValue, config) {
+			return AttributeValue{}, &ParseError{Code: ParseErrorInvalidInput, Message: "invalid date range start"}
+		}
+		if !checkDateValue(endValue, config) {
+			return AttributeValue{}, &ParseError{Code: ParseErrorInvalidInput, Message: "invalid date range end"}
+		}
+		return AttributeValue{Kind: AttributeValueKindRange, Start: parts[0], End: parts[1]}, nil
+	} else if isList(raw) {
+		items := strings.Split(raw, ",")
+		for _, item := range items {
+			if !checkDateValue(item, config) {
+				return AttributeValue{}, &ParseError{Code: ParseErrorInvalidInput, Message: "invalid integer list item"}
+			}
+		}
+		return AttributeValue{Kind: AttributeValueKindList, Items: items}, nil
+	}
+	if !checkDateValue(raw, config) {
+		return AttributeValue{}, &ParseError{Code: ParseErrorInvalidInput, Message: "invalid date"}
+	}
 	return AttributeValue{Kind: AttributeValueKindSingle, Raw: raw}, nil
 }
 
-func parseTokenAttributeDateValue(raw string) (AttributeValue, error) {
+func parseTokenAttributeBoolValue(raw string, config config.Config) (AttributeValue, error) {
 	return AttributeValue{Kind: AttributeValueKindSingle, Raw: raw}, nil
 }
 
-func parseTokenAttributeBoolValue(raw string) (AttributeValue, error) {
-	return AttributeValue{Kind: AttributeValueKindSingle, Raw: raw}, nil
-}
-
-func ParseTokenAttribute(raw string) (Token, error) {
+func ParseTokenAttribute(raw string, config config.Config) (Token, error) {
 	var attributeKey string
 	var attributeValue AttributeValue
 	var err error
@@ -138,7 +207,7 @@ func ParseTokenAttribute(raw string) (Token, error) {
 	}
 
 	// Parse attribute value
-	attributeValue, err = tokenAttributeParsers[attrSpec.Type](attributeValueRaw)
+	attributeValue, err = tokenAttributeParsers[attrSpec.Type](attributeValueRaw, config)
 	if err != nil {
 		return Token{}, &ParseError{Code: ParseErrorInvalidInput, Message: err.Error()}
 	}
@@ -149,6 +218,6 @@ func ParseTokenAttribute(raw string) (Token, error) {
 	), nil
 }
 
-func ParseTokenText(raw string) (Token, error) {
+func ParseTokenText(raw string, config config.Config) (Token, error) {
 	return Token{Kind: TokenText, Raw: raw}, nil
 }
