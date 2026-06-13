@@ -11,9 +11,9 @@ import (
 type AttributeValueShape uint8
 
 const (
-	AttributeValueShapeSingle AttributeValueShape = 1 << iota // Attribute value can be a single value
-	AttributeValueShapeList                                   // Attribute value can be a list of values
-	AttributeValueShapeRange                                  // Attribute value can be a range of values
+	AttributeValueShapeSingle AttributeValueShape = 1 << iota // ArgAttribute value can be a single value
+	AttributeValueShapeList                                   // ArgAttribute value can be a list of values
+	AttributeValueShapeRange                                  // ArgAttribute value can be a range of values
 )
 
 // IsSingle returns true if the attribute value is a single value
@@ -347,9 +347,9 @@ func atMostOne() CountRule {
 // - a list of attribute names, in which case the rule is satisfied if any of the given attributes appear.
 // - a list of token kinds and attribute names, in which case the rule is satisfied if any of the given kinds or attributes appear.
 type PresenceRule struct {
-	Kinds      []TokenKind // List of kinds that must appear.
-	Attributes []string    // List of attributes that must appear.
-	Message    string      // Error message to display if the rule is not met.
+	Kinds      []ArgKind // List of kinds that must appear.
+	Attributes []string  // List of attributes that must appear.
+	Message    string    // Error message to display if the rule is not met.
 }
 
 // SideSpec specifies the allowed tokens on either side of a command.
@@ -361,12 +361,12 @@ type PresenceRule struct {
 // - a list of CountRules for each attribute.
 // - a list of PresenceRules.
 type SideSpec struct {
-	AllowedKinds   map[TokenKind]bool       // Allowed token kinds.
+	AllowedKinds   map[ArgKind]bool         // Allowed token kinds.
 	AllowAnyAttr   bool                     // Allow any attribute.
 	Attributes     map[string]AttributeSpec // List of allowed attributes.
 	MinArgs        int                      // Minimum number of arguments.
 	MaxArgs        int                      // Maximum number of arguments.
-	KindRules      map[TokenKind]CountRule  // Count rules for each kind.
+	KindRules      map[ArgKind]CountRule    // Count rules for each kind.
 	AttributeRules map[string]CountRule     // Count rules for each attribute.
 	AtLeastOneOf   []PresenceRule           // List of PresenceRules.
 }
@@ -374,33 +374,33 @@ type SideSpec struct {
 // genericSideSpec specifies a side that accepts any token kind and any attribute.
 func genericSideSpec() SideSpec {
 	return SideSpec{
-		AllowedKinds:   allSupportedKinds(),       // all token kinds are allowed
-		AllowAnyAttr:   true,                      // any attribute is allowed
-		KindRules:      map[TokenKind]CountRule{}, // no count rules for token kinds
-		AttributeRules: map[string]CountRule{},    // no count rules for attributes
-		AtLeastOneOf:   []PresenceRule{},          // no PresenceRules
+		AllowedKinds:   allSupportedKinds(),     // all token kinds are allowed
+		AllowAnyAttr:   true,                    // any attribute is allowed
+		KindRules:      map[ArgKind]CountRule{}, // no count rules for token kinds
+		AttributeRules: map[string]CountRule{},  // no count rules for attributes
+		AtLeastOneOf:   []PresenceRule{},        // no PresenceRules
 	}
 }
 
 // emptySideSpec specifies a side that accepts no tokens.
 func emptySideSpec() SideSpec {
 	return SideSpec{
-		AllowedKinds:   map[TokenKind]bool{},       // no token kinds are allowed
+		AllowedKinds:   map[ArgKind]bool{},         // no token kinds are allowed
 		Attributes:     map[string]AttributeSpec{}, // no attributes are allowed
-		KindRules:      map[TokenKind]CountRule{},  // no count rules for token kinds
+		KindRules:      map[ArgKind]CountRule{},    // no count rules for token kinds
 		AttributeRules: map[string]CountRule{},     // no count rules for attributes
 		AtLeastOneOf:   []PresenceRule{},           // no PresenceRules
 	}
 }
 
 // sideSpec specifies a side that accepts a list of token kinds and a list of attributes.
-func sideSpec(kinds []TokenKind, attrs ...AttributeSpec) SideSpec {
+func sideSpec(kinds []ArgKind, attrs ...AttributeSpec) SideSpec {
 	return SideSpec{
-		AllowedKinds:   allowKinds(kinds...),      // allowed token kinds are given by the list of kinds
-		Attributes:     attributes(attrs...),      // allowed attributes are given by the list of attributes
-		KindRules:      map[TokenKind]CountRule{}, // no count rules for token kinds
-		AttributeRules: map[string]CountRule{},    // no count rules for attributes
-		AtLeastOneOf:   []PresenceRule{},          // no PresenceRules
+		AllowedKinds:   allowKinds(kinds...),    // allowed token kinds are given by the list of kinds
+		Attributes:     attributes(attrs...),    // allowed attributes are given by the list of attributes
+		KindRules:      map[ArgKind]CountRule{}, // no count rules for token kinds
+		AttributeRules: map[string]CountRule{},  // no count rules for attributes
+		AtLeastOneOf:   []PresenceRule{},        // no PresenceRules
 	}
 }
 
@@ -408,20 +408,20 @@ func sideSpecAnything() SideSpec {
 	return SideSpec{
 		AllowedKinds:   allSupportedKinds(),
 		AllowAnyAttr:   true,
-		KindRules:      map[TokenKind]CountRule{},
+		KindRules:      map[ArgKind]CountRule{},
 		AttributeRules: map[string]CountRule{},
 		AtLeastOneOf:   []PresenceRule{},
 	}
 }
 
 // sideSpecWithAttributes specifies a side that accepts a list of token kinds and a list of attributes.
-func sideSpecWithAnyAttributes(kinds ...TokenKind) SideSpec {
+func sideSpecWithAnyAttributes(kinds ...ArgKind) SideSpec {
 	return SideSpec{
-		AllowedKinds:   allowKinds(kinds...),      // allowed token kinds are given by the list of kinds
-		AllowAnyAttr:   true,                      // any attribute is allowed
-		KindRules:      map[TokenKind]CountRule{}, // no count rules for token kinds
-		AttributeRules: map[string]CountRule{},    // no count rules for attributes
-		AtLeastOneOf:   []PresenceRule{},          // no PresenceRules
+		AllowedKinds:   allowKinds(kinds...),    // allowed token kinds are given by the list of kinds
+		AllowAnyAttr:   true,                    // any attribute is allowed
+		KindRules:      map[ArgKind]CountRule{}, // no count rules for token kinds
+		AttributeRules: map[string]CountRule{},  // no count rules for attributes
+		AtLeastOneOf:   []PresenceRule{},        // no PresenceRules
 	}
 }
 
@@ -432,9 +432,9 @@ func (s SideSpec) WithArgs(min int, max int) SideSpec {
 	return s
 }
 
-func (s SideSpec) WithKindRule(kind TokenKind, rule CountRule) SideSpec {
+func (s SideSpec) WithKindRule(kind ArgKind, rule CountRule) SideSpec {
 	if s.KindRules == nil {
-		s.KindRules = map[TokenKind]CountRule{}
+		s.KindRules = map[ArgKind]CountRule{}
 	}
 	s.KindRules[kind] = rule
 	return s
@@ -490,8 +490,8 @@ func (c CommandSpec) String() string {
 }
 
 // allowKinds returns a map with TokenKind as key and true as value
-func allowKinds(kinds ...TokenKind) map[TokenKind]bool {
-	allowed := make(map[TokenKind]bool, len(kinds))
+func allowKinds(kinds ...ArgKind) map[ArgKind]bool {
+	allowed := make(map[ArgKind]bool, len(kinds))
 	for _, kind := range kinds {
 		allowed[kind] = true
 	}
@@ -517,13 +517,12 @@ func subcommands(specs ...SubcommandSpec) map[string]SubcommandSpec {
 }
 
 // allSupportedKinds returns supported all token kinds as supported
-func allSupportedKinds() map[TokenKind]bool {
+func allSupportedKinds() map[ArgKind]bool {
 	return allowKinds(
-		TokenTag,
-		TokenTagNegative,
-		TokenAttribute,
-		TokenAttributeClear,
-		TokenText,
+		ArgKindTag,
+		ArgKindAttribute,
+		ArgKindText,
+		ArgKindTagNegative,
 	)
 }
 
@@ -539,7 +538,7 @@ func transactionFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 		buildAttributeSpec("group").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
+	return sideSpec([]ArgKind{ArgKindText, ArgKindAttribute}, base...)
 }
 
 // transactionFilterSideSpecWithoutAccount specifies the left side as a filter for transactions.
@@ -552,7 +551,7 @@ func transactionFilterSideSpecWithoutAccount(extraAttrs ...AttributeSpec) SideSp
 		buildAttributeSpec("identifier").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
 		buildAttributeSpec("group").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
 	}
-	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
+	return sideSpec([]ArgKind{ArgKindText, ArgKindAttribute}, base...)
 }
 
 // accountFilterSideSpec specifies the left side as a filter for accounts.
@@ -564,7 +563,7 @@ func accountFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 		buildAttributeSpec("balance").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
+	return sideSpec([]ArgKind{ArgKindText, ArgKindAttribute}, base...)
 }
 
 // groupFilterSideSpec specifies the left side as a filter for groups.
@@ -574,7 +573,7 @@ func groupFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 		buildAttributeSpec("size").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
+	return sideSpec([]ArgKind{ArgKindText, ArgKindAttribute}, base...)
 }
 
 // tagFilterSideSpec specifies the left side as a filter for tags.
@@ -584,7 +583,7 @@ func tagFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 		buildAttributeSpec("size").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]TokenKind{TokenTag, TokenAttribute}, base...)
+	return sideSpec([]ArgKind{ArgKindTag, ArgKindAttribute}, base...)
 }
 
 // placesFilterSideSpec specifies the left side as a filter for places.
@@ -594,13 +593,13 @@ func placesFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 		buildAttributeSpec("size").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]TokenKind{TokenText, TokenAttribute}, base...)
+	return sideSpec([]ArgKind{ArgKindText, ArgKindAttribute}, base...)
 }
 
 // addCommandRightSideSpec specifies the right side of the add command.
 func addCommandRightSideSpec() SideSpec {
 	side := sideSpec(
-		[]TokenKind{TokenTag, TokenAttribute, TokenText},
+		[]ArgKind{ArgKindTag, ArgKindAttribute, ArgKindText},
 		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("store").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
@@ -612,13 +611,13 @@ func addCommandRightSideSpec() SideSpec {
 	for _, name := range []string{"date", "account", "category", "group"} {
 		side.WithAttributeRule(name, atMostOne())
 	}
-	side.WithAtLeastOneOf(PresenceRule{Kinds: []TokenKind{TokenText}, Message: "add requires a description"})
+	side.WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindText}, Message: "add requires a description"})
 	return side
 }
 
 func modifyRightSideSpec() SideSpec {
 	side := sideSpec(
-		[]TokenKind{TokenAttribute, TokenAttributeClear, TokenTag, TokenTagNegative},
+		[]ArgKind{ArgKindAttribute, ArgKindTag, ArgKindTagNegative},
 		settableOnlyAttribute("identifier").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("amount").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
@@ -636,7 +635,7 @@ func modifyRightSideSpec() SideSpec {
 
 func transferRightSideSpec() SideSpec {
 	side := sideSpec(
-		[]TokenKind{TokenAttribute, TokenText},
+		[]ArgKind{ArgKindAttribute, ArgKindText},
 		settableOnlyAttribute("from").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("to").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle),
@@ -650,12 +649,12 @@ func transferRightSideSpec() SideSpec {
 
 func fakeitTransactionsRightSideSpec() SideSpec {
 	side := sideSpec(
-		[]TokenKind{TokenAttribute, TokenText},
+		[]ArgKind{ArgKindAttribute, ArgKindText},
 		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
 		settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
 		settableOnlyAttribute("year").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList|AttributeValueShapeRange),
 		settableOnlyAttribute("month").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList|AttributeValueShapeRange),
-	).WithKindRule(TokenText, atMostOne())
+	).WithKindRule(ArgKindText, atMostOne())
 	for _, name := range []string{"account", "category", "year", "month"} {
 		side.WithAttributeRule(name, atMostOne())
 	}
@@ -694,7 +693,7 @@ func budgetSideSpec() SideSpec {
 			settableOnlyAttribute("group").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
 			settableOnlyAttribute("store").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
 		),
-		KindRules:      map[TokenKind]CountRule{},
+		KindRules:      map[ArgKind]CountRule{},
 		AttributeRules: map[string]CountRule{},
 		AtLeastOneOf:   []PresenceRule{},
 	}
@@ -718,7 +717,7 @@ func accountsListSubcommandSpec(subcommandName string) SubcommandSpec {
 		Name: subcommandName,
 		// cash accounts list
 		Left: sideSpec(
-			[]TokenKind{TokenAttribute, TokenTag, TokenTagNegative},
+			[]ArgKind{ArgKindAttribute, ArgKindTag, ArgKindTagNegative},
 			settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
 			settableOnlyAttribute("name").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
 			settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle|AttributeValueShapeList),
@@ -779,13 +778,13 @@ var accountsCommandSpec = createSubcommandAlias(
 				Name: "balance",
 				Left: transactionFilterSideSpecWithoutAccount(),
 				Right: sideSpec(
-					[]TokenKind{TokenText},
+					[]ArgKind{ArgKindText},
 					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("name").SetShapes(AttributeValueShapeSingle),
 				).
 					WithAtLeastOneOf(
 						PresenceRule{
-							Kinds:      []TokenKind{TokenText},
+							Kinds:      []ArgKind{ArgKindText},
 							Attributes: []string{"account", "name"},
 							Message:    "accounts balance requires an account name",
 						},
@@ -801,18 +800,18 @@ var accountsCommandSpec = createSubcommandAlias(
 				Name: "add",
 				Left: emptySideSpec(),
 				Right: sideSpec(
-					[]TokenKind{TokenText, TokenAttribute},
+					[]ArgKind{ArgKindText, ArgKindAttribute},
 					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle),
 				).
-					WithKindRule(TokenText, atMostOne()).
+					WithKindRule(ArgKindText, atMostOne()).
 					WithArgs(1, 3).
 					WithAttributeRule("currency", atMostOne()).
 					WithAttributeRule("initial-balance", atMostOne()).
 					WithAtLeastOneOf(
 						PresenceRule{
-							Kinds:      []TokenKind{TokenText},
+							Kinds:      []ArgKind{ArgKindText},
 							Attributes: []string{"account"},
 							Message:    "accounts add requires an account name",
 						},
@@ -828,23 +827,23 @@ var accountsCommandSpec = createSubcommandAlias(
 				Name: "modify",
 				// cash accounts modify <account name> [currency] [initial balance]
 				Left: sideSpec(
-					[]TokenKind{TokenAttribute},
+					[]ArgKind{ArgKindAttribute},
 					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 				),
 				Right: sideSpec(
-					[]TokenKind{TokenText, TokenAttribute},
+					[]ArgKind{ArgKindText, ArgKindAttribute},
 					settableOnlyAttribute("name").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle),
 				).
 					WithArgs(2, 3).
-					WithKindRule(TokenText, atMostOne()).
+					WithKindRule(ArgKindText, atMostOne()).
 					WithAttributeRule("name", atMostOne()).
 					WithAttributeRule("currency", atMostOne()).
 					WithAttributeRule("initial-balance", atMostOne()).
 					WithAtLeastOneOf(
 						PresenceRule{
-							Kinds:      []TokenKind{TokenText},
+							Kinds:      []ArgKind{ArgKindText},
 							Attributes: []string{"name", "currency", "initial-balance"},
 							Message:    "accounts modify requires at least one modification",
 						},
@@ -857,11 +856,11 @@ var accountsCommandSpec = createSubcommandAlias(
 			SubcommandSpec{
 				Name: "initial-balance",
 				Left: sideSpec(
-					[]TokenKind{TokenAttribute},
+					[]ArgKind{ArgKindAttribute},
 					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 				),
 				Right: sideSpec(
-					[]TokenKind{TokenAttribute},
+					[]ArgKind{ArgKindAttribute},
 					settableOnlyAttribute("amount").SetShapes(AttributeValueShapeSingle),
 				).
 					WithArgs(1, 1).
@@ -872,14 +871,14 @@ var accountsCommandSpec = createSubcommandAlias(
 			SubcommandSpec{
 				Name: "rename",
 				Left: sideSpec(
-					[]TokenKind{TokenAttribute},
+					[]ArgKind{ArgKindAttribute},
 					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 				),
 				Right: sideSpec(
-					[]TokenKind{TokenText},
+					[]ArgKind{ArgKindText},
 				).
 					WithArgs(1, 1).
-					WithKindRule(TokenText, countRule(1, 1)),
+					WithKindRule(ArgKindText, countRule(1, 1)),
 			},
 			// > Subcommand: delete
 			// $ cash <account> accounts delete
@@ -887,7 +886,7 @@ var accountsCommandSpec = createSubcommandAlias(
 			SubcommandSpec{
 				Name: "delete",
 				Left: sideSpec(
-					[]TokenKind{TokenAttribute},
+					[]ArgKind{ArgKindAttribute},
 					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 				),
 				Right: emptySideSpec().WithArgs(0, 0),
@@ -947,7 +946,7 @@ var backupCommandSpec = CommandSpec{
 			Name: "now",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{TokenAttribute},
+				[]ArgKind{ArgKindAttribute},
 				settableOnlyAttribute("output").SetShapes(AttributeValueShapeSingle),
 			).
 				WithArgs(0, 1).
@@ -959,7 +958,7 @@ var backupCommandSpec = CommandSpec{
 			Name: "to",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{TokenAttribute},
+				[]ArgKind{ArgKindAttribute},
 				settableOnlyAttribute("output").SetShapes(AttributeValueShapeSingle),
 			).
 				WithArgs(1, 1).
@@ -1033,25 +1032,25 @@ var categoriesCommandSpec = createSubcommandAlias(
 				Name: "add",
 				Left: emptySideSpec(),
 				Right: sideSpec(
-					[]TokenKind{TokenText, TokenAttribute},
+					[]ArgKind{ArgKindText, ArgKindAttribute},
 					settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("parent").SetShapes(AttributeValueShapeSingle),
 				).
 					WithArgs(1, 2).
 					WithAttributeRule("parent", atMostOne()).
-					WithAtLeastOneOf(PresenceRule{Kinds: []TokenKind{TokenText}, Attributes: []string{"category"}, Message: "categories add requires a category name"}),
+					WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindText}, Attributes: []string{"category"}, Message: "categories add requires a category name"}),
 			},
 			// cash categories modify <category name> [parent]
 			SubcommandSpec{
 				Name: "modify",
 				Left: emptySideSpec(),
 				Right: sideSpec(
-					[]TokenKind{TokenText, TokenAttribute},
+					[]ArgKind{ArgKindText, ArgKindAttribute},
 					settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("parent").SetShapes(AttributeValueShapeSingle),
 				).
 					WithArgs(2, 3).
-					WithKindRule(TokenText, exactlyOne()).
+					WithKindRule(ArgKindText, exactlyOne()).
 					WithAttributeRule("category", atMostOne()).
 					WithAttributeRule("parent", atMostOne()).
 					WithAtLeastOneOf(
@@ -1066,14 +1065,14 @@ var categoriesCommandSpec = createSubcommandAlias(
 				Name: "delete",
 				Left: emptySideSpec(),
 				Right: sideSpec(
-					[]TokenKind{TokenText, TokenAttribute},
+					[]ArgKind{ArgKindText, ArgKindAttribute},
 					settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle),
 				).
 					WithArgs(1, 1).
 					WithAttributeRule("category", atMostOne()).
 					WithAtLeastOneOf(
 						PresenceRule{
-							Kinds:      []TokenKind{TokenText},
+							Kinds:      []ArgKind{ArgKindText},
 							Attributes: []string{"category"},
 							Message:    "categories delete requires a category name",
 						},
@@ -1112,10 +1111,10 @@ var configCommandSpec = CommandSpec{
 			Name: "get",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{TokenText},
+				[]ArgKind{ArgKindText},
 			).
 				WithArgs(1, 1).
-				WithKindRule(TokenText, countRule(1, 1)),
+				WithKindRule(ArgKindText, countRule(1, 1)),
 		},
 		// > Subcommand: set
 		// $ cash config set <key> <value>
@@ -1123,10 +1122,10 @@ var configCommandSpec = CommandSpec{
 			Name: "set",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{TokenText},
+				[]ArgKind{ArgKindText},
 			).
 				WithArgs(2, 2).
-				WithKindRule(TokenText, CountRule{Min: 2, Max: 2}),
+				WithKindRule(ArgKindText, CountRule{Min: 2, Max: 2}),
 		},
 	),
 }
@@ -1236,7 +1235,7 @@ var groupsCommandSpec = createSubcommandAlias(
 			SubcommandSpec{
 				Name: "list",
 				Left: sideSpec(
-					[]TokenKind{TokenAttribute},
+					[]ArgKind{ArgKindAttribute},
 					settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
 				),
@@ -1247,20 +1246,20 @@ var groupsCommandSpec = createSubcommandAlias(
 				Name: "add",
 				Left: emptySideSpec(),
 				Right: sideSpec(
-					[]TokenKind{TokenText, TokenAttribute},
+					[]ArgKind{ArgKindText, ArgKindAttribute},
 				).WithArgs(2, 0).
-					WithKindRule(TokenText, atMostOne()).
+					WithKindRule(ArgKindText, atMostOne()).
 					WithAttributeRule("group", atMostOne()).
 					WithAtLeastOneOf(
 						PresenceRule{
-							Kinds:      []TokenKind{TokenText},
+							Kinds:      []ArgKind{ArgKindText},
 							Attributes: []string{"group"},
 							Message:    "groups add requires a group name",
 						},
 					).
 					WithAtLeastOneOf(
 						PresenceRule{
-							Kinds:      []TokenKind{TokenAttribute},
+							Kinds:      []ArgKind{ArgKindAttribute},
 							Attributes: []string{"id", "identifier", "T"},
 							Message:    "groups add requires at least one transaction id",
 						},
@@ -1271,27 +1270,27 @@ var groupsCommandSpec = createSubcommandAlias(
 				Name: "modify",
 				Left: emptySideSpec(),
 				Right: sideSpec(
-					[]TokenKind{TokenText, TokenAttribute},
+					[]ArgKind{ArgKindText, ArgKindAttribute},
 				).WithArgs(2, 2).
-					WithKindRule(TokenAttribute, atMostOne()).
-					WithKindRule(TokenText, atMostOne()),
+					WithKindRule(ArgKindAttribute, atMostOne()).
+					WithKindRule(ArgKindText, atMostOne()),
 			},
 			// cash groups delete
 			SubcommandSpec{
 				Name: "delete",
 				Left: emptySideSpec(),
 				Right: sideSpec(
-					[]TokenKind{TokenText},
+					[]ArgKind{ArgKindText},
 				).
 					WithArgs(1, 1).
-					WithKindRule(TokenText, exactlyOne()),
+					WithKindRule(ArgKindText, exactlyOne()),
 			},
 			// cash groups remove <transaction> <group>
 			SubcommandSpec{
 				Name: "remove",
 				Left: emptySideSpec(),
 				Right: sideSpec(
-					[]TokenKind{TokenAttribute},
+					[]ArgKind{ArgKindAttribute},
 				).
 					WithArgs(2, 2).
 					WithAttributeRule("id", atMostOne()).
@@ -1300,7 +1299,7 @@ var groupsCommandSpec = createSubcommandAlias(
 					WithAttributeRule("group", exactlyOne()).
 					WithAtLeastOneOf(
 						PresenceRule{
-							Kinds:      []TokenKind{TokenAttribute},
+							Kinds:      []ArgKind{ArgKindAttribute},
 							Attributes: []string{"id", "identifier", "T", "group"},
 							Message:    "groups remove requires at least one transaction id",
 						},
@@ -1324,10 +1323,10 @@ var helpCommandSpec = CommandSpec{
 			Name: "show",
 			Left: sideSpecAnything(),
 			Right: sideSpec(
-				[]TokenKind{TokenText},
+				[]ArgKind{ArgKindText},
 			).
 				WithArgs(0, 1).
-				WithKindRule(TokenText, atMostOne()),
+				WithKindRule(ArgKindText, atMostOne()),
 		}),
 }
 
@@ -1341,7 +1340,7 @@ var importCommandSpec = CommandSpec{
 		SubcommandSpec{
 			Name:  "csv",
 			Left:  emptySideSpec(),
-			Right: sideSpec([]TokenKind{TokenText}).WithArgs(1, 1),
+			Right: sideSpec([]ArgKind{ArgKindText}).WithArgs(1, 1),
 		},
 	),
 }
@@ -1452,7 +1451,7 @@ var storesCommandSpec = createSubcommandAlias(
 				Name: "add",
 				Left: emptySideSpec(),
 				Right: sideSpec(
-					[]TokenKind{TokenText},
+					[]ArgKind{ArgKindText},
 				).WithArgs(1, 1),
 			},
 			// > Subcommand: rename
@@ -1460,18 +1459,18 @@ var storesCommandSpec = createSubcommandAlias(
 			SubcommandSpec{
 				Name: "rename",
 				Left: emptySideSpec(),
-				Right: sideSpec([]TokenKind{TokenText}).
+				Right: sideSpec([]ArgKind{ArgKindText}).
 					WithArgs(2, 2).
-					WithKindRule(TokenText, countRule(2, 2)),
+					WithKindRule(ArgKindText, countRule(2, 2)),
 			},
 			// > Subcommand: delete
 			// $ cash stores delete <store name>
 			SubcommandSpec{
 				Name: "delete",
 				Left: emptySideSpec(),
-				Right: sideSpec([]TokenKind{TokenText}).
+				Right: sideSpec([]ArgKind{ArgKindText}).
 					WithArgs(1, 1).
-					WithKindRule(TokenText, exactlyOne()),
+					WithKindRule(ArgKindText, exactlyOne()),
 			},
 		),
 	},
@@ -1514,7 +1513,7 @@ var restoreCommandSpec = CommandSpec{
 			Name: "default",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{},
+				[]ArgKind{},
 			).
 				WithArgs(1, 1).
 				WithAttributeRule("id", exactlyOne()),
@@ -1545,7 +1544,7 @@ var showCommandSpec = CommandSpec{
 			Name: "transaction",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{},
+				[]ArgKind{},
 			).
 				WithArgs(1, 1).
 				WithAttributeRule("id", atMostOne()).
@@ -1553,7 +1552,7 @@ var showCommandSpec = CommandSpec{
 				WithAttributeRule("identifier", atMostOne()).
 				WithAtLeastOneOf(
 					PresenceRule{
-						Kinds:      []TokenKind{TokenAttribute},
+						Kinds:      []ArgKind{ArgKindAttribute},
 						Attributes: []string{"id", "T", "identifier"},
 						Message:    "show requires an id",
 					},
@@ -1602,13 +1601,13 @@ var tagsCommandSpec = CommandSpec{
 			Name: "add",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{TokenText, TokenAttribute},
+				[]ArgKind{ArgKindText, ArgKindAttribute},
 				settableOnlyAttribute("tag").SetShapes(AttributeValueShapeSingle),
 			).
 				WithArgs(1, 1).
 				WithAtLeastOneOf(
 					PresenceRule{
-						Kinds:      []TokenKind{TokenText},
+						Kinds:      []ArgKind{ArgKindText},
 						Attributes: []string{"tag"},
 						Message:    "tags add requires a tag name",
 					},
@@ -1619,10 +1618,10 @@ var tagsCommandSpec = CommandSpec{
 			Name: "modify",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{TokenText, TokenAttribute},
+				[]ArgKind{ArgKindText, ArgKindAttribute},
 				settableOnlyAttribute("tag").SetShapes(AttributeValueShapeSingle),
 			).
-				WithKindRule(TokenText, exactlyOne()).
+				WithKindRule(ArgKindText, exactlyOne()).
 				WithArgs(2, 2).
 				WithAttributeRule("tag", exactlyOne()).
 				WithAtLeastOneOf(
@@ -1637,12 +1636,12 @@ var tagsCommandSpec = CommandSpec{
 			Name: "delete",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{TokenText, TokenAttribute},
+				[]ArgKind{ArgKindText, ArgKindAttribute},
 				settableOnlyAttribute("tag").SetShapes(AttributeValueShapeSingle),
 			).WithArgs(1, 1).
 				WithAtLeastOneOf(
 					PresenceRule{
-						Kinds:      []TokenKind{TokenText},
+						Kinds:      []ArgKind{ArgKindText},
 						Attributes: []string{"tag"},
 						Message:    "tags delete requires a tag name"},
 				),
@@ -1668,7 +1667,7 @@ var themeCommandSpec = CommandSpec{
 			Name: "default",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{TokenText},
+				[]ArgKind{ArgKindText},
 			).WithArgs(0, 1),
 		},
 		// cash theme list
@@ -1682,7 +1681,7 @@ var themeCommandSpec = CommandSpec{
 			Name: "set",
 			Left: emptySideSpec(),
 			Right: sideSpec(
-				[]TokenKind{TokenText},
+				[]ArgKind{ArgKindText},
 			).WithArgs(1, 1),
 		},
 	),
@@ -1711,15 +1710,15 @@ var transferCommandSpec = CommandSpec{
 		SubcommandSpec{
 			Name: "delete",
 			Left: emptySideSpec(),
-			Right: sideSpec([]TokenKind{TokenAttribute}).
+			Right: sideSpec([]ArgKind{ArgKindAttribute}).
 				WithArgs(1, 1).
-				WithKindRule(TokenAttribute, exactlyOne()).
+				WithKindRule(ArgKindAttribute, exactlyOne()).
 				WithAttributeRule("id", atMostOne()).
 				WithAttributeRule("identifier", atMostOne()).
 				WithAttributeRule("T", atMostOne()).
 				WithAtLeastOneOf(
 					PresenceRule{
-						Kinds:      []TokenKind{TokenAttribute},
+						Kinds:      []ArgKind{ArgKindAttribute},
 						Attributes: []string{"id"},
 						Message:    "transfer delete requires an id",
 					},

@@ -23,8 +23,8 @@ func Summary(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) err
 
 func summaryDays(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
 	parsedForFilters := parsed
-	parsedForFilters.Filters = append(append([]parser.Token{}, parsed.Filters...), parsed.Args...)
-	parsedForFilters.Args = []parser.Token{}
+	parsedForFilters.Filters = append(append([]parser.Arg{}, parsed.Filters...), parsed.Args...)
+	parsedForFilters.Args = []parser.Arg{}
 
 	dbFilters, runFilters, err := createFilters(parsedForFilters, cashDb, cfg)
 	if err != nil {

@@ -47,9 +47,9 @@ func createHelpCmdLine() parser.ParsedCmdLine {
 	return parser.ParsedCmdLine{
 		Command:    "help",
 		Subcommand: "show",
-		Filters:    []parser.Token{},
-		Args:       []parser.Token{},
-		Flags:      []parser.Token{{Raw: "--help", Kind: parser.TokenFlag}},
+		Filters:    []parser.Arg{},
+		Args:       []parser.Arg{},
+		Flags:      []parser.Arg{parser.ArgFlag{Raw: "--help", Key: "help", Value: "true"}},
 	}
 }
 
@@ -91,8 +91,8 @@ func run() error {
 			parsedCmd = parser.ParsedCmdLine{
 				Command:    "list",
 				Subcommand: "default",
-				Filters:    []parser.Token{},
-				Args:       []parser.Token{},
+				Filters:    []parser.Arg{},
+				Args:       []parser.Arg{},
 			}
 		}
 	} else if parseErr != nil && parseErr.Code == parser.ParseErrorEmptyCommandLine {

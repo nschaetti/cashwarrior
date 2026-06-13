@@ -73,9 +73,14 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 		return err
 	}
 
-	switch arg.Attribute.Key {
+	attr, ok := arg.(parser.ArgAttribute)
+	if !ok {
+		return fmt.Errorf("config key must be an attribute")
+	}
+
+	switch attr.Key {
 	case "database":
-		dbPath := utils.ExpandPath(arg.Attribute.Value.Raw)
+		dbPath := utils.ExpandPath(attr.Value.Raw)
 		previousPath := cfg.Database
 		if err := ensureDatabasePath(cfg, dbPath); err != nil {
 			return err
@@ -89,23 +94,23 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 		}
 
 	case "default.currency":
-		if strings.TrimSpace(arg.Attribute.Value.Raw) == "" {
+		if strings.TrimSpace(attr.Value.Raw) == "" {
 			return fmt.Errorf("default.currency cannot be empty")
 		}
-		cfg.Default.Currency = arg.Attribute.Value.Raw
+		cfg.Default.Currency = attr.Value.Raw
 
 	case "default.account":
-		if strings.TrimSpace(arg.Attribute.Value.Raw) == "" {
+		if strings.TrimSpace(attr.Value.Raw) == "" {
 			return fmt.Errorf("default.account cannot be empty")
 		}
-		_, err = db.GetAccountByName(cashDb, arg.Attribute.Value.Raw)
+		_, err = db.GetAccountByName(cashDb, attr.Value.Raw)
 		if err != nil {
-			return fmt.Errorf("account does not exist: %s", arg.Attribute.Value)
+			return fmt.Errorf("account does not exist: %s", attr.Value)
 		}
-		cfg.Default.Account = arg.Attribute.Value.Raw
+		cfg.Default.Account = attr.Value.Raw
 
 	case "gui.date_format":
-		v := arg.Attribute.Value.Raw
+		v := attr.Value.Raw
 		required := []string{"2006", "01", "02", "15", "04"}
 		for _, token := range required {
 			if !strings.Contains(v, token) {
@@ -115,28 +120,28 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 		cfg.Display.DateFormat = v
 
 	case "gui.show_currency":
-		v, parseErr := strconv.ParseBool(arg.Attribute.Value.Raw)
+		v, parseErr := strconv.ParseBool(attr.Value.Raw)
 		if parseErr != nil {
 			return fmt.Errorf("invalid gui.show_currency: expected boolean")
 		}
 		cfg.Display.ShowCurrency = v
 
 	case "gui.theme":
-		if !gui.ThemeExists(arg.Attribute.Value.Raw) {
+		if !gui.ThemeExists(attr.Value.Raw) {
 			themes := gui.ThemeNames()
 			sort.Strings(themes)
-			return fmt.Errorf("unknown theme %q (available: %s)", arg.Attribute.Value, strings.Join(themes, ", "))
+			return fmt.Errorf("unknown theme %q (available: %s)", attr.Value, strings.Join(themes, ", "))
 		}
-		cfg.Display.Theme = arg.Attribute.Value.Raw
+		cfg.Display.Theme = attr.Value.Raw
 
 	case "backup.period":
-		cfg.Backup.Period = arg.Attribute.Value.Raw
+		cfg.Backup.Period = attr.Value.Raw
 		if err := backup.ValidateConfig(cfg.Backup); err != nil {
 			return err
 		}
 
 	case "backup.keep":
-		keep, parseErr := strconv.Atoi(arg.Attribute.Value.Raw)
+		keep, parseErr := strconv.Atoi(attr.Value.Raw)
 		if parseErr != nil {
 			return fmt.Errorf("invalid backup.keep: expected integer")
 		}
@@ -146,13 +151,13 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 		}
 
 	default:
-		return fmt.Errorf("unknown config key: %s", arg.Attribute.Key)
+		return fmt.Errorf("unknown config key: %s", attr.Key)
 	}
 
 	if err = config.SaveConfig(configPath, cfg); err != nil {
 		return err
 	}
 
-	pterm.Success.Println("Config updated: " + arg.Attribute.Key + "=" + arg.Attribute.Value.Raw)
+	pterm.Success.Println("Config updated: " + attr.Key + "=" + attr.Value.Raw)
 	return nil
 }

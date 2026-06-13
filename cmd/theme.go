@@ -31,7 +31,7 @@ func Theme(parsed parser.ParsedCmdLine, _ config.Config, query db.DBTX) error {
 		return nil
 	}
 
-	themeName := parsed.Args[0].Raw
+	themeName := parsed.Args[0].RawString()
 	if !gui.ThemeExists(themeName) {
 		return fmt.Errorf("unknown theme %q (available: %s)", themeName, joinThemes(themes))
 	}

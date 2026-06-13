@@ -50,8 +50,8 @@ func listPlaces(cashDb db.DBTX) error {
 }
 
 func renamePlace(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
-	oldName := strings.TrimSpace(parsed.Args[0].Raw)
-	newName := strings.TrimSpace(parsed.Args[1].Raw)
+	oldName := strings.TrimSpace(parsed.Args[0].RawString())
+	newName := strings.TrimSpace(parsed.Args[1].RawString())
 
 	if oldName == "" || newName == "" {
 		return fmt.Errorf("place names cannot be empty")

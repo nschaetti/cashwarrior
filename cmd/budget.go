@@ -27,16 +27,17 @@ func FormatBudgetDemo(parsed parser.ParsedCmdLine) string {
 	return builder.String()
 }
 
-func writeBudgetTokens(builder *strings.Builder, tokens []parser.Token) {
-	if len(tokens) == 0 {
+func writeBudgetTokens(builder *strings.Builder, args []parser.Arg) {
+	if len(args) == 0 {
 		builder.WriteString("  - none\n")
 		return
 	}
 
-	for _, token := range tokens {
-		builder.WriteString(fmt.Sprintf("  - %s", token.String()))
-		if token.Kind == parser.TokenAttribute {
-			value, err := parser.ParseAttributeValue(token.Attribute.Value.Raw)
+	for _, arg := range args {
+		builder.WriteString(fmt.Sprintf("  - %s", arg.RawString()))
+		attr, ok := arg.(parser.ArgAttribute)
+		if ok {
+			value, err := parser.ParseAttributeValue(attr.Value.Raw)
 			if err == nil {
 				builder.WriteString(fmt.Sprintf(" => %s", value.String()))
 			}

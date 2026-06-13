@@ -57,15 +57,17 @@ func listTags(query db.DBTX) error {
 	return nil
 }
 
-func getTagNameArg(token parser.Token) (string, error) {
-	if token.Kind == parser.TokenText {
-		if token.Raw == "" {
+func getTagNameArg(arg parser.Arg) (string, error) {
+	text, ok := arg.(parser.ArgText)
+	if ok {
+		if text.Text == "" {
 			return "", fmt.Errorf("tag name cannot be empty")
 		}
-		return token.Raw, nil
+		return text.Text, nil
 	}
-	if token.Kind == parser.TokenAttribute && token.Attribute.Key == "tag" && !token.Attribute.Value.IsEmpty() {
-		return token.Attribute.Value.Raw, nil
+	attr, ok := arg.(parser.ArgAttribute)
+	if ok && attr.Key == "tag" && !attr.Value.IsEmpty() {
+		return attr.Value.Raw, nil
 	}
 	return "", fmt.Errorf("tag name is required")
 }
@@ -102,9 +104,10 @@ func modifyTag(parsed parser.ParsedCmdLine, query db.DBTX) error {
 		return err
 	}
 	newName := ""
-	for _, token := range parsed.Args[1:] {
-		if token.Kind == parser.TokenAttribute && token.Attribute.Key == "tag" {
-			newName = token.Attribute.Value.Raw
+	for _, arg := range parsed.Args[1:] {
+		attr, ok := arg.(parser.ArgAttribute)
+		if ok && attr.Key == "tag" {
+			newName = attr.Value.Raw
 		}
 	}
 	if newName == "" {

@@ -220,28 +220,29 @@ func PrintExpensesIncomeByCurrency(cashDb db.DBTX, transactions []db.Transaction
 
 func parseListSortOptions(parsed parser.ParsedCmdLine) (parser.ParsedCmdLine, listSortOptions, error) {
 	sortOptions := defaultListSortOptions()
-	filteredFilters := make([]parser.Token, 0, len(parsed.Filters))
-	filteredArgs := make([]parser.Token, 0, len(parsed.Args))
+	filteredFilters := make([]parser.Arg, 0, len(parsed.Filters))
+	filteredArgs := make([]parser.Arg, 0, len(parsed.Args))
 
-	consumeSortAttribute := func(token parser.Token) (bool, error) {
-		if token.Kind != parser.TokenAttribute {
+	consumeSortAttribute := func(token parser.Arg) (bool, error) {
+		attr, ok := token.(parser.ArgAttribute)
+		if !ok {
 			return false, nil
 		}
 
-		switch token.Attribute.Key {
+		switch attr.Key {
 		case "order":
 			if sortOptions.Field != "" {
 				return false, fmt.Errorf("order specified multiple times")
 			}
-			if !isSupportedListOrderField(token.Attribute.Value.Raw) {
-				return false, fmt.Errorf("unsupported order field %s", token.Attribute.Value)
+			if !isSupportedListOrderField(attr.Value.Raw) {
+				return false, fmt.Errorf("unsupported order field %s", attr.Value)
 			}
-			sortOptions.Field = token.Attribute.Value.Raw
+			sortOptions.Field = attr.Value.Raw
 			return true, nil
 		case "desc":
-			desc, err := strconv.ParseBool(token.Attribute.Value.Raw)
+			desc, err := strconv.ParseBool(attr.Value.Raw)
 			if err != nil {
-				return false, fmt.Errorf("invalid desc value %s", token.Attribute.Value)
+				return false, fmt.Errorf("invalid desc value %s", attr.Value)
 			}
 			sortOptions.Desc = desc
 			return true, nil

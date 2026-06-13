@@ -1,83 +1,109 @@
 package parser
 
-func GetTokenKindCount(parsedTokens ParsedCmdLine, filter bool) map[TokenKind]int {
-	count := make(map[TokenKind]int)
+func GetArgKindCount(parsedArgs ParsedCmdLine, filter bool) map[ArgKind]int {
+	count := make(map[ArgKind]int)
 	if !filter {
-		for _, parsedToken := range parsedTokens.Args {
-			count[parsedToken.Kind]++
+		for _, parsedToken := range parsedArgs.Args {
+			count[parsedToken.ArgKind()]++
 		}
 		return count
 	}
-	for _, parsedToken := range parsedTokens.Filters {
-		count[parsedToken.Kind]++
+	for _, parsedToken := range parsedArgs.Filters {
+		count[parsedToken.ArgKind()]++
 	}
 	return count
 }
+
+//func GetTokenKindCount(parsedTokens ParsedCmdLine, filter bool) map[TokenKind]int {
+//	count := make(map[TokenKind]int)
+//	if !filter {
+//		for _, parsedToken := range parsedTokens.Args {
+//			count[parsedToken.Kind]++
+//		}
+//		return count
+//	}
+//	for _, parsedToken := range parsedTokens.Filters {
+//		count[parsedToken.Kind]++
+//	}
+//	return count
+//}
 
 // ParsedCmdLine contains the parsed command, filters, and command arguments.
 type ParsedCmdLine struct {
 	Command    string
 	Subcommand string
-	Filters    []Token
-	Args       []Token
-	Flags      []Token
+	Filters    []Arg
+	Args       []Arg
+	Flags      []Arg
 }
 
 func (p *ParsedCmdLine) HasFlag(name string) bool {
-	for _, flag := range p.Flags {
-		if flag.Kind == TokenFlag && flag.Flag.Key == name {
+	for _, arg := range p.Flags {
+		flag, ok := arg.(ArgFlag)
+		if !ok {
+			continue
+		}
+		if flag.Key == name {
 			return true
 		}
 	}
 	return false
 }
 
-func (p *ParsedCmdLine) Left() []Token {
+func (p *ParsedCmdLine) Left() []Arg {
 	return p.Filters
 }
 
-func (p *ParsedCmdLine) Right() []Token {
+func (p *ParsedCmdLine) Right() []Arg {
 	return p.Args
 }
 
-func (p *ParsedCmdLine) GetTokenKindCount(filter bool) map[TokenKind]int {
-	return GetTokenKindCount(*p, filter)
+func (p *ParsedCmdLine) GetTokenKindCount(filter bool) map[ArgKind]int {
+	return GetArgKindCount(*p, filter)
 }
 
 func (p *ParsedCmdLine) GetAttributesCount(filter bool) map[string]int {
 	count := make(map[string]int)
 	if !filter {
-		for _, parsedToken := range p.Args {
-			if parsedToken.Kind != TokenAttribute {
+		for _, parsedArg := range p.Args {
+			if parsedArg.ArgKind() != ArgKindAttribute {
 				continue
 			}
-			count[parsedToken.Attribute.Key]++
+			attr, ok := parsedArg.(ArgAttribute)
+			if !ok {
+				continue
+			}
+			count[attr.Key]++
 		}
 		return count
 	}
-	for _, parsedToken := range p.Filters {
-		if parsedToken.Kind != TokenAttribute {
+	for _, parsedArg := range p.Filters {
+		if parsedArg.ArgKind() != ArgKindAttribute {
 			continue
 		}
-		count[parsedToken.Attribute.Key]++
+		attr, ok := parsedArg.(ArgAttribute)
+		if !ok {
+			continue
+		}
+		count[attr.Key]++
 	}
 	return count
 }
 
-func (p *ParsedCmdLine) RemoveByKind(kind TokenKind) {
-	dst := make([]Token, 0, len(p.Args))
+func (p *ParsedCmdLine) RemoveByKind(kind ArgKind) {
+	dst := make([]Arg, 0, len(p.Args))
 	for _, token := range p.Args {
-		if token.Kind != kind {
+		if token.ArgKind() != kind {
 			dst = append(dst, token)
 		}
 	}
 	p.Args = dst
 }
 
-func (p *ParsedCmdLine) Append(t Token, filter bool) {
+func (p *ParsedCmdLine) Append(a Arg, filter bool) {
 	if filter {
-		p.Filters = append(p.Filters, t)
+		p.Filters = append(p.Filters, a)
 		return
 	}
-	p.Args = append(p.Args, t)
+	p.Args = append(p.Args, a)
 }

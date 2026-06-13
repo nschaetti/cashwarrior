@@ -17,7 +17,7 @@ var CommandValidations = []func(
 	parser.ParsedCmdLine,
 	config.Config,
 	db.DBTX,
-	map[parser.TokenKind]int,
+	map[parser.ArgKind]int,
 ) (parser.ParsedCmdLine, error){
 	validateAmount,
 }
@@ -26,7 +26,7 @@ func validateAmount(
 	parsed parser.ParsedCmdLine,
 	config config.Config,
 	db db.DBTX,
-	counts map[parser.TokenKind]int,
+	counts map[parser.ArgKind]int,
 ) (parser.ParsedCmdLine, error) {
 	// Zero or multiple amounts => problem
 	//if counts[parser.TokenAmount] > 1 {
@@ -76,7 +76,7 @@ func validateAmount(
 	return parser.ParsedCmdLine{}, nil
 }
 
-func runCommandLineValidation(parsed parser.ParsedCmdLine, config config.Config, db db.DBTX, counts map[parser.TokenKind]int) (parser.ParsedCmdLine, error) {
+func runCommandLineValidation(parsed parser.ParsedCmdLine, config config.Config, db db.DBTX, counts map[parser.ArgKind]int) (parser.ParsedCmdLine, error) {
 	for _, check := range CommandValidations {
 		var err error
 		parsed, err = check(parsed, config, db, counts)
@@ -87,14 +87,15 @@ func runCommandLineValidation(parsed parser.ParsedCmdLine, config config.Config,
 	return parsed, nil
 }
 
-func getTransactionDescription(parsed parser.ParsedCmdLine, counts map[parser.TokenKind]int) string {
+func getTransactionDescription(parsed parser.ParsedCmdLine, counts map[parser.ArgKind]int) string {
 	_ = counts
 	textParts := make([]string, 0)
 	for _, arg := range parsed.Args {
-		if arg.Kind != parser.TokenText {
+		text, ok := arg.(parser.ArgText)
+		if !ok {
 			continue
 		}
-		textParts = append(textParts, arg.Raw)
+		textParts = append(textParts, text.Text)
 	}
 	return strings.Join(textParts, " ")
 }
@@ -112,7 +113,7 @@ func getNextIdentifier(cashDb db.DBTX, transactionTime time.Time) (domain.Transa
 	}, nil
 }
 
-func getTransactionAmount(parsed parser.ParsedCmdLine, counts map[parser.TokenKind]int) float32 {
+func getTransactionAmount(parsed parser.ParsedCmdLine, counts map[parser.ArgKind]int) float32 {
 	//return parsed.GetAmounts()[0].Amount
 	return 0.0
 }
@@ -204,10 +205,11 @@ func getTransactionDatetime(
 func getAttributes(parsed parser.ParsedCmdLine) map[string]parser.AttributeValue {
 	var attributes map[string]parser.AttributeValue = make(map[string]parser.AttributeValue)
 	for _, arg := range parsed.Args {
-		if arg.Kind != parser.TokenAttribute {
+		attr, ok := arg.(parser.ArgAttribute)
+		if !ok {
 			continue
 		}
-		attributes[arg.Attribute.Key] = arg.Attribute.Value
+		attributes[attr.Key] = attr.Value
 	}
 	return attributes
 }

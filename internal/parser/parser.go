@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/nschaetti/cashwarrior/internal/config"
 )
@@ -17,12 +18,12 @@ const (
 	ParseErrorInvalidInput ParseErrorCode = "INVALID_INPUT"
 	// ParseErrorEmptyCommandLine indicates an empty command line.
 	ParseErrorEmptyCommandLine = "EMPTY_COMMAND_LINE"
-	// ParseErrorInvalidLeftTokens indicates that the left side of the command line is invalid.
-	ParseErrorInvalidLeftTokens = "INVALID_LEFT_TOKENS"
-	// ParseErrorInvalidRightTokens indicates that the right side of the command line is invalid.
-	ParseErrorInvalidRightTokens = "INVALID_RIGHT_TOKENS"
-	// ParseErrorErrorExtractingTokens indicates that the left side of the command line is invalid.
-	ParseErrorErrorExtractingTokens = "ERROR_EXTRACTING_TOKENS"
+	// ParseErrorInvalidLeftArgs indicates that the left side of the command line is invalid.
+	ParseErrorInvalidLeftArgs = "INVALID_LEFT_ARGS"
+	// ParseErrorInvalidRightArgs indicates that the right side of the command line is invalid.
+	ParseErrorInvalidRightArgs = "INVALID_RIGHT_ARGS"
+	// ParseErrorErrorExtractingArgs indicates that the left side of the command line is invalid.
+	ParseErrorErrorExtractingArgs = "ERROR_EXTRACTING_ARGS"
 	// ParseErrorInvalidCommand ParseErrorNoCommand indicates that no command was specified.
 	ParseErrorInvalidCommand = "INVALID_COMMAND"
 	// ParseErrorInvalidSubcommand indicates that the subcommand is invalid.
@@ -32,137 +33,261 @@ const (
 // ParseError represents a structured parser or validation error.
 type ParseError struct {
 	Code    ParseErrorCode
-	Token   string
+	Arg     string
 	Message string
 }
 
 // Error returns a human-readable message for the parse error.
 func (e *ParseError) Error() string {
-	if e.Token == "" {
+	if e.Arg == "" {
 		return e.Message
 	}
-	return fmt.Sprintf("%s: %s", e.Message, e.Token)
+	return fmt.Sprintf("%s: %s", e.Message, e.Arg)
 }
 
-type Attribute struct {
+type ArgKind int
+
+const (
+	ArgKindUnknown ArgKind = iota
+	ArgKindTag
+	ArgKindTagNegative
+	ArgKindAttribute
+	ArgKindText
+	ArgKindFlag
+)
+
+func (k ArgKind) String() string {
+	switch k {
+	case ArgKindUnknown:
+		return "unknown"
+	case ArgKindTag:
+		return "tag"
+	case ArgKindTagNegative:
+		return "tag-negative"
+	case ArgKindAttribute:
+		return "attribute"
+	case ArgKindText:
+		return "text"
+	case ArgKindFlag:
+		return "flag"
+	default:
+		return "unknown"
+	}
+}
+
+type Arg interface {
+	ArgKind() ArgKind
+	RawString() string
+	IsAttribute() bool
+	IsAttributeClear() bool
+	IsTag() bool
+	IsTagNegative() bool
+	IsText() bool
+	IsFlag() bool
+}
+
+/*
+ * ArgText represents a text argument.
+ */
+
+type ArgText struct {
+	Raw  string
+	Text string
+}
+
+func (t ArgText) ArgKind() ArgKind       { return ArgKindText }
+func (t ArgText) RawString() string      { return t.Raw }
+func (t ArgText) String() string         { return fmt.Sprintf("argtext(%s)", t.Text) }
+func (t ArgText) IsText() bool           { return true }
+func (t ArgText) IsAttribute() bool      { return false }
+func (t ArgText) IsAttributeClear() bool { return false }
+func (t ArgText) IsTag() bool            { return false }
+func (t ArgText) IsTagNegative() bool    { return false }
+func (t ArgText) IsFlag() bool           { return false }
+
+/*
+ * ArgAttribute represents an attribute argument.
+ */
+
+type ArgAttribute struct {
+	Raw   string
 	Key   string
 	Value AttributeValue
+	Clear bool
 }
 
-func (a Attribute) String() string {
-	return fmt.Sprintf("%s=%s", a.Key, a.Value)
+func (a ArgAttribute) ArgKind() ArgKind       { return ArgKindAttribute }
+func (a ArgAttribute) RawString() string      { return a.Raw }
+func (a ArgAttribute) String() string         { return fmt.Sprintf("argattr(%s=%s)", a.Key, a.Value) }
+func (a ArgAttribute) IsAttribute() bool      { return true }
+func (a ArgAttribute) IsAttributeClear() bool { return a.Clear }
+func (a ArgAttribute) IsTag() bool            { return false }
+func (a ArgAttribute) IsTagNegative() bool    { return false }
+func (a ArgAttribute) IsText() bool           { return false }
+func (a ArgAttribute) IsFlag() bool           { return false }
+
+func createClearAttribute(key string) ArgAttribute {
+	return ArgAttribute{Key: key, Clear: true}
 }
 
-func createClearAttribute(key string) Attribute {
-	return Attribute{Key: key, Value: AttributeValue{Clear: true}}
+func createAttribute(key string, value AttributeValue) ArgAttribute {
+	return ArgAttribute{Key: key, Value: value}
 }
 
-func createAttribute(key string, value AttributeValue) Attribute {
-	return Attribute{Key: key, Value: value}
+/*
+ * ArgTag represents a tag argument.
+ */
+
+type ArgTag struct {
+	Raw      string
+	Tag      string
+	Negative bool
 }
 
-type Flag struct {
+func (t ArgTag) ArgKind() ArgKind       { return ArgKindTag }
+func (t ArgTag) RawString() string      { return t.Raw }
+func (t ArgTag) String() string         { return fmt.Sprintf("argtag(%s)", t.Tag) }
+func (t ArgTag) IsTag() bool            { return true }
+func (t ArgTag) IsTagNegative() bool    { return t.Negative }
+func (t ArgTag) IsAttribute() bool      { return false }
+func (t ArgTag) IsAttributeClear() bool { return false }
+func (t ArgTag) IsText() bool           { return false }
+func (t ArgTag) IsFlag() bool           { return false }
+
+/*
+ * ArgFlag represents a flag argument.
+ */
+
+type ArgFlag struct {
+	Raw   string
 	Key   string
 	Value string
 }
 
-func (f Flag) String() string {
+func (f ArgFlag) ArgKind() ArgKind       { return ArgKindFlag }
+func (f ArgFlag) RawString() string      { return f.Raw }
+func (f ArgFlag) IsTag() bool            { return false }
+func (f ArgFlag) IsTagNegative() bool    { return false }
+func (f ArgFlag) IsAttribute() bool      { return false }
+func (f ArgFlag) IsAttributeClear() bool { return false }
+func (f ArgFlag) IsText() bool           { return false }
+func (f ArgFlag) IsFlag() bool           { return true }
+func (f ArgFlag) String() string {
 	if f.Value == "" {
 		return f.Key
 	}
 	return fmt.Sprintf("%s=%s", f.Key, f.Value)
 }
-
-func (f Flag) IsEmpty() bool {
+func (f ArgFlag) IsEmpty() bool {
 	return f.Value == ""
 }
 
 // Token is a classified lexical unit extracted from the command line.
-// If the token is an attribute, attribute name and value are in Attribute
-// If the token is a flag, flag name and value are in Flag.
+// If the token is an attribute, attribute name and value are in ArgAttribute
+// If the token is a flag, flag name and value are in ArgFlag.
 // If the token is a text, it is in Raw.
 // If the token is a tag, it is in Tag.
-type Token struct {
-	Raw       string
-	Kind      TokenKind
-	Tag       string
-	Attribute Attribute
-	Flag      Flag
+//type Token struct {
+//	Raw       string
+//	Kind      TokenKind
+//	Tag       string
+//	Attribute ArgAttribute
+//	Flag      ArgFlag
+//}
+
+func createClearAttributeArg(key string) ArgAttribute {
+	return ArgAttribute{Raw: key, Key: key, Clear: true}
 }
 
-func createClearAttributeToken(key string) Token {
-	return Token{Kind: TokenAttributeClear, Attribute: createClearAttribute(key)}
+//func createClearAttributeToken(key string) Token {
+//	return Token{Kind: TokenAttributeClear, Attribute: createClearAttribute(key)}
+//}
+
+//func createClearAttributeTokenWithRaw(raw string, key string) Token {
+//	return Token{Raw: raw, Kind: TokenAttributeClear, Attribute: createClearAttribute(key)}
+//}
+
+func createAttributeArg(key string, value AttributeValue) ArgAttribute {
+	return ArgAttribute{Raw: key, Key: key, Value: value}
 }
 
-func createClearAttributeTokenWithRaw(raw string, key string) Token {
-	return Token{Raw: raw, Kind: TokenAttributeClear, Attribute: createClearAttribute(key)}
+//func createAttributeToken(key string, value AttributeValue) Token {
+//	return Token{Kind: TokenAttribute, Attribute: createAttribute(key, value)}
+//}
+
+func createFlagArg(key string, value string) ArgFlag {
+	return ArgFlag{Raw: key, Key: key, Value: value}
 }
 
-func createAttributeToken(key string, value AttributeValue) Token {
-	return Token{Kind: TokenAttribute, Attribute: createAttribute(key, value)}
+//func createFlagToken(key string, value string) Token {
+//	return Token{Kind: TokenFlag, Flag: ArgFlag{Key: key, Value: value}}
+//}
+
+func createSingleFlagArg(key string) ArgFlag {
+	return ArgFlag{Raw: key, Key: key}
 }
 
-func createFlagToken(key string, value string) Token {
-	return Token{Kind: TokenFlag, Flag: Flag{Key: key, Value: value}}
+//func createSingleFlagToken(key string) Token {
+//	return Token{Kind: TokenFlag, Flag: ArgFlag{Key: key}}
+//}
+
+//func createFlagTokenWithRaw(raw string, key string, value string) Token {
+//	return Token{Raw: raw, Kind: TokenFlag, Flag: ArgFlag{Key: key, Value: value}}
+//}
+//
+//func createSingleFlagTokenWithRaw(raw string, key string) Token {
+//	return Token{Raw: raw, Kind: TokenFlag, Flag: ArgFlag{Key: key}}
+//}
+
+func createTextArg(raw string) ArgText {
+	return ArgText{Raw: raw, Text: raw}
 }
 
-func createSingleFlagToken(key string) Token {
-	return Token{Kind: TokenFlag, Flag: Flag{Key: key}}
-}
+//func createTextToken(raw string) Token {
+//	return Token{Kind: TokenText, Raw: raw}
+//}
 
-func createFlagTokenWithRaw(raw string, key string, value string) Token {
-	return Token{Raw: raw, Kind: TokenFlag, Flag: Flag{Key: key, Value: value}}
-}
-
-func createSingleFlagTokenWithRaw(raw string, key string) Token {
-	return Token{Raw: raw, Kind: TokenFlag, Flag: Flag{Key: key}}
-}
-
-func createTextToken(raw string) Token {
-	return Token{Kind: TokenText, Raw: raw}
-}
-
-func (t Token) IsAttribute() bool {
-	return t.Kind == TokenAttribute || t.Kind == TokenAttributeClear
-}
-
-func (t Token) IsFlag() bool {
-	return t.Kind == TokenFlag
-}
-
-func (t Token) IsText() bool {
-	return t.Kind == TokenText
-}
-
-func (t Token) IsTag() bool {
-	return t.Kind == TokenTag || t.Kind == TokenTagNegative
-}
-
-// String returns a debug-friendly string representation of a token.
-func (t Token) String() string {
-	if t.Kind == TokenAttribute {
-		return fmt.Sprintf("<Token %s: %s=%s>", t.Kind, t.Attribute.Key, t.Attribute.Value)
-	} else if t.Kind == TokenAttributeClear {
-		return fmt.Sprintf("<Token %s: %s>", t.Attribute.Key)
-	} else if t.Kind == TokenTag {
-		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
-	} else if t.Kind == TokenTagNegative {
-		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
-	} else if t.Kind == TokenText {
-		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
-	} else if t.Kind == TokenFlag {
-		if t.Flag.IsEmpty() {
-			return fmt.Sprintf("<Token %s \"%s\" activated>", t.Kind, t.Flag.Key)
-		}
-		return fmt.Sprintf("<Token %s: %s set to \"%s\">", t.Kind, t.Flag.Key, t.Flag.Value)
-	}
-	return fmt.Sprintf("<Token unknown %s: %s>", t.Kind, t.Raw)
-}
+//func (t Token) IsAttribute() bool {
+//	return t.Kind == TokenAttribute || t.Kind == TokenAttributeClear
+//}
+//
+//func (t Token) IsFlag() bool {
+//	return t.Kind == TokenFlag
+//}
+//
+//func (t Token) IsText() bool {
+//	return t.Kind == TokenText
+//}
+//
+//func (t Token) IsTag() bool {
+//	return t.Kind == TokenTag || t.Kind == TokenTagNegative
+//}
+//
+//// String returns a debug-friendly string representation of a token.
+//func (t Token) String() string {
+//	if t.Kind == TokenAttribute {
+//		return fmt.Sprintf("<Token %s: %s=%s>", t.Kind, t.Attribute.Key, t.Attribute.Value)
+//	} else if t.Kind == TokenAttributeClear {
+//		return fmt.Sprintf("<Token %s: %s>", t.Attribute.Key)
+//	} else if t.Kind == TokenTag {
+//		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
+//	} else if t.Kind == TokenTagNegative {
+//		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
+//	} else if t.Kind == TokenText {
+//		return fmt.Sprintf("<Token %s: %s>", t.Kind, t.Raw)
+//	} else if t.Kind == TokenFlag {
+//		if t.Flag.IsEmpty() {
+//			return fmt.Sprintf("<Token %s \"%s\" activated>", t.Kind, t.Flag.Key)
+//		}
+//		return fmt.Sprintf("<Token %s: %s set to \"%s\">", t.Kind, t.Flag.Key, t.Flag.Value)
+//	}
+//	return fmt.Sprintf("<Token unknown %s: %s>", t.Kind, t.Raw)
+//}
 
 // TokenKind identifies the semantic category of a token.
-type TokenKind int
+// type TokenKind int
 
-const (
+/* const (
 	TokenUnknown TokenKind = iota
 	TokenTag
 	TokenTagNegative
@@ -170,10 +295,10 @@ const (
 	TokenAttributeClear
 	TokenText
 	TokenFlag
-)
+)*/
 
 // String returns the canonical string representation of a token kind.
-func (k TokenKind) String() string {
+/* func (k TokenKind) String() string {
 	switch k {
 	case TokenUnknown:
 		return "unknown"
@@ -192,48 +317,81 @@ func (k TokenKind) String() string {
 	default:
 		return "unknown"
 	}
-}
+}*/
 
 // TokenRule classifies a raw token and reports whether it matched.
 type TokenRule func(raw string) bool
+type ArgRule func(raw string) bool
 
-// tokenRuleEntry Rule entry to keep the order
-type tokenRuleEntry struct {
-	kind TokenKind
-	rule TokenRule
+type argRuleEntry struct {
+	kind ArgKind
+	rule ArgRule
 }
 
-var tokenRules = []tokenRuleEntry{
+// tokenRuleEntry Rule entry to keep the order
+/*type tokenRuleEntry struct {
+	kind TokenKind
+	rule TokenRule
+}*/
+
+var argRules = []argRuleEntry{
+	{kind: ArgKindFlag, rule: classifyFlag},
+	{kind: ArgKindTag, rule: classifyTag},
+	/*{kind: ArgKindTagNegative, rule: classifyNegativeTag},*/
+	{kind: ArgKindAttribute, rule: classifyAttribute},
+	{kind: ArgKindText, rule: classifyText},
+}
+
+/*var tokenRules = []tokenRuleEntry{
 	{kind: TokenFlag, rule: classifyFlag},
 	{kind: TokenTagNegative, rule: classifyNegativeTag},
 	{kind: TokenTag, rule: classifyTag},
 	{kind: TokenAttribute, rule: classifyAttribute},
 	{kind: TokenText, rule: classifyText},
+}*/
+
+// type TokenParser func(raw string, config config.Config) (Token, error)
+type ArgParser func(raw string, config config.Config) (Arg, error)
+
+var argParsers = map[ArgKind]ArgParser{
+	ArgKindFlag:        ParseArgFlag,
+	ArgKindTag:         ParseArgTag,
+	ArgKindTagNegative: ParseArgTagNegative,
+	ArgKindAttribute:   ParseArgAttribute,
+	ArgKindText:        ParseArgText,
 }
 
-type TokenParser func(raw string, config config.Config) (Token, error)
-
-var tokenParsers = map[TokenKind]TokenParser{
+/*var tokenParsers = map[TokenKind]TokenParser{
 	TokenFlag:        ParseTokenFlag,
 	TokenTag:         ParseTokenTag,
 	TokenTagNegative: ParseTokenTagNegative,
 	TokenAttribute:   ParseTokenAttribute,
 	TokenText:        ParseTokenText,
-}
+}*/
 
 func isCommand(s string) bool {
 	return IsKnownCommand(s)
 }
 
 // ClassifyToken classifies a raw token using the configured rule order.
-func ClassifyToken(raw string) TokenKind {
-	for _, entry := range tokenRules {
+//func ClassifyToken(raw string) TokenKind {
+//	for _, entry := range tokenRules {
+//		ok := entry.rule(raw)
+//		if ok {
+//			return entry.kind
+//		}
+//	}
+//	return TokenUnknown
+//}
+
+func ClassifyArg(raw string) ArgKind {
+	for _, entry := range argRules {
 		ok := entry.rule(raw)
 		if ok {
 			return entry.kind
 		}
 	}
-	return TokenUnknown
+	return ArgKindUnknown
 }
 
 // FindCommand returns the first command found in args and its index.
@@ -251,22 +409,40 @@ func FindCommand(args []string) (command string, index int, parseErr *ParseError
 }
 
 // ExtractTokens classifies each raw argument into a Token.
-func ExtractTokens(args []string, config config.Config) ([]Token, error) {
-	var tokens []Token
+//func ExtractTokens(args []string, config config.Config) ([]Token, error) {
+//	var tokens []Token
+//	for _, arg := range args {
+//		kind := ClassifyToken(arg)
+//		if kind != TokenUnknown {
+//			tokenParser := tokenParsers[kind]
+//			token, err := tokenParser(arg, config)
+//			if err != nil {
+//				return nil, err
+//			}
+//			tokens = append(tokens, token)
+//		} else {
+//			return nil, fmt.Errorf("unknown argument: %s", arg)
+//		}
+//	}
+//	return tokens, nil
+//}
+
+func ExtractArgs(args []string, config config.Config) ([]Arg, error) {
+	var extractedArgs []Arg
 	for _, arg := range args {
-		kind := ClassifyToken(arg)
-		if kind != TokenUnknown {
-			tokenParser := tokenParsers[kind]
-			token, err := tokenParser(arg, config)
+		kind := ClassifyArg(arg)
+		if kind != ArgKindUnknown {
+			argParser := argParsers[kind]
+			a, err := argParser(arg, config)
 			if err != nil {
 				return nil, err
 			}
-			tokens = append(tokens, token)
+			extractedArgs = append(extractedArgs, a)
 		} else {
 			return nil, fmt.Errorf("unknown argument: %s", arg)
 		}
 	}
-	return tokens, nil
+	return extractedArgs, nil
 }
 
 // ParseCmdLine extracts command, filters, and arguments from args.
@@ -287,22 +463,22 @@ func ParseCmdLine(args []string, config config.Config) (ParsedCmdLine, *ParseErr
 	}
 
 	// Extract filters and arguments
-	rawFilterTokens, flagTokensLeft, sErr := splitFlags(args[:index])
+	rawFilterArgs, flagArgsLeft, sErr := splitFlags(args[:index])
 	if sErr != nil {
-		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidLeftTokens, Message: fmt.Sprintf("Error splitting left side: %s", sErr.Error())}
+		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidLeftArgs, Message: fmt.Sprintf("Error splitting left side: %s", sErr.Error())}
 	}
 
-	rawArgs, flagTokensRight, sErr := splitFlags(args[index+1:])
+	rawArgs, flagArgsRight, sErr := splitFlags(args[index+1:])
 	if sErr != nil {
-		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidRightTokens, Message: fmt.Sprintf("Error splitting right side: %s", sErr.Error())}
+		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidRightArgs, Message: fmt.Sprintf("Error splitting right side: %s", sErr.Error())}
 	}
 
-	filterTokens, fErr := ExtractTokens(rawFilterTokens, config)
+	filterTokens, fErr := ExtractArgs(rawFilterArgs, config)
 	if fErr != nil {
-		return ParsedCmdLine{}, &ParseError{Code: ParseErrorErrorExtractingTokens, Message: fmt.Sprintf("Error parsing arguments: %s", fErr.Error())}
+		return ParsedCmdLine{}, &ParseError{Code: ParseErrorErrorExtractingArgs, Message: fmt.Sprintf("Error parsing arguments: %s", fErr.Error())}
 	}
 
-	flagTokens := append(flagTokensLeft, flagTokensRight...)
+	flagArgs := append(flagArgsLeft, flagArgsRight...)
 	// Subcommand
 	subcommand := commandSpec.DefaultSubcommand
 	if len(rawArgs) > 0 {
@@ -312,33 +488,33 @@ func ParseCmdLine(args []string, config config.Config) (ParsedCmdLine, *ParseErr
 		}
 	}
 
-	argsTokens, fErr := ExtractTokens(rawArgs, config)
+	argsTokens, fErr := ExtractArgs(rawArgs, config)
 	if fErr != nil {
 		return ParsedCmdLine{}, &ParseError{Code: ParseErrorInvalidInput, Message: err.Error()}
 	}
-	//fmt.Printf("Command: %s\n", command)
-	//fmt.Printf("Subcommand: %s\n", subcommand)
-	//fmt.Printf("Filter tokens: %v\n", filterTokens)
-	//fmt.Printf("Args tokens: %v\n", argsTokens)
-	//fmt.Printf("Flag tokens: %v\n", flagTokens)
-	//os.Exit(0)
+	fmt.Printf("Command: %s\n", command)
+	fmt.Printf("Subcommand: %s\n", subcommand)
+	fmt.Printf("Filter tokens: %v\n", filterTokens)
+	fmt.Printf("Args tokens: %v\n", argsTokens)
+	fmt.Printf("Flag tokens: %v\n", flagArgs)
+	os.Exit(0)
 	// Put it all together
 	return ParsedCmdLine{
 		Command:    command,
 		Subcommand: subcommand,
 		Filters:    filterTokens,
 		Args:       argsTokens,
-		Flags:      flagTokens,
+		Flags:      flagArgs,
 	}, nil
 }
 
-func splitFlags(args []string) ([]string, []Token, error) {
+func splitFlags(args []string) ([]string, []Arg, error) {
 	nonFlags := make([]string, 0, len(args))
-	flags := make([]Token, 0)
+	flags := make([]Arg, 0)
 	for _, arg := range args {
 		ok := classifyFlag(arg)
 		if ok {
-			flagParser := tokenParsers[TokenFlag]
+			flagParser := argParsers[ArgKindFlag]
 			token, err := flagParser(arg, config.Config{})
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to parse flag: %s", err)
@@ -379,15 +555,15 @@ func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
 	}
 
 	// Validate tokens on the left (filter)
-	for _, token := range parsed.Filters {
-		if token.Kind == TokenUnknown {
+	for _, arg := range parsed.Filters {
+		if arg.ArgKind() == ArgKindUnknown {
 			return &ParseError{
 				Code:    ParseErrorUnknownToken,
-				Token:   token.Raw,
+				Arg:     arg.RawString(),
 				Message: "unknown token in filters",
 			}
 		}
-		if err := validateTokenAgainstSideSpec(token, subcommandSpec.Left, "left side"); err != nil {
+		if err := validateTokenAgainstSideSpec(arg, subcommandSpec.Left, "left side"); err != nil {
 			return err
 		}
 	}
@@ -396,11 +572,11 @@ func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
 	}
 
 	// Validate tokens on the right (arguments)
-	for _, token := range parsed.Args {
-		if token.Kind == TokenUnknown {
-			return &ParseError{Code: ParseErrorUnknownToken, Token: token.Raw, Message: "unknown token in arguments"}
+	for _, arg := range parsed.Args {
+		if arg.ArgKind() == ArgKindUnknown {
+			return &ParseError{Code: ParseErrorUnknownToken, Arg: arg.RawString(), Message: "unknown token in arguments"}
 		}
-		if err := validateTokenAgainstSideSpec(token, subcommandSpec.Right, "right side"); err != nil {
+		if err := validateTokenAgainstSideSpec(arg, subcommandSpec.Right, "right side"); err != nil {
 			return err
 		}
 	}
@@ -411,41 +587,51 @@ func ValidateParsedCmdLine(parsed ParsedCmdLine) *ParseError {
 	return nil
 }
 
-func validateTokenAgainstSideSpec(token Token, side SideSpec, sideName string) *ParseError {
+func validateTokenAgainstSideSpec(arg Arg, side SideSpec, sideName string) *ParseError {
 	// Check if the token is allowed on the side
-	if !side.AllowedKinds[token.Kind] {
+	if !side.AllowedKinds[arg.ArgKind()] {
 		return &ParseError{
 			Code:    ParseErrorUnknownToken,
-			Token:   token.Raw,
-			Message: fmt.Sprintf("token kind %s is not allowed on %s", token.Kind, sideName),
+			Arg:     arg.RawString(),
+			Message: fmt.Sprintf("token kind %s is not allowed on %s", arg.ArgKind(), sideName),
 		}
 	}
 
 	// Check if the token is allowed to be set
-	if token.Kind != TokenAttribute && token.Kind != TokenAttributeClear {
+	if arg.ArgKind() != ArgKindAttribute {
 		return nil
 	}
+
+	attr, ok := arg.(ArgAttribute)
+	if !ok {
+		return &ParseError{
+			Code:    ParseErrorInvalidInput,
+			Arg:     arg.RawString(),
+			Message: "token is not an attribute (but has attribute kind)",
+		}
+	}
+
 	if side.AllowAnyAttr {
 		return nil
 	}
 
 	// Get attribute specification
-	attributeSpec, ok := side.Attributes[token.Attribute.Key]
+	attributeSpec, ok := side.Attributes[attr.Key]
 	if !ok {
 		return &ParseError{
 			Code:    ParseErrorUnknownToken,
-			Token:   token.Raw,
-			Message: fmt.Sprintf("attribute %s is not allowed on %s", token.Attribute.Key, sideName),
+			Arg:     attr.RawString(),
+			Message: fmt.Sprintf("attribute %s is not allowed on %s", attr.Key, sideName),
 		}
 	}
 
 	// Check if clear attribute is allowed
-	if token.Kind == TokenAttributeClear {
+	if attr.IsAttributeClear() {
 		if !attributeSpec.AllowsClear() {
 			return &ParseError{
 				Code:    ParseErrorInvalidInput,
-				Token:   token.Raw,
-				Message: fmt.Sprintf("attribute %s cannot be cleared", token.Attribute.Key),
+				Arg:     attr.RawString(),
+				Message: fmt.Sprintf("attribute %s cannot be cleared", attr.Key),
 			}
 		}
 		return nil
@@ -456,32 +642,32 @@ func validateTokenAgainstSideSpec(token Token, side SideSpec, sideName string) *
 	if !attributeSpec.AllowsSet() {
 		return &ParseError{
 			Code:    ParseErrorInvalidInput,
-			Token:   token.Raw,
-			Message: fmt.Sprintf("attribute %s cannot be set", token.Attribute.Key),
+			Arg:     attr.RawString(),
+			Message: fmt.Sprintf("attribute %s cannot be set", attr.Key),
 		}
 	}
 
 	// Check if the attribute value (single, list, range) is allowed
-	value, err := ParseAttributeValue(token.Attribute.Value.Raw)
+	value, err := ParseAttributeValue(attr.Value.Raw)
 	if err != nil {
 		return &ParseError{
 			Code:    ParseErrorInvalidInput,
-			Token:   token.Raw,
+			Arg:     attr.RawString(),
 			Message: err.Error(),
 		}
 	}
 	if !attributeSpec.Shapes.Allows(value) {
 		return &ParseError{
 			Code:    ParseErrorInvalidInput,
-			Token:   token.Raw,
-			Message: fmt.Sprintf("attribute %s does not accept %s values", token.Attribute.Key, value.Kind),
+			Arg:     attr.RawString(),
+			Message: fmt.Sprintf("attribute %s does not accept %s values", attr.Key, value.ValueShape),
 		}
 	}
 
 	return nil
 }
 
-func validateSideCardinality(tokens []Token, side SideSpec, sideName string) *ParseError {
+func validateSideCardinality(tokens []Arg, side SideSpec, sideName string) *ParseError {
 	if err := validateArgsCount(tokens, side, sideName); err != nil {
 		return err
 	}
@@ -497,7 +683,7 @@ func validateSideCardinality(tokens []Token, side SideSpec, sideName string) *Pa
 	return nil
 }
 
-func validateArgsCount(tokens []Token, side SideSpec, sideName string) *ParseError {
+func validateArgsCount(tokens []Arg, side SideSpec, sideName string) *ParseError {
 	count := len(tokens)
 	if side.MinArgs > 0 && count < side.MinArgs {
 		return &ParseError{Code: ParseErrorInvalidInput, Message: fmt.Sprintf("%s requires at least %d argument", sideName, side.MinArgs)}
@@ -508,10 +694,10 @@ func validateArgsCount(tokens []Token, side SideSpec, sideName string) *ParseErr
 	return nil
 }
 
-func validateKindRules(tokens []Token, side SideSpec, sideName string) *ParseError {
-	counts := make(map[TokenKind]int)
+func validateKindRules(tokens []Arg, side SideSpec, sideName string) *ParseError {
+	counts := make(map[ArgKind]int)
 	for _, token := range tokens {
-		counts[token.Kind]++
+		counts[token.ArgKind()]++
 	}
 	for kind, rule := range side.KindRules {
 		if err := validateCountRule(counts[kind], rule, sideName, kind.String()); err != nil {
@@ -521,13 +707,17 @@ func validateKindRules(tokens []Token, side SideSpec, sideName string) *ParseErr
 	return nil
 }
 
-func validateAttributeRules(tokens []Token, side SideSpec, sideName string) *ParseError {
+func validateAttributeRules(tokens []Arg, side SideSpec, sideName string) *ParseError {
 	counts := make(map[string]int)
-	for _, token := range tokens {
-		if token.Kind != TokenAttribute && token.Kind != TokenAttributeClear {
+	for _, arg := range tokens {
+		if arg.ArgKind() != ArgKindAttribute {
 			continue
 		}
-		counts[token.Attribute.Key]++
+		attr, ok := arg.(ArgAttribute)
+		if !ok {
+			continue
+		}
+		counts[attr.Key]++
 	}
 	for name, rule := range side.AttributeRules {
 		if err := validateCountRule(counts[name], rule, sideName, fmt.Sprintf("attribute %s", name)); err != nil {
@@ -547,17 +737,18 @@ func validateCountRule(count int, rule CountRule, sideName string, label string)
 	return nil
 }
 
-func validatePresenceRules(tokens []Token, side SideSpec, sideName string) *ParseError {
+func validatePresenceRules(tokens []Arg, side SideSpec, sideName string) *ParseError {
 	if len(side.AtLeastOneOf) == 0 {
 		return nil
 	}
 
-	kindCounts := make(map[TokenKind]int)
+	kindCounts := make(map[ArgKind]int)
 	attributeCounts := make(map[string]int)
 	for _, token := range tokens {
-		kindCounts[token.Kind]++
-		if token.Kind == TokenAttribute || token.Kind == TokenAttributeClear {
-			attributeCounts[token.Attribute.Key]++
+		kindCounts[token.ArgKind()]++
+		attr, ok := token.(ArgAttribute)
+		if token.ArgKind() == ArgKindAttribute && ok {
+			attributeCounts[attr.Key]++
 		}
 	}
 
@@ -575,7 +766,7 @@ func validatePresenceRules(tokens []Token, side SideSpec, sideName string) *Pars
 	return nil
 }
 
-func presenceRuleSatisfied(rule PresenceRule, kindCounts map[TokenKind]int, attributeCounts map[string]int) bool {
+func presenceRuleSatisfied(rule PresenceRule, kindCounts map[ArgKind]int, attributeCounts map[string]int) bool {
 	for _, kind := range rule.Kinds {
 		if kindCounts[kind] > 0 {
 			return true

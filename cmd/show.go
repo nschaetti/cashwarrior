@@ -27,7 +27,7 @@ func showValue(value string) string {
 }
 
 func Show(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) error {
-	transaction, err := db.GetTransactionByIdentifier(query, parsed.Args[0].Raw)
+	transaction, err := db.GetTransactionByIdentifier(query, parsed.Args[0].RawString())
 	if err != nil {
 		return err
 	}

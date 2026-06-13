@@ -42,20 +42,22 @@ func setAccountInitialBalance(parsed parser.ParsedCmdLine, cashDb db.DBTX) error
 	var amountValue string
 
 	for _, arg := range parsed.Args {
-		if arg.Kind == parser.TokenAttribute {
-			switch arg.Attribute.Key {
+		attr, ok := arg.(parser.ArgAttribute)
+		if ok {
+			switch attr.Key {
 			case "account":
-				accountName = strings.TrimSpace(arg.Attribute.Value.Raw)
+				accountName = strings.TrimSpace(attr.Value.Raw)
 			case "amount", "initial_balance":
-				amountValue = strings.TrimSpace(arg.Attribute.Value.Raw)
+				amountValue = strings.TrimSpace(attr.Value.Raw)
 			}
 		}
 	}
 
 	textArgs := make([]string, 0, 2)
 	for _, arg := range parsed.Args {
-		if arg.Kind == parser.TokenText {
-			textArgs = append(textArgs, strings.TrimSpace(arg.Raw))
+		text, ok := arg.(parser.ArgText)
+		if ok {
+			textArgs = append(textArgs, strings.TrimSpace(text.Text))
 		}
 	}
 
@@ -114,26 +116,31 @@ func setAccountInitialBalance(parsed parser.ParsedCmdLine, cashDb db.DBTX) error
 	return nil
 }
 
-func getAccountNameArg(token parser.Token) (string, error) {
-	if token.Kind == parser.TokenText {
-		if token.Raw == "" {
+func getAccountNameArg(arg parser.Arg) (string, error) {
+	text, ok := arg.(parser.ArgText)
+	if ok {
+		if text.Text == "" {
 			return "", fmt.Errorf("account name cannot be empty")
 		}
-		return token.Raw, nil
+		return text.Text, nil
 	}
-	if token.Kind == parser.TokenAttribute && token.Attribute.Key == "account" && !token.Attribute.Value.IsEmpty() {
-		return token.Attribute.Value.Raw, nil
+	attr, ok := arg.(parser.ArgAttribute)
+	if ok {
+		if attr.Key == "account" && !attr.Value.IsEmpty() {
+			return attr.Value.Raw, nil
+		}
 	}
 	return "", fmt.Errorf("account name is required")
 }
 
-func getAttributesFromTokens(tokens []parser.Token) map[string]string {
+func getAttributesFromTokens(args []parser.Arg) map[string]string {
 	attributes := make(map[string]string)
-	for _, token := range tokens {
-		if token.Kind != parser.TokenAttribute {
+	for _, arg := range args {
+		attr, ok := arg.(parser.ArgAttribute)
+		if !ok {
 			continue
 		}
-		attributes[token.Attribute.Key] = token.Attribute.Value.Raw
+		attributes[attr.Key] = attr.Value.Raw
 	}
 	return attributes
 }

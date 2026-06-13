@@ -9,7 +9,7 @@ import (
 )
 
 func Purge(parsed parser.ParsedCmdLine, _ config.Config, query db.DBTX) error {
-	identifier := parsed.Args[0].Raw
+	identifier := parsed.Args[0].RawString()
 	if err := db.PurgeTransactionByIdentifier(query, identifier); err != nil {
 		return err
 	}

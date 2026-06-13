@@ -15,7 +15,7 @@ func Restore(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) erro
 		return listDeletedTransactions(cfg, query)
 	}
 
-	transaction, err := db.GetTransactionByIdentifier(query, parsed.Args[0].Raw)
+	transaction, err := db.GetTransactionByIdentifier(query, parsed.Args[0].RawString())
 	if err != nil {
 		return err
 	}

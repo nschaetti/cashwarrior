@@ -23,30 +23,30 @@ const (
 	FilterTypeIdentifier
 )
 
-func classifyFilter(tokenFilter parser.Token) int {
-	switch tokenFilter.Kind {
-	case parser.TokenText:
-		if tokenFilter.Raw[0] == 'T' {
+func classifyFilter(argFilter parser.Arg) int {
+	switch a := argFilter.(type) {
+	case parser.ArgText:
+		if a.Text[0] == 'T' {
 			return FilterTypeTransactionID
 		}
-	case parser.TokenAttribute:
-		if tokenFilter.Attribute.Key == "account" {
+	case parser.ArgAttribute:
+		if a.Key == "account" {
 			return FilterTypeAccountName
-		} else if tokenFilter.Attribute.Key == "currency" {
+		} else if a.Key == "currency" {
 			return FilterTypeCurrency
-		} else if tokenFilter.Attribute.Key == "store" {
+		} else if a.Key == "store" {
 			return FilterTypeStore
-		} else if tokenFilter.Attribute.Key == "desc" {
+		} else if a.Key == "desc" {
 			return FilterTypeDescription
-		} else if tokenFilter.Attribute.Key == "date" {
+		} else if a.Key == "date" {
 			return FilterTypeDatetime
-		} else if tokenFilter.Attribute.Key == "period" {
+		} else if a.Key == "period" {
 			return FilterTypeDatetime
-		} else if tokenFilter.Attribute.Key == "time" {
+		} else if a.Key == "time" {
 			return FilterTypeDatetime
-		} else if tokenFilter.Attribute.Key == "group" {
+		} else if a.Key == "group" {
 			return FilterTypeGroup
-		} else if tokenFilter.Attribute.Key == "identifier" {
+		} else if a.Key == "identifier" {
 			return FilterTypeIdentifier
 		}
 	default:
@@ -55,10 +55,11 @@ func classifyFilter(tokenFilter parser.Token) int {
 	return FilterUnknown
 }
 
-func createTransactionIDFilter(token parser.Token) (db.SQLFilter, error) {
-	transactionID := token.Raw
-	if token.Kind == parser.TokenText && len(token.Raw) > 0 && token.Raw[0] == 'T' {
-		transactionID = token.Raw[1:]
+func createTransactionIDFilter(arg parser.Arg) (db.SQLFilter, error) {
+	transactionID := arg.RawString()
+	text, ok := arg.(parser.ArgText)
+	if ok && len(text.Text) > 0 && text.Text[0] == 'T' {
+		transactionID = text.Text[1:]
 	}
 	_, err := domain.ParseTransactionID(transactionID)
 	if err != nil {
@@ -67,20 +68,40 @@ func createTransactionIDFilter(token parser.Token) (db.SQLFilter, error) {
 	return db.TransactionIDFilter{ID: transactionID}, nil
 }
 
-func createAccountNameFilter(token parser.Token) (db.SQLFilter, error) {
-	return db.TransactionAccountNameFilter{Name: token.Attribute.Value.Raw}, nil
+func createAccountNameFilter(arg parser.Arg) (db.SQLFilter, error) {
+	attr, isAttr := arg.(parser.ArgAttribute)
+	text, isText := arg.(parser.ArgText)
+	if !isAttr && !isText {
+		return nil, fmt.Errorf("account filter requires an account name")
+	}
+	if isAttr {
+		return db.TransactionAccountNameFilter{Name: attr.Value.Raw}, nil
+	}
+	return db.TransactionAccountNameFilter{Name: text.Text}, nil
 }
 
-func createCurrencyFilter(token parser.Token) (db.SQLFilter, error) {
-	return db.TransactionCurrencyFilter{Currency: token.Attribute.Value.Raw}, nil
+func createCurrencyFilter(arg parser.Arg) (db.SQLFilter, error) {
+	attr, isAttr := arg.(parser.ArgAttribute)
+	if !isAttr {
+		return nil, fmt.Errorf("currency filter requires a currency")
+	}
+	return db.TransactionCurrencyFilter{Currency: attr.Value.Raw}, nil
 }
 
-func createStoreFilter(token parser.Token) (db.SQLFilter, error) {
-	return db.TransactionStoreNameFilter{Store: token.Attribute.Value.Raw}, nil
+func createStoreFilter(arg parser.Arg) (db.SQLFilter, error) {
+	attr, isAttr := arg.(parser.ArgAttribute)
+	if !isAttr {
+		return nil, fmt.Errorf("store filter requires a store name")
+	}
+	return db.TransactionStoreNameFilter{Store: attr.Value.Raw}, nil
 }
 
-func createDescriptionFilter(token parser.Token) (db.SQLFilter, error) {
-	return db.TransactionDescriptionFilter{Description: token.Attribute.Value.Raw}, nil
+func createDescriptionFilter(arg parser.Arg) (db.SQLFilter, error) {
+	attr, isAttr := arg.(parser.ArgAttribute)
+	if !isAttr {
+		return nil, fmt.Errorf("description filter requires a description")
+	}
+	return db.TransactionDescriptionFilter{Description: attr.Value.Raw}, nil
 }
 
 func parseDateOnly(value string, config config.Config) (time.Time, error) {
@@ -88,7 +109,7 @@ func parseDateOnly(value string, config config.Config) (time.Time, error) {
 	return time.Parse(dateFormat, value)
 }
 
-func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilter, error) {
+func createDatetimeFilter(arg parser.Arg, config config.Config) (db.SQLFilter, error) {
 	toDateFilter := func(from time.Time, to time.Time) db.SQLFilter {
 		return db.TransactionDateFilter{From: from.Format("2006-01-02"), To: to.Format("2006-01-02")}
 	}
@@ -120,17 +141,22 @@ func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilte
 		return time.Time{}, fmt.Errorf("unknown datetime format: %s", value)
 	}
 
-	if domain.IsTimeShortcut(token.Attribute.Value.Raw) {
-		from, to, err := domain.GetTimeShortcut(token.Attribute.Value.Raw)
+	attr, ok := arg.(parser.ArgAttribute)
+	if !ok {
+		return nil, fmt.Errorf("datetime filter requires a datetime")
+	}
+
+	if domain.IsTimeShortcut(attr.Value.Raw) {
+		from, to, err := domain.GetTimeShortcut(attr.Value.Raw)
 		if err != nil {
 			return nil, err
 		}
 		return toDateFilter(from, to), nil
 	}
 
-	if token.Attribute.Key == "date" {
-		if strings.Contains(token.Attribute.Value.Raw, "..") {
-			datetimeRange := strings.SplitN(token.Attribute.Value.Raw, "..", 2)
+	if attr.Key == "date" {
+		if strings.Contains(attr.Value.Raw, "..") {
+			datetimeRange := strings.SplitN(attr.Value.Raw, "..", 2)
 			datetimeFrom, err := parseFlexibleDate(datetimeRange[0])
 			if err != nil {
 				return nil, err
@@ -142,14 +168,14 @@ func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilte
 			return toDateFilter(datetimeFrom, datetimeTo), nil
 		}
 
-		datetime, err := parseFlexibleDate(token.Attribute.Value.Raw)
+		datetime, err := parseFlexibleDate(attr.Value.Raw)
 		if err == nil {
 			return toDateFilter(datetime, datetime), nil
 		}
 	}
 
-	if strings.Contains(token.Attribute.Value.Raw, "..") {
-		datetimeRange := strings.SplitN(token.Attribute.Value.Raw, "..", 2)
+	if strings.Contains(attr.Value.Raw, "..") {
+		datetimeRange := strings.SplitN(attr.Value.Raw, "..", 2)
 		datetimeFrom, err := parseFlexibleDate(datetimeRange[0])
 		if err != nil {
 			return nil, err
@@ -161,31 +187,39 @@ func createDatetimeFilter(token parser.Token, config config.Config) (db.SQLFilte
 		return toDateFilter(datetimeFrom, datetimeTo), nil
 	}
 
-	if token.Attribute.Key == "time" {
+	if attr.Key == "time" {
 		now := time.Now()
 		return toDateFilter(now, now), nil
 	}
 
-	if token.Attribute.Key == "datetime" {
-		datetime, err := parseFlexibleDate(token.Attribute.Value.Raw)
+	if attr.Key == "datetime" {
+		datetime, err := parseFlexibleDate(attr.Value.Raw)
 		if err == nil {
 			return toDateFilter(datetime, datetime), nil
 		}
 	}
 
-	return nil, fmt.Errorf("unknown datetime format: %s. Must be given as shortcuts, exact date, or from..to", token.Attribute.Value)
+	return nil, fmt.Errorf("unknown datetime format: %s. Must be given as shortcuts, exact date, or from..to", attr.Value)
 }
 
-func createGroupFilter(token parser.Token) (db.SQLFilter, error) {
-	return db.TransactionGroupNameFilter{Name: token.Attribute.Value.Raw}, nil
+func createGroupFilter(arg parser.Arg) (db.SQLFilter, error) {
+	attr, isAttr := arg.(parser.ArgAttribute)
+	if !isAttr {
+		return nil, fmt.Errorf("group filter requires a group name")
+	}
+	return db.TransactionGroupNameFilter{Name: attr.Value.Raw}, nil
 }
 
-func createIdentifierFilter(token parser.Token) (db.SQLFilter, error) {
-	_, err := domain.ParseTransactionID(token.Attribute.Value.Raw)
+func createIdentifierFilter(arg parser.Arg) (db.SQLFilter, error) {
+	attr, isAttr := arg.(parser.ArgAttribute)
+	if !isAttr {
+		return nil, fmt.Errorf("identifier filter requires an identifier")
+	}
+	_, err := domain.ParseTransactionID(attr.Value.Raw)
 	if err != nil {
 		return nil, err
 	}
-	return db.TransactionIDFilter{ID: token.Attribute.Value.Raw}, nil
+	return db.TransactionIDFilter{ID: attr.Value.Raw}, nil
 }
 
 func createTransactionFilters(
@@ -197,7 +231,7 @@ func createTransactionFilters(
 	for _, filter := range parsed.Filters {
 		filterType := classifyFilter(filter)
 		if filterType == FilterUnknown {
-			return nil, nil, fmt.Errorf("unknown filter: %s", filter.Raw)
+			return nil, nil, fmt.Errorf("unknown filter: %s", filter.RawString())
 		} else if filterType == FilterTypeTransactionID {
 			newFilter, err := createTransactionIDFilter(filter)
 			if err != nil {

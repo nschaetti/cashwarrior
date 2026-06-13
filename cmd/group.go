@@ -44,15 +44,15 @@ func parseGroupArgs(parsed parser.ParsedCmdLine) ([]string, string, error) {
 	groupName := ""
 
 	for _, arg := range parsed.Args {
-		if isTransactionReference(arg.Raw) {
-			transactionRefs = append(transactionRefs, arg.Raw)
+		if isTransactionReference(arg.RawString()) {
+			transactionRefs = append(transactionRefs, arg.RawString())
 			continue
 		}
 
 		if groupName != "" {
 			return nil, "", fmt.Errorf("multiple groups given")
 		}
-		groupName = arg.Raw
+		groupName = arg.RawString()
 	}
 
 	if len(transactionRefs) == 0 {

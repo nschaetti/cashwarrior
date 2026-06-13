@@ -148,7 +148,7 @@ func loadCSV(path string) (csvImportData, error) {
 }
 
 func Import(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) error {
-	data, err := loadCSV(parsed.Args[0].Raw)
+	data, err := loadCSV(parsed.Args[0].RawString())
 	if err != nil {
 		return err
 	}

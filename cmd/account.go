@@ -53,16 +53,17 @@ func accountBalance(parsed parser.ParsedCmdLine, config config.Config, cashDb db
 
 func getAccountCommandName(parsed parser.ParsedCmdLine) (string, error) {
 	arg := parsed.Args[0]
-	if arg.Kind == parser.TokenAttribute {
-		if arg.Attribute.Key != "account" || arg.Attribute.Value.IsEmpty() {
+	attr, ok := arg.(parser.ArgAttribute)
+	if ok {
+		if attr.Key != "account" || attr.Value.IsEmpty() {
 			return "", fmt.Errorf("account command requires an account name")
 		}
-		return arg.Attribute.Value.Raw, nil
+		return attr.Value.Raw, nil
 	}
-	if arg.Raw == "" {
+	if arg.RawString() == "" {
 		return "", fmt.Errorf("account command requires an account name")
 	}
-	return arg.Raw, nil
+	return arg.RawString(), nil
 }
 
 func sortTransactionsForRunningBalance(transactions []db.Transaction) {

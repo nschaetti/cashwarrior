@@ -210,15 +210,17 @@ func listCategories(config config.Config, cashDb db.DBTX) error {
 	return nil
 }
 
-func getCategoryNameArg(token parser.Token) (string, error) {
-	if token.Kind == parser.TokenText {
-		if token.Raw == "" {
+func getCategoryNameArg(arg parser.Arg) (string, error) {
+	text, ok := arg.(parser.ArgText)
+	if ok {
+		if text.Text == "" {
 			return "", fmt.Errorf("category name cannot be empty")
 		}
-		return token.Raw, nil
+		return text.Text, nil
 	}
-	if token.Kind == parser.TokenAttribute && token.Attribute.Key == "category" && !token.Attribute.Value.IsEmpty() {
-		return token.Attribute.Value.Raw, nil
+	attr, ok := arg.(parser.ArgAttribute)
+	if ok && attr.Key == "category" && !attr.Value.IsEmpty() {
+		return attr.Value.Raw, nil
 	}
 	return "", fmt.Errorf("category name is required")
 }
