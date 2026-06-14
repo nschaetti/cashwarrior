@@ -5,6 +5,71 @@ import (
 	"sort"
 )
 
+type FlagValueType uint8
+
+const (
+	FlagValueTypeString FlagValueType = iota
+	FlagValueTypeInteger
+	FlagValueTypeFloat
+	FlagValueTypeBool
+)
+
+// String returns a string representation of the flag value type.
+func (t FlagValueType) String() string {
+	switch t {
+	case FlagValueTypeString:
+		return "string"
+	case FlagValueTypeInteger:
+		return "integer"
+	case FlagValueTypeFloat:
+		return "float"
+	case FlagValueTypeBool:
+		return "bool"
+	default:
+		panic("unhandled default case")
+	}
+}
+
+type FlagSpec struct {
+	Name string
+	Type FlagValueType
+}
+
+func (s FlagSpec) String() string {
+	return fmt.Sprintf("<FlagSpec name=%s, type=%s>", s.Name, s.Type)
+}
+
+func (s FlagSpec) IsBool() bool {
+	return s.Type == FlagValueTypeBool
+}
+
+func (s FlagSpec) IsString() bool {
+	return s.Type == FlagValueTypeString
+}
+
+func (s FlagSpec) IsInteger() bool {
+	return s.Type == FlagValueTypeInteger
+}
+
+func (s FlagSpec) IsFloat() bool {
+	return s.Type == FlagValueTypeFloat
+}
+
+var FlagSpecs = map[string]FlagSpec{
+	"help": {
+		Name: "help",
+		Type: FlagValueTypeBool,
+	},
+	"version": {
+		Name: "version",
+		Type: FlagValueTypeBool,
+	},
+	"debug": {
+		Name: "debug",
+		Type: FlagValueTypeBool,
+	},
+}
+
 // region AttributeSpecs
 
 // AttributeValueShape are the shapes of an attribute value (single, list, range, operator)
@@ -457,6 +522,8 @@ func (s SideSpec) WithAtLeastOneOf(rule PresenceRule) SideSpec {
 
 // endregion SideSpec
 
+// region CommandSpec
+
 // SubcommandSpec specifies a subcommand of a command.
 // We can specify :
 // - the left side of the subcommand.
@@ -488,6 +555,8 @@ func (c CommandSpec) String() string {
 		c.Subcommands,
 	)
 }
+
+// endregion CommandSpec
 
 // allowKinds returns a map with TokenKind as key and true as value
 func allowKinds(kinds ...ArgKind) map[ArgKind]bool {

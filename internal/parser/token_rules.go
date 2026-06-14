@@ -11,17 +11,21 @@ func classifyFlag(raw string) bool {
 	if raw == "-h" {
 		return true
 	}
+
 	// alone --, not a flag
 	if !strings.HasPrefix(raw, "--") || len(raw) <= 2 {
 		return false
 	}
+
 	trimmed := strings.TrimPrefix(raw, "--")
+
 	// --key=value
 	parts := strings.SplitN(trimmed, "=", 2)
 	// key
 	if len(parts) == 1 {
 		return true
 	}
+
 	// key=value
 	return true
 }

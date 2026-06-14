@@ -49,7 +49,7 @@ func createHelpCmdLine() parser.ParsedCmdLine {
 		Subcommand: "show",
 		Filters:    []parser.Arg{},
 		Args:       []parser.Arg{},
-		Flags:      []parser.Arg{parser.ArgFlag{Raw: "--help", Key: "help", Value: "true"}},
+		Flags:      []parser.Arg{parser.ArgFlag{Raw: "--help", Key: "help", Value: parser.BoolItem{Raw: "true", Value: true}}},
 	}
 }
 
@@ -57,7 +57,7 @@ func run() error {
 	// Check configuration exists
 	cfg, err := config.InitConfig()
 	if err != nil {
-		return fmt.Errorf("error creating config file: %w", err)
+		return fmt.Errorf("error initializing configuration: %w", err)
 	}
 
 	// Theme
@@ -70,8 +70,9 @@ func run() error {
 		printLogo(theme)
 	}
 
-	if err := backup.Run(cfg.Database, cfg.Backup, time.Now()); err != nil {
-		pterm.Warning.Println("Automatic backup failed:", err)
+	// Backup
+	if rErr := backup.Run(cfg.Database, cfg.Backup, time.Now()); rErr != nil {
+		pterm.Warning.Println("Automatic backup failed:", rErr)
 	}
 
 	// Start time & theme
@@ -83,23 +84,21 @@ func run() error {
 	// Parse the command line
 	argv := os.Args[1:]
 	parsedCmd, parseErr := parser.ParseAndValidateCmdLine(argv, cfg)
-	if parseErr != nil && parseErr.Code == parser.ParseErrorNoCommand {
-		if containsHelpFlag(argv) {
+	// ParseErrorEmptyCommandLine
+	// ParseErrorNoCommand
+	// ParseErrorUnknownCommand
+	if parseErr != nil {
+		switch parseErr.Code {
+		// If the command line is empty, show the help screen
+		// or if the command is unknown, show the help screen
+		// or if the command is missing, show the help screen
+		case parser.ParseErrorEmptyCommandLine, parser.ParseErrorUnknownCommand, parser.ParseErrorNoCommand:
+			pterm.Warning.Println("Empty command line, you must specify a command.")
 			parsedCmd = createHelpCmdLine()
-		} else {
-			// Just call "list" if there is no command.
-			parsedCmd = parser.ParsedCmdLine{
-				Command:    "list",
-				Subcommand: "default",
-				Filters:    []parser.Arg{},
-				Args:       []parser.Arg{},
-			}
+			break
+		default:
+			return fmt.Errorf("error parsing command line: %w", parseErr)
 		}
-	} else if parseErr != nil && parseErr.Code == parser.ParseErrorEmptyCommandLine {
-		pterm.Warning.Println("Empty command line, you must specify a command.")
-		parsedCmd = createHelpCmdLine()
-	} else if parseErr != nil {
-		return fmt.Errorf("error parsing command line: %w", parseErr)
 	}
 
 	// Open the database

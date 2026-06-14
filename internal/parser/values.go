@@ -6,25 +6,13 @@ import (
 	"time"
 )
 
-//type AttributeValueKind string
-//
-//const (
-//	AttributeValueKindSingle AttributeValueKind = "single"
-//	AttributeValueKindList   AttributeValueKind = "list"
-//	AttributeValueKindRange  AttributeValueKind = "range"
-//)
-
-//type AttributeValue struct {
-//	Raw   string
-//	Kind  AttributeValueKind
-//	Items []string
-//	Start string
-//	End   string
-//	Clear bool
-//}
-
 type AttributeItem interface {
 	Kind() AttributeValueType
+	RawString() string
+}
+
+type FlagValueItem interface {
+	Type() FlagValueType
 	RawString() string
 }
 
@@ -33,24 +21,36 @@ type StringItem struct {
 	Value string
 }
 
+func (s StringItem) Type() FlagValueType      { return FlagValueTypeString }
 func (s StringItem) Kind() AttributeValueType { return AttributeValueTypeString }
 func (s StringItem) RawString() string        { return s.Raw }
+func (s StringItem) String() string {
+	return fmt.Sprintf("string(%s)", s.Value)
+}
 
 type IntItem struct {
 	Raw   string
 	Value int64
 }
 
+func (i IntItem) Type() FlagValueType      { return FlagValueTypeInteger }
 func (i IntItem) Kind() AttributeValueType { return AttributeValueTypeInteger }
 func (i IntItem) RawString() string        { return i.Raw }
+func (i IntItem) String() string {
+	return fmt.Sprintf("int(%d)", i.Value)
+}
 
 type FloatItem struct {
 	Raw   string
 	Value float64
 }
 
+func (f FloatItem) Type() FlagValueType      { return FlagValueTypeFloat }
 func (f FloatItem) Kind() AttributeValueType { return AttributeValueTypeFloat }
 func (f FloatItem) RawString() string        { return f.Raw }
+func (f FloatItem) String() string {
+	return fmt.Sprintf("float(%f)", f.Value)
+}
 
 type TimeItem struct {
 	Raw   string
@@ -59,14 +59,21 @@ type TimeItem struct {
 
 func (t TimeItem) Kind() AttributeValueType { return AttributeValueTypeDate }
 func (t TimeItem) RawString() string        { return t.Raw }
+func (t TimeItem) String() string {
+	return fmt.Sprintf("date(%s)", t.Value.Format("2006-01-02"))
+}
 
 type BoolItem struct {
 	Raw   string
 	Value bool
 }
 
+func (b BoolItem) Type() FlagValueType      { return FlagValueTypeBool }
 func (b BoolItem) Kind() AttributeValueType { return AttributeValueTypeBool }
 func (b BoolItem) RawString() string        { return b.Raw }
+func (b BoolItem) String() string {
+	return fmt.Sprintf("bool(%t)", b.Value)
+}
 
 type FileItem struct {
 	Raw   string
@@ -75,6 +82,9 @@ type FileItem struct {
 
 func (f FileItem) Kind() AttributeValueType { return AttributeValueTypeFile }
 func (f FileItem) RawString() string        { return f.Raw }
+func (f FileItem) String() string {
+	return fmt.Sprintf("file(%s)", f.Value)
+}
 
 type AttributeRange struct {
 	Start AttributeItem
@@ -123,13 +133,13 @@ func (v AttributeValue) String() string {
 	case AttributeValueShapeList:
 		items := make([]string, 0, len(v.Items))
 		for _, item := range v.Items {
-			items = append(items, item.RawString())
+			items = append(items, fmt.Sprintf("%s", item))
 		}
 		return fmt.Sprintf("list(%s)", strings.Join(items, ","))
 	case AttributeValueShapeRange:
 		return fmt.Sprintf("range(%s,%s)", v.Range.Start, v.Range.End)
 	default:
-		return fmt.Sprintf("single(%s)", v.Raw)
+		return fmt.Sprintf("single(%s)", v.Value)
 	}
 }
 

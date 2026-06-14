@@ -1,6 +1,8 @@
 package config
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +19,8 @@ type ConfigErrorCode string
 const (
 	ErrorConfigFileExistsButDir ConfigErrorCode = "CONFIG_IS_DIR"
 	ErrorConfigInvalidFile      ConfigErrorCode = "INVALID_CONFIG_FILE"
+	ErrorConfigCreationRefused  ConfigErrorCode = "CREATION_REFUSED"
+	ErrorConfigInvalidJson      ConfigErrorCode = "INVALID_JSON"
 	ErrorConfigCannotCreateFile ConfigErrorCode = "CANNOT_CREATE_CONFIG_FILE"
 )
 
@@ -182,8 +186,8 @@ func configCreation() (Config, *ConfigError) {
 	createConfig := askSampleCreation()
 	if !createConfig {
 		return Config{}, &ConfigError{
-			Code:    ErrorConfigInvalidFile,
-			Message: "config file does not exist",
+			Code:    ErrorConfigCreationRefused,
+			Message: "config file does not exist and must be created",
 		}
 	}
 
@@ -211,7 +215,7 @@ func configCreation() (Config, *ConfigError) {
 func SaveConfig(path string, config Config) error {
 	data, err := toml.Marshal(config)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal config: %v", err)
 	}
 
 	// Create the directory if it doesn't exist
@@ -219,7 +223,11 @@ func SaveConfig(path string, config Config) error {
 		return err
 	}
 	fmt.Println("Saving config file to", path)
-	return os.WriteFile(path, data, 0644)
+	err = os.WriteFile(path, data, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write config file: %v", err)
+	}
+	return nil
 }
 
 func InitConfig() (Config, *ConfigError) {
@@ -243,7 +251,7 @@ func InitConfig() (Config, *ConfigError) {
 		return config, nil
 	}
 
-	// It doesn't exist, create it'
+	// It doesn't exist, create the config
 	config, err := configCreation()
 	if err != nil {
 		return Config{}, err
@@ -252,9 +260,37 @@ func InitConfig() (Config, *ConfigError) {
 	// Save it
 	cErr := SaveConfig(utils.ExpandPath(DefaultConfigFile), config)
 	if cErr != nil {
-		return Config{}, &ConfigError{
-			Code:    ErrorConfigInvalidFile,
-			Message: fmt.Sprintf("failed to save config file: %v", err),
+		var jsonTypeErr *json.UnsupportedTypeError
+		var jsonValueErr *json.UnsupportedValueError
+		var jsonMarshalerErr *json.MarshalerError
+		var pathErr *os.PathError
+
+		switch {
+		case errors.As(cErr, &jsonTypeErr):
+			return Config{}, &ConfigError{
+				Code:    ErrorConfigInvalidJson,
+				Message: fmt.Sprintf("invalid JSON type: %v", jsonTypeErr),
+			}
+		case errors.As(cErr, &jsonValueErr):
+			return Config{}, &ConfigError{
+				Code:    ErrorConfigInvalidJson,
+				Message: fmt.Sprintf("invalid JSON value: %v", jsonValueErr),
+			}
+		case errors.As(cErr, &jsonMarshalerErr):
+			return Config{}, &ConfigError{
+				Code:    ErrorConfigInvalidJson,
+				Message: fmt.Sprintf("failed to marshal JSON: %v", jsonMarshalerErr),
+			}
+		case errors.As(cErr, &pathErr):
+			return Config{}, &ConfigError{
+				Code:    ErrorConfigCannotCreateFile,
+				Message: fmt.Sprintf("failed to create config file: %v", pathErr),
+			}
+		default:
+			return Config{}, &ConfigError{
+				Code:    ErrorConfigInvalidJson,
+				Message: fmt.Sprintf("failed to save config file: %v", cErr),
+			}
 		}
 	}
 

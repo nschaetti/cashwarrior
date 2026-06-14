@@ -48,7 +48,7 @@ func ShortcutMonth() (time.Time, time.Time) {
 func ShortcutLastMonth() (time.Time, time.Time) {
 	now := time.Now()
 	start := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, now.Location())
-	end := start.AddDate(0, 1, 0)
+	end := start.AddDate(0, 1, 0).Add(-time.Nanosecond)
 	return start, end
 }
 
