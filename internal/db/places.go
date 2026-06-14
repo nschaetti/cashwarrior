@@ -40,7 +40,7 @@ WHERE id = ?
 	return place, nil
 }
 
-func GetPlaceByName(db DBTX, name string) (Place, error) {
+func GetStoreByName(db DBTX, name string) (Place, error) {
 	var place Place
 	err := db.QueryRow(`
 SELECT id, name, created_at, updated_at
@@ -109,7 +109,7 @@ FROM places
 	return places, nil
 }
 
-func InsertPlace(db DBTX, input CreatePlaceInput) (int64, error) {
+func InsertStore(db DBTX, input CreatePlaceInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO places (name)
 VALUES (?)

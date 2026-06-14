@@ -133,7 +133,7 @@ type CreateTransactionInput struct {
 	Type        string
 	Amount      float64
 	Description string
-	Datetime    time.Time
+	Date        time.Time
 	AccountID   int64
 	CategoryID  *int64
 	PlaceID     *int64
@@ -387,7 +387,7 @@ func InsertTransaction(db DBTX, input CreateTransactionInput) (int64, error) {
 	result, err := db.Exec(`
 INSERT INTO transactions (identifier, type, amount, description, datetime, account_id, category_id, place_id, group_id)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`, input.Identifier, transactionType, input.Amount, input.Description, input.Datetime, input.AccountID, input.CategoryID, input.PlaceID, input.GroupID)
+`, input.Identifier, transactionType, input.Amount, input.Description, input.Date, input.AccountID, input.CategoryID, input.PlaceID, input.GroupID)
 	if err != nil {
 		return 0, err
 	}

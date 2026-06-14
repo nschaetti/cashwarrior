@@ -83,11 +83,11 @@ func TestDeleteCategoryRejectsLinkedTransactions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Category Delete Test"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Category Delete Test"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Amount: -5, Description: "x", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, CategoryID: &categoryID, PlaceID: &placeID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Amount: -5, Description: "x", Date: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, CategoryID: &categoryID, PlaceID: &placeID})
 	if err != nil {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}

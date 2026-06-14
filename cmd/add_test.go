@@ -16,7 +16,7 @@ func TestAddUsesProvidedDateMonthForIdentifier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "existing-place"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "existing-place"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestAddUsesProvidedDateMonthForIdentifier(t *testing.T) {
 		Type:        "expense",
 		Amount:      -2,
 		Description: "April existing",
-		Datetime:    time.Date(2026, time.April, 10, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.April, 10, 12, 0, 0, 0, time.UTC),
 		AccountID:   mainAccount.ID,
 		PlaceID:     &placeID,
 	})
@@ -38,7 +38,7 @@ func TestAddUsesProvidedDateMonthForIdentifier(t *testing.T) {
 		Type:        "expense",
 		Amount:      -3,
 		Description: "June existing",
-		Datetime:    time.Date(2026, time.June, 1, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.June, 1, 12, 0, 0, 0, time.UTC),
 		AccountID:   mainAccount.ID,
 		PlaceID:     &placeID,
 	})
@@ -85,7 +85,7 @@ func TestTransferUsesProvidedDateMonthForIdentifiers(t *testing.T) {
 		t.Fatalf("InsertAccount returned error: %v", err)
 	}
 	_ = toAccountID
-	transferPlace, err := db.GetPlaceByName(cashDB, "transfer")
+	transferPlace, err := db.GetStoreByName(cashDB, "transfer")
 	if err != nil {
 		t.Fatalf("GetPlaceByName returned error: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestTransferUsesProvidedDateMonthForIdentifiers(t *testing.T) {
 		Type:        "expense",
 		Amount:      -5,
 		Description: "April existing",
-		Datetime:    time.Date(2026, time.April, 20, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.April, 20, 12, 0, 0, 0, time.UTC),
 		AccountID:   fromAccount.ID,
 		PlaceID:     &transferPlace.ID,
 	})
@@ -107,7 +107,7 @@ func TestTransferUsesProvidedDateMonthForIdentifiers(t *testing.T) {
 		Type:        "expense",
 		Amount:      -9,
 		Description: "June existing",
-		Datetime:    time.Date(2026, time.June, 2, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.June, 2, 12, 0, 0, 0, time.UTC),
 		AccountID:   fromAccount.ID,
 		PlaceID:     &transferPlace.ID,
 	})

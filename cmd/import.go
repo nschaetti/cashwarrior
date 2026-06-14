@@ -250,7 +250,7 @@ func importTransactions(rows []map[string]string, cfg config.Config, query db.DB
 			Type:        row["type"],
 			Amount:      amount,
 			Description: row["description"],
-			Datetime:    datetime,
+			Date:        datetime,
 			AccountID:   account.ID,
 			CategoryID:  categoryID,
 			PlaceID:     placeID,
@@ -353,7 +353,7 @@ func csvRowLine(row map[string]string, fallback int) int {
 
 func importPlaces(rows []map[string]string, query db.DBTX) error {
 	for i, row := range rows {
-		if _, err := db.InsertPlace(query, db.CreatePlaceInput{Name: row["place_name"]}); err != nil {
+		if _, err := db.InsertStore(query, db.CreatePlaceInput{Name: row["place_name"]}); err != nil {
 			return fmt.Errorf("csv line %d: %w", i+2, err)
 		}
 	}
@@ -447,9 +447,9 @@ func resolveOrCreateOptionalPlaceID(query db.DBTX, name string, line int) (*int6
 	if name == "" {
 		return nil, nil
 	}
-	place, err := db.GetPlaceByName(query, name)
+	place, err := db.GetStoreByName(query, name)
 	if errors.Is(err, sql.ErrNoRows) {
-		id, insertErr := db.InsertPlace(query, db.CreatePlaceInput{Name: name})
+		id, insertErr := db.InsertStore(query, db.CreatePlaceInput{Name: name})
 		if insertErr != nil {
 			return nil, fmt.Errorf("csv line %d: %w", line, insertErr)
 		}

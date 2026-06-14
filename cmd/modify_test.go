@@ -22,11 +22,11 @@ func TestModifyUpdatesMatchingTransactionsAfterConfirmation(t *testing.T) {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
 
-	migrosID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"})
+	migrosID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Migros"})
 	if err != nil {
 		t.Fatalf("InsertPlace(Migros) returned error: %v", err)
 	}
-	coopID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Coop"})
+	coopID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Coop"})
 	if err != nil {
 		t.Fatalf("InsertPlace(Coop) returned error: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestModifyUpdatesMatchingTransactionsAfterConfirmation(t *testing.T) {
 		Identifier:  "2026.05.1",
 		Amount:      -10,
 		Description: "Lunch",
-		Datetime:    time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
 		AccountID:   mainAccount.ID,
 		PlaceID:     &migrosID,
 	})
@@ -46,7 +46,7 @@ func TestModifyUpdatesMatchingTransactionsAfterConfirmation(t *testing.T) {
 		Identifier:  "2026.05.2",
 		Amount:      -20,
 		Description: "Dinner",
-		Datetime:    time.Date(2026, time.May, 28, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 28, 12, 0, 0, 0, time.UTC),
 		AccountID:   mainAccount.ID,
 		PlaceID:     &migrosID,
 	})
@@ -131,7 +131,7 @@ func TestModifyAddsAndRemovesTransactionTags(t *testing.T) {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
 
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Tag Modify Test"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Tag Modify Test"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestModifyAddsAndRemovesTransactionTags(t *testing.T) {
 		Identifier:  "2026.05.1",
 		Amount:      -10,
 		Description: "Lunch",
-		Datetime:    time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
 		AccountID:   mainAccount.ID,
 		PlaceID:     &placeID,
 	})
@@ -249,7 +249,7 @@ func TestModifyUpdatesAmountWithIDFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Amount Modify Test"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Amount Modify Test"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestModifyUpdatesAmountWithIDFilter(t *testing.T) {
 		Identifier:  "2026.05.1",
 		Amount:      -10,
 		Description: "Lunch",
-		Datetime:    time.Date(2026, time.May, 27, 0, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 27, 0, 0, 0, 0, time.UTC),
 		AccountID:   mainAccount.ID,
 		PlaceID:     &placeID,
 	})

@@ -357,7 +357,7 @@ func ensureFakePlaces(cashDb db.DBTX) error {
 		} else if exists {
 			continue
 		}
-		if _, err := db.InsertPlace(cashDb, db.CreatePlaceInput{Name: name}); err != nil {
+		if _, err := db.InsertStore(cashDb, db.CreatePlaceInput{Name: name}); err != nil {
 			return err
 		}
 		places = append(places, db.Place{Name: name})
@@ -549,7 +549,7 @@ func insertFakeTransaction(cashDb db.DBTX, ctx *fakeitContext, forcedType string
 		Type:        transactionType,
 		Amount:      amount,
 		Description: fakeitDescription(transactionType),
-		Datetime:    transactionTime,
+		Date:        transactionTime,
 		AccountID:   account.ID,
 		CategoryID:  &category.ID,
 		PlaceID:     &place.ID,
@@ -579,7 +579,7 @@ func insertFakeTransfer(cashDb db.DBTX, ctx *fakeitContext) error {
 
 	transactionTime := ctx.randomDate()
 	amount := randomTransactionAmount("transfer")
-	transferPlace, err := db.GetPlaceByName(cashDb, "transfer")
+	transferPlace, err := db.GetStoreByName(cashDb, "transfer")
 	if err != nil {
 		return err
 	}
@@ -590,7 +590,7 @@ func insertFakeTransfer(cashDb db.DBTX, ctx *fakeitContext) error {
 		Type:        "transfer_out",
 		Amount:      -amount,
 		Description: description,
-		Datetime:    transactionTime,
+		Date:        transactionTime,
 		AccountID:   fromAccount.ID,
 		PlaceID:     &transferPlace.ID,
 	})
@@ -603,7 +603,7 @@ func insertFakeTransfer(cashDb db.DBTX, ctx *fakeitContext) error {
 		Type:        "transfer_in",
 		Amount:      amount,
 		Description: description,
-		Datetime:    transactionTime,
+		Date:        transactionTime,
 		AccountID:   toAccount.ID,
 		PlaceID:     &transferPlace.ID,
 	})

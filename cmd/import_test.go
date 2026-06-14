@@ -29,7 +29,7 @@ func TestImportTransactionsCSV(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Migros"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestImportTransactionsRollbackOnMissingAccount(t *testing.T) {
 	cfg, cashDB := openTestDB(t)
 	defer cashDB.Close()
 
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Migros"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestImportTransactionTagsAndTransfersCSV(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertAccount returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "transfer-import"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "transfer-import"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -110,11 +110,11 @@ func TestImportTransactionTagsAndTransfersCSV(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertTag returned error: %v", err)
 	}
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Type: "transfer_out", Amount: -20, Description: "Transfer", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: fromAccount.ID, PlaceID: &placeID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Type: "transfer_out", Amount: -20, Description: "Transfer", Date: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: fromAccount.ID, PlaceID: &placeID})
 	if err != nil {
 		t.Fatalf("InsertTransaction(from) returned error: %v", err)
 	}
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "transfer_in", Amount: 20, Description: "Transfer", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: toAccountID, PlaceID: &placeID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "transfer_in", Amount: 20, Description: "Transfer", Date: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: toAccountID, PlaceID: &placeID})
 	if err != nil {
 		t.Fatalf("InsertTransaction(to) returned error: %v", err)
 	}
@@ -160,11 +160,11 @@ func TestImportTransactionsCSVWithoutIdentifierColumn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Migros"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.3", Type: "expense", Amount: -3, Description: "Existing", Datetime: time.Date(2026, time.May, 1, 12, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.3", Type: "expense", Amount: -3, Description: "Existing", Date: time.Date(2026, time.May, 1, 12, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
 	if err != nil {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}
@@ -197,11 +197,11 @@ func TestImportTransactionsCSVWithEmptyIdentifierCells(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Migros"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "expense", Amount: -2, Description: "Existing", Datetime: time.Date(2026, time.May, 1, 12, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "expense", Amount: -2, Description: "Existing", Date: time.Date(2026, time.May, 1, 12, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
 	if err != nil {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestImportTransactionsCSVWithoutDeletedColumn(t *testing.T) {
 	cfg, cashDB := openTestDB(t)
 	defer cashDB.Close()
 
-	if _, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"}); err != nil {
+	if _, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Migros"}); err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
 
@@ -257,7 +257,7 @@ func TestImportTransactionsCSVWithFlexibleDateFormatAndEmptyDeleted(t *testing.T
 	cfg, cashDB := openTestDB(t)
 	defer cashDB.Close()
 
-	if _, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"}); err != nil {
+	if _, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Migros"}); err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
 
@@ -289,7 +289,7 @@ expense,-12.50,Lunch,31.05.2026,main, groceries , Coop Pronto Nyon Gare , weekly
 		t.Fatalf("Import returned error: %v", err)
 	}
 
-	if _, err := db.GetPlaceByName(cashDB, "Coop Pronto Nyon Gare"); err != nil {
+	if _, err := db.GetStoreByName(cashDB, "Coop Pronto Nyon Gare"); err != nil {
 		t.Fatalf("GetPlaceByName returned error: %v", err)
 	}
 	if _, err := db.GetCategoryByName(cashDB, "groceries"); err != nil {

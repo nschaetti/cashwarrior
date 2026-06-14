@@ -27,7 +27,7 @@ func setupGroupsTestData(t *testing.T) (config.Config, *sql.DB, parser.ParsedCmd
 	if err != nil {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Groups Test"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Groups Test"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -40,15 +40,15 @@ func setupGroupsTestData(t *testing.T) (config.Config, *sql.DB, parser.ParsedCmd
 		t.Fatalf("GetTransactionGroupByName(zeta) returned error: %v", err)
 	}
 
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Amount: -10, Description: "A", Datetime: time.Date(2026, time.May, 27, 0, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID, GroupID: &alpha.ID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Amount: -10, Description: "A", Date: time.Date(2026, time.May, 27, 0, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID, GroupID: &alpha.ID})
 	if err != nil {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Amount: -5, Description: "B", Datetime: time.Date(2026, time.May, 29, 0, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID, GroupID: &alpha.ID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Amount: -5, Description: "B", Date: time.Date(2026, time.May, 29, 0, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID, GroupID: &alpha.ID})
 	if err != nil {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.3", Amount: -7, Description: "C", Datetime: time.Date(2026, time.May, 26, 0, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID, GroupID: &zeta.ID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.3", Amount: -7, Description: "C", Date: time.Date(2026, time.May, 26, 0, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID, GroupID: &zeta.ID})
 	if err != nil {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}

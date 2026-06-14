@@ -60,7 +60,7 @@ func renamePlace(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
 		return fmt.Errorf("old and new place names are identical")
 	}
 
-	place, err := db.GetPlaceByName(cashDb, oldName)
+	place, err := db.GetStoreByName(cashDb, oldName)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("place %s does not exist", oldName)
 	}

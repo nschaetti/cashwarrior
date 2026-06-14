@@ -12,7 +12,7 @@ func TestPlacesRename(t *testing.T) {
 	_, cashDB := openTestDB(t)
 	defer cashDB.Close()
 
-	if _, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Coop"}); err != nil {
+	if _, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Coop"}); err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
 
@@ -25,7 +25,7 @@ func TestPlacesRename(t *testing.T) {
 		t.Fatalf("Places(rename) returned error: %v", err)
 	}
 
-	if _, err := db.GetPlaceByName(cashDB, "Migros"); err != nil {
+	if _, err := db.GetStoreByName(cashDB, "Migros"); err != nil {
 		t.Fatalf("GetPlaceByName(Migros) returned error: %v", err)
 	}
 }

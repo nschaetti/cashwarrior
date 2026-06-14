@@ -20,20 +20,20 @@ func TestSummaryDaysShowsCountPerDay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Summary Test"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Summary Test"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
 
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Amount: -10, Description: "A", Datetime: time.Date(2026, time.May, 27, 10, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Amount: -10, Description: "A", Date: time.Date(2026, time.May, 27, 10, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
 	if err != nil {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Amount: -5, Description: "B", Datetime: time.Date(2026, time.May, 27, 20, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Amount: -5, Description: "B", Date: time.Date(2026, time.May, 27, 20, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
 	if err != nil {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.3", Amount: -2, Description: "C", Datetime: time.Date(2026, time.May, 28, 9, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.3", Amount: -2, Description: "C", Date: time.Date(2026, time.May, 28, 9, 0, 0, 0, time.UTC), AccountID: mainAccount.ID, PlaceID: &placeID})
 	if err != nil {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}

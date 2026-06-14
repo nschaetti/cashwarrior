@@ -17,7 +17,7 @@ func TestDeleteAndRestoreTransaction(t *testing.T) {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
 
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Delete Test"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Delete Test"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestDeleteAndRestoreTransaction(t *testing.T) {
 		Identifier:  "2026.05.1",
 		Amount:      -10,
 		Description: "Lunch",
-		Datetime:    time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
 		AccountID:   mainAccount.ID,
 		PlaceID:     &placeID,
 	})
@@ -84,7 +84,7 @@ func TestPurgeTransactionDeletesRegularTransaction(t *testing.T) {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
 
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Purge Test"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Purge Test"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestPurgeTransactionDeletesRegularTransaction(t *testing.T) {
 		Identifier:  "2026.05.1",
 		Amount:      -10,
 		Description: "Lunch",
-		Datetime:    time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
 		AccountID:   mainAccount.ID,
 		PlaceID:     &placeID,
 	})
@@ -130,7 +130,7 @@ func TestPurgeTransactionDeletesEntireTransfer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertAccount returned error: %v", err)
 	}
-	transferPlaceID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "transfer-purge"})
+	transferPlaceID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "transfer-purge"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestPurgeTransactionDeletesEntireTransfer(t *testing.T) {
 		Type:        "transfer_out",
 		Amount:      -20,
 		Description: "Transfer",
-		Datetime:    time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
 		AccountID:   fromAccount.ID,
 		PlaceID:     &transferPlaceID,
 	})
@@ -152,7 +152,7 @@ func TestPurgeTransactionDeletesEntireTransfer(t *testing.T) {
 		Type:        "transfer_in",
 		Amount:      20,
 		Description: "Transfer",
-		Datetime:    time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
 		AccountID:   toAccountID,
 		PlaceID:     &transferPlaceID,
 	})
@@ -207,16 +207,16 @@ func TestDeleteTransferMarksBothTransactionsAndTransferDeleted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertAccount returned error: %v", err)
 	}
-	transferPlaceID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "transfer-delete"})
+	transferPlaceID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "transfer-delete"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
 
-	fromTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Type: "transfer_out", Amount: -20, Description: "Transfer", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: fromAccount.ID, PlaceID: &transferPlaceID})
+	fromTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Type: "transfer_out", Amount: -20, Description: "Transfer", Date: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: fromAccount.ID, PlaceID: &transferPlaceID})
 	if err != nil {
 		t.Fatalf("InsertTransaction(from) returned error: %v", err)
 	}
-	toTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "transfer_in", Amount: 20, Description: "Transfer", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: toAccountID, PlaceID: &transferPlaceID})
+	toTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "transfer_in", Amount: 20, Description: "Transfer", Date: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: toAccountID, PlaceID: &transferPlaceID})
 	if err != nil {
 		t.Fatalf("InsertTransaction(to) returned error: %v", err)
 	}
@@ -265,16 +265,16 @@ func TestRestoreTransferRestoresBothTransactionsAndTransfer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertAccount returned error: %v", err)
 	}
-	transferPlaceID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "transfer-restore"})
+	transferPlaceID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "transfer-restore"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
 
-	fromTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Type: "transfer_out", Amount: -20, Description: "Transfer", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: fromAccount.ID, PlaceID: &transferPlaceID})
+	fromTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Type: "transfer_out", Amount: -20, Description: "Transfer", Date: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: fromAccount.ID, PlaceID: &transferPlaceID})
 	if err != nil {
 		t.Fatalf("InsertTransaction(from) returned error: %v", err)
 	}
-	toTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "transfer_in", Amount: 20, Description: "Transfer", Datetime: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: toAccountID, PlaceID: &transferPlaceID})
+	toTxID, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.2", Type: "transfer_in", Amount: 20, Description: "Transfer", Date: time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC), AccountID: toAccountID, PlaceID: &transferPlaceID})
 	if err != nil {
 		t.Fatalf("InsertTransaction(to) returned error: %v", err)
 	}

@@ -292,11 +292,11 @@ func TestDeleteAccountRejectsLinkedTransactions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertAccount returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Delete Account Test"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Delete Account Test"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
-	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Amount: -5, Description: "x", Datetime: testTime(), AccountID: accountID, PlaceID: &placeID})
+	_, err = db.InsertTransaction(cashDB, db.CreateTransactionInput{Identifier: "2026.05.1", Amount: -5, Description: "x", Date: testTime(), AccountID: accountID, PlaceID: &placeID})
 	if err != nil {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}

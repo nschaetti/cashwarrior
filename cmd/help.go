@@ -55,21 +55,25 @@ func printGlobalHelp() {
 }
 
 func printCommandHelp(spec parser.CommandSpec) {
+	fmt.Printf("%s\n", spec.Description)
 	fmt.Println()
-	fmt.Printf("Usage:\n  cash %s [subcommand] [arguments] [--help|-h]\n", spec.Name)
+	fmt.Printf("Usage:\n  cash [filters] %s [subcommand] [arguments] [--help]\n", spec.Name)
 	fmt.Println()
 	fmt.Println("Subcommands:")
 	names := make([]string, 0, len(spec.Subcommands))
-	for name := range spec.Subcommands {
-		names = append(names, name)
+	for name, comSpec := range spec.Subcommands {
+		if !comSpec.IsAlias {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
 	for _, name := range names {
+		commandSpec := spec.Subcommands[name]
 		mark := ""
 		if name == spec.DefaultSubcommand {
 			mark = " (default)"
 		}
-		fmt.Printf("  %s%s\n", name, mark)
+		fmt.Printf("  %s%s : %s\n", name, mark, commandSpec.Description)
 	}
 	fmt.Println()
 	fmt.Println("Tip:")
@@ -79,10 +83,23 @@ func printCommandHelp(spec parser.CommandSpec) {
 }
 
 func printSubcommandHelp(command string, subcommand string, subSpec parser.SubcommandSpec) {
-	fmt.Printf("Subcommand help:\n  cash %s %s [arguments] [--help|-h]\n", command, subcommand)
+	// Has filter ?
+	filterText := ""
+	if subSpec.HasFilter() {
+		filterText = "[filters] "
+	}
+
+	// Has arguments ?
+	argumentText := ""
+	if subSpec.HasArgument() {
+		argumentText = " [arguments]"
+	}
+
+	// Print
+	fmt.Printf("Subcommand help:\n  cash %s%s %s%s [--help|-h]\n", filterText, command, subcommand, argumentText)
 	fmt.Println()
-	printSideHelp("Filters (left side)", subSpec.Left)
-	printSideHelp("Arguments (right side)", subSpec.Right)
+	printSideHelp("Filters", subSpec.Left)
+	printSideHelp("Arguments", subSpec.Right)
 	printExamples(command, subcommand)
 	fmt.Println("Tip:")
 	fmt.Println("  --help and -h can be placed anywhere.")
@@ -91,12 +108,15 @@ func printSubcommandHelp(command string, subcommand string, subSpec parser.Subco
 
 func printSideHelp(title string, side parser.SideSpec) {
 	fmt.Println(title + ":")
-	if len(side.AllowedKinds) == 0 {
+
+	// Empty, print 'none'
+	if side.IsEmpty() {
 		fmt.Println("  none")
 		fmt.Println()
 		return
 	}
 
+	// List allowed tokens
 	kinds := make([]string, 0, len(side.AllowedKinds))
 	for kind, allowed := range side.AllowedKinds {
 		if allowed {
@@ -104,13 +124,14 @@ func printSideHelp(title string, side parser.SideSpec) {
 		}
 	}
 	sort.Strings(kinds)
-	fmt.Printf("  token kinds: %s\n", strings.Join(kinds, ", "))
+	fmt.Printf("  Accept: %s\n", strings.Join(kinds, ", "))
+
 	if side.MinArgs > 0 || side.MaxArgs > 0 {
-		max := "unbounded"
+		mmax := "unbounded"
 		if side.MaxArgs > 0 {
-			max = fmt.Sprintf("%d", side.MaxArgs)
+			mmax = fmt.Sprintf("%d", side.MaxArgs)
 		}
-		fmt.Printf("  count: min=%d max=%s\n", side.MinArgs, max)
+		fmt.Printf("  count: min=%d max=%s\n", side.MinArgs, mmax)
 	}
 
 	if side.AllowAnyAttr {
@@ -132,9 +153,6 @@ func printSideHelp(title string, side parser.SideSpec) {
 			}
 			if spec.Clearable {
 				modes = append(modes, "clear")
-			}
-			if len(modes) == 0 {
-				modes = append(modes, "read")
 			}
 			items = append(items, fmt.Sprintf("%s(%s)", name, strings.Join(modes, "/")))
 		}

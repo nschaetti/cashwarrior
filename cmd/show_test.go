@@ -51,7 +51,7 @@ func TestShowDisplaysTransactionDetails(t *testing.T) {
 		t.Fatalf("GetAccountByName returned error: %v", err)
 	}
 
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "Migros"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Migros"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestShowDisplaysTransactionDetails(t *testing.T) {
 		Identifier:  "2026.05.1",
 		Amount:      -10.5,
 		Description: "Lunch",
-		Datetime:    time.Date(2026, time.May, 27, 12, 34, 56, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 27, 12, 34, 56, 0, time.UTC),
 		AccountID:   mainAccount.ID,
 		CategoryID:  &categoryID,
 		PlaceID:     &placeID,
@@ -130,7 +130,7 @@ func TestShowDisplaysTransferDetails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertAccount returned error: %v", err)
 	}
-	placeID, err := db.InsertPlace(cashDB, db.CreatePlaceInput{Name: "transfer-show-test"})
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "transfer-show-test"})
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestShowDisplaysTransferDetails(t *testing.T) {
 		Type:        "transfer_out",
 		Amount:      -20,
 		Description: "Transfer",
-		Datetime:    time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
 		AccountID:   fromAccount.ID,
 		PlaceID:     &placeID,
 	})
@@ -152,7 +152,7 @@ func TestShowDisplaysTransferDetails(t *testing.T) {
 		Type:        "transfer_in",
 		Amount:      20,
 		Description: "Transfer",
-		Datetime:    time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
+		Date:        time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC),
 		AccountID:   toAccountID,
 		PlaceID:     &placeID,
 	})

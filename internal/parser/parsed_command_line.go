@@ -1,5 +1,7 @@
 package parser
 
+import "errors"
+
 func GetArgKindCount(parsedArgs ParsedCmdLine, filter bool) map[ArgKind]int {
 	count := make(map[ArgKind]int)
 	if !filter {
@@ -48,6 +50,19 @@ func (p *ParsedCmdLine) HasFlag(name string) bool {
 		}
 	}
 	return false
+}
+
+func (p *ParsedCmdLine) GetArgAttributeValue(name string) (AttributeValue, error) {
+	for _, arg := range p.Args {
+		attr, ok := arg.(ArgAttribute)
+		if !ok {
+			continue
+		}
+		if attr.Key == name {
+			return attr.Value, nil
+		}
+	}
+	return AttributeValue{}, errors.New("argument not found")
 }
 
 func (p *ParsedCmdLine) Left() []Arg {

@@ -397,7 +397,7 @@ CREATE TABLE IF NOT EXISTS places (
 		return nil
 	}
 
-	_, err = InsertPlace(db, CreatePlaceInput{Name: "transfer"})
+	_, err = InsertStore(db, CreatePlaceInput{Name: "transfer"})
 	return err
 }
 
