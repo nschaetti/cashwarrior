@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/domain"
 	"github.com/nschaetti/cashwarrior/internal/parser"
+	"github.com/pterm/pterm"
 )
 
 // CommandValidations List of command line validator
@@ -157,10 +159,10 @@ func getTransactionStore(addInput *db.CreateTransactionInput, cashDb db.DBTX, at
 			return "", err
 		}
 		storeID = sql.NullInt64{Int64: store.ID, Valid: true}
-	} else {
-		return "", fmt.Errorf("no store specified")
+		addInput.PlaceID = db.NullInt64ToPtr(storeID)
+		return storeName, nil
 	}
-	return storeName, nil
+	return "", fmt.Errorf("no store specified")
 }
 
 func getTransactionAccount(addInput *db.CreateTransactionInput, cashDb db.DBTX, attributes map[string]parser.AttributeValue, config config.Config) (string, int64, error) {
@@ -241,14 +243,42 @@ func getTransactionGroup(addInput *db.CreateTransactionInput, cashDb db.DBTX, at
 }
 
 type AddTransactionInput struct {
-	Identifier domain.TransactionID
-	Amount     float64
-	Desc       string
-	Date       time.Time
-	Type       string
-	StoreID    sql.NullInt64
-	CategoryID sql.NullInt64
-	GroupID    sql.NullInt64
+	Identifier   domain.TransactionID
+	Amount       float64
+	Account      string
+	Desc         string
+	Date         time.Time
+	Type         string
+	StoreName    string
+	CategoryName string
+	GroupName    string
+}
+
+func confirmTransaction(addInput AddTransactionInput) bool {
+	pterm.FgWhite.Println("Transaction to be added:")
+	pterm.FgWhite.Println("========================")
+	pterm.FgWhite.Println("Identifier:\t" + addInput.Identifier.String())
+	pterm.FgWhite.Println("Amount:\t\t" + fmt.Sprintf("%f", addInput.Amount))
+	pterm.FgWhite.Println("Account:\t" + addInput.Account)
+	pterm.FgWhite.Println("Description:\t" + addInput.Desc)
+	pterm.FgWhite.Println("Date:\t\t" + addInput.Date.Format("2006-01-02 15:04:05"))
+	pterm.FgWhite.Println("Type:\t\t" + addInput.Type)
+	pterm.FgWhite.Println("Store:\t\t" + addInput.StoreName)
+	if addInput.CategoryName != "" {
+		pterm.FgWhite.Println("Category:\t" + addInput.CategoryName)
+	}
+	if addInput.GroupName != "" {
+		pterm.FgWhite.Println("Group:\t\t" + addInput.GroupName)
+	}
+
+	ok, err := pterm.DefaultInteractiveConfirm.
+		WithDefaultText("Confirm transaction (N/y) ?").
+		Show()
+
+	if err != nil {
+		panic(err)
+	}
+	return ok
 }
 
 func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
@@ -296,7 +326,7 @@ func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) erro
 	}
 
 	// Get store
-	storeSqlID, err := getTransactionStore(&addInput, cashDb, attributes)
+	transactionStore, err := getTransactionStore(&addInput, cashDb, attributes)
 	if err != nil {
 		return err
 	}
@@ -319,37 +349,33 @@ func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) erro
 		return err
 	}
 
-	fmt.Printf("Amount: %f \n", amount)
-	fmt.Printf("Description: %v \n", desc)
-	fmt.Printf("Transaction Time: %v \n", transactionDate)
-	fmt.Printf("NextIdentifier: %v \n", nextIdentifier)
-	fmt.Printf("Transaction Type: %v \n", transactionType)
-	fmt.Printf("Store SQL ID: %v \n", storeSqlID)
-	fmt.Printf("Transaction Account: %v \n", transactionAccount)
-	fmt.Printf("Transaction Category: %v \n", transactionCategory)
-	fmt.Printf("Transaction Group: %v \n", transactionGroup)
+	// Confirm transaction
+	confirmed := confirmTransaction(
+		AddTransactionInput{
+			Identifier:   nextIdentifier,
+			Amount:       amount,
+			Desc:         desc,
+			Account:      transactionAccount,
+			Date:         transactionDate,
+			Type:         transactionType,
+			StoreName:    transactionStore,
+			CategoryName: transactionCategory,
+			GroupName:    transactionGroup,
+		},
+	)
 
-	//// Insert transaction
-	//transactionID, err := db.InsertTransaction(
-	//	cashDb,
-	//	db.CreateTransactionInput{
-	//		Identifier:  fmt.Sprintf("%s", nextIdentifier),
-	//		Type:        transactionType,
-	//		Amount:      float64(amount),
-	//		Description: desc,
-	//		Date:        transactionTime,
-	//		AccountID:   transactionAccount,
-	//		CategoryID:  db.NullInt64ToPtr(transactionCategory),
-	//		PlaceID:     db.NullInt64ToPtr(transactionStore),
-	//		GroupID:     db.NullInt64ToPtr(transactionGroup),
-	//	},
-	//)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//// Show success message
-	//pterm.Success.Println("Transaction added with id: " + strconv.FormatInt(transactionID, 10) + "")
+	if confirmed {
+		// Insert transaction
+		var transactionSqlID int64
+		transactionSqlID, err = db.InsertTransaction(cashDb, addInput)
+		if err != nil {
+			return err
+		}
+		// Show success message
+		pterm.Success.Println("Transaction added with id: " + strconv.FormatInt(transactionSqlID, 10) + "")
+	} else {
+		pterm.Warning.Println("Transaction cancelled by user, no transaction added.")
+	}
 
 	return nil
 }

@@ -45,3 +45,24 @@ var groupsCommandSpec = createSubcommandAlias(
 	},
 	[]SubcommandAlias{{SubcommandName: "list", SubcommandAlias: "ls"}, {SubcommandName: "modify", SubcommandAlias: "rename"}, {SubcommandName: "modify", SubcommandAlias: "rn"}, {SubcommandName: "delete", SubcommandAlias: "rm"}},
 )
+
+var groupCommandSpec = CommandSpec{
+	Name:              "group",
+	DefaultSubcommand: "add",
+	Subcommands: subcommands(
+		SubcommandSpec{
+			Name: "add",
+			Left: emptySideSpec(),
+			Right: sideSpec(
+				[]ArgKind{ArgKindAttribute},
+				settableOnlyAttribute("group").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("id").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("identifier").SetShapes(AttributeValueShapeSingle),
+				settableOnlyAttribute("T").SetShapes(AttributeValueShapeSingle),
+			).
+				WithArgs(2, 0).
+				WithAttributeRule("group", exactlyOne()).
+				WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"id", "identifier", "T"}, Message: "groups add requires at least one transaction id"}),
+		},
+	),
+}

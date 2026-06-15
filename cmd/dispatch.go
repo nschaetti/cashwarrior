@@ -37,7 +37,7 @@ var Handlers = map[string]CommandFunc{
 	"sum":         Sum,
 	"summary":     Summary,
 	"groups":      Groups,
-	"places":      Places,
+	"stores":      Places,
 	"help":        Help,
 }
 

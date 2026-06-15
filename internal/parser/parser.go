@@ -200,7 +200,7 @@ func ParseCmdLine(args []string, config config.Config) (ParsedCmdLine, *ParseErr
 			Message: fErr.Error(),
 		}
 	}
-	fmt.Printf("argsTokens: %v\n", argsTokens)
+
 	//fmt.Printf("Command: %s\n", command)
 	//fmt.Printf("Subcommand: %s\n", subcommand)
 	//fmt.Printf("Use default subcommand: %v\n", useDefaultSubcommand)

@@ -71,6 +71,8 @@ var AttributeSpecs = map[string]AttributeSpec{
 	"from":            {Name: "from", AllowedShapes: AttributeValueShapeSingle, Type: AttributeValueTypeString, AllowSettable: true},
 	"group":           {Name: "group", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList, Type: AttributeValueTypeString, AllowSettable: true, AllowClear: true},
 	"identifier":      {Name: "identifier", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange, Type: AttributeValueTypeString, AllowSettable: true},
+	"id":              {Name: "id", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange, Type: AttributeValueTypeString, AllowSettable: true},
+	"T":               {Name: "T", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange, Type: AttributeValueTypeString, AllowSettable: true},
 	"initial-balance": {Name: "initial-balance", AllowedShapes: AttributeValueShapeSingle, Type: AttributeValueTypeFloat, AllowSettable: true},
 	"month":           {Name: "month", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList, Type: AttributeValueTypeString, AllowSettable: true},
 	"name":            {Name: "name", AllowedShapes: AttributeValueShapeSingle, Type: AttributeValueTypeString, AllowSettable: true},

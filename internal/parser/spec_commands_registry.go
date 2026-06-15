@@ -16,6 +16,7 @@ var CommandSpecs = map[string]CommandSpec{
 	"export":      defaultCommandSpec("export"),
 	"fakeit":      fakeitCommandSpec,
 	"groups":      groupsCommandSpec,
+	"group":       groupCommandSpec,
 	"help":        helpCommandSpec,
 	"import":      importCommandSpec,
 	"list":        listCommandSpec,

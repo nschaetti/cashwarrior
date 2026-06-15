@@ -93,7 +93,7 @@ func run() error {
 		// or if the command is unknown, show the help screen
 		// or if the command is missing, show the help screen
 		case parser.ParseErrorEmptyCommandLine, parser.ParseErrorUnknownCommand, parser.ParseErrorNoCommand:
-			pterm.Warning.Println("Empty command line, you must specify a command.")
+			pterm.Warning.Println("Empty command line, you must specify a command: %v", parseErr.Message)
 			parsedCmd = createHelpCmdLine()
 			break
 		default:
