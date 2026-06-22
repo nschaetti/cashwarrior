@@ -82,16 +82,31 @@ func transactionFilterSideSpecWithoutAccount(extraAttrs ...AttributeSpec) SideSp
 	return sideSpec([]ArgKind{ArgKindAttribute}, base...)
 }
 
+// accountFilterSingleAccountSideSpec specifies the left side as a filter for accounts.
+func accountFilterSingleAccountSideSpec(extraAttrs ...AttributeSpec) SideSpec {
+	base := []AttributeSpec{
+		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
+		// settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		// settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
+		// settableOnlyAttribute("balance").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
+	}
+	base = append(base, extraAttrs...)
+	side := sideSpec([]ArgKind{ArgKindAttribute}, base...)
+	side = side.WithAttributeRule("account", exactlyOne())
+	return side
+}
+
 // accountFilterSideSpec specifies the left side as a filter for accounts.
 func accountFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 	base := []AttributeSpec{
-		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
+		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
 		settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
 		settableOnlyAttribute("balance").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]ArgKind{ArgKindAttribute}, base...)
+	side := sideSpec([]ArgKind{ArgKindAttribute}, base...)
+	return side
 }
 
 // groupFilterSideSpec specifies the left side as a filter for groups.
@@ -144,7 +159,7 @@ func addCommandRightSideSpec() SideSpec {
 	return side
 }
 
-func modifyRightSideSpec() SideSpec {
+func modifyTransactionRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]ArgKind{ArgKindAttribute, ArgKindTag, ArgKindTagNegative},
 		settableOnlyAttribute("identifier").SetShapes(AttributeValueShapeSingle),
@@ -157,6 +172,19 @@ func modifyRightSideSpec() SideSpec {
 		setOrClearAttribute("group").SetShapes(AttributeValueShapeSingle),
 	).WithArgs(1, 0)
 	for _, name := range []string{"identifier", "amount", "desc", "date", "time", "datetime", "account", "category", "store", "group"} {
+		side = side.WithAttributeRule(name, atMostOne())
+	}
+	return side
+}
+
+func modifyAccountRightSideSpec() SideSpec {
+	side := sideSpec(
+		[]ArgKind{ArgKindAttribute},
+		settableOnlyAttribute("name").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("currency").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("initial-balance").SetShapes(AttributeValueShapeSingle),
+	).WithArgs(1, 0)
+	for _, name := range []string{"account", "currency", "initial-balance"} {
 		side = side.WithAttributeRule(name, atMostOne())
 	}
 	return side

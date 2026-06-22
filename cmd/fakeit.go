@@ -194,7 +194,7 @@ func prepareFakeitContext(cashDb db.DBTX, cfg config.Config, options fakeitOptio
 		return nil, err
 	}
 
-	accounts, err := db.ListAccounts(cashDb, db.AccountListFilter{})
+	accounts, err := db.ListAccounts(cashDb, []db.SQLFilter{}, []db.Filter[db.Account]{}, []string{})
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +277,7 @@ func ensureFakeData(cashDb db.DBTX, cfg config.Config) error {
 }
 
 func ensureFakeAccounts(cashDb db.DBTX, cfg config.Config) error {
-	accounts, err := db.ListAccounts(cashDb, db.AccountListFilter{})
+	accounts, err := db.ListAccounts(cashDb, []db.SQLFilter{}, []db.Filter[db.Account]{}, []string{})
 	if err != nil {
 		return err
 	}
@@ -428,7 +428,7 @@ func resolveFakeitDateRange(options fakeitOptions) (time.Time, time.Time) {
 }
 
 func loadFakeitSequenceByMonth(cashDb db.DBTX) (map[string]int, error) {
-	transactions, err := db.ListTransactions(cashDb, []db.SQLFilter{}, []db.Filter[db.Transaction]{})
+	transactions, err := db.ListTransactions(cashDb, []db.SQLFilter{}, []db.Filter[db.Transaction]{}, false)
 	if err != nil {
 		return nil, err
 	}

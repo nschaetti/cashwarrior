@@ -36,7 +36,7 @@ func listCategories(config config.Config, cashDb db.DBTX) error {
 		return err
 	}
 
-	transactions, err := db.ListTransactions(cashDb, []db.SQLFilter{}, []db.Filter[db.Transaction]{})
+	transactions, err := db.ListTransactions(cashDb, []db.SQLFilter{}, []db.Filter[db.Transaction]{}, false)
 	if err != nil {
 		return err
 	}

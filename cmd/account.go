@@ -34,7 +34,7 @@ func accountBalance(parsed parser.ParsedCmdLine, config config.Config, cashDb db
 	}
 
 	accountFilter := db.TransactionAccountNameFilter{Name: account.Name}
-	historyTransactions, err := db.ListTransactions(cashDb, []db.SQLFilter{accountFilter}, []db.Filter[db.Transaction]{})
+	historyTransactions, err := db.ListTransactions(cashDb, []db.SQLFilter{accountFilter}, []db.Filter[db.Transaction]{}, false)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func accountBalance(parsed parser.ParsedCmdLine, config config.Config, cashDb db
 	balanceByTransactionID := buildRunningBalanceByTransactionID(historyTransactions, account.InitialBalance)
 
 	dbFilters = append(dbFilters, accountFilter)
-	transactions, err := db.ListTransactions(cashDb, dbFilters, runFilters)
+	transactions, err := db.ListTransactions(cashDb, dbFilters, runFilters, false)
 	if err != nil {
 		return err
 	}

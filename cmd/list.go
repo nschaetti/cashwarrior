@@ -98,7 +98,7 @@ func PrintExpensesIncomeByCurrency(cashDb db.DBTX, transactions []db.Transaction
 		Expenses float64
 	}
 
-	accounts, err := db.ListAccounts(cashDb, db.AccountListFilter{})
+	accounts, err := db.ListAccounts(cashDb, []db.SQLFilter{}, []db.Filter[db.Account]{}, []string{})
 	if err != nil {
 		return err
 	}
@@ -396,7 +396,7 @@ func List(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) err
 	}
 
 	// Get list of transactions
-	transactions, err := db.ListTransactions(cashDb, dbFilters, runFilters)
+	transactions, err := db.ListTransactions(cashDb, dbFilters, runFilters, false)
 	if err != nil {
 		return err
 	}

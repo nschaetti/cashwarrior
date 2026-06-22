@@ -258,23 +258,15 @@ WHERE deleted = FALSE
 	return sum, nil
 }
 
-func ListTransactions(
-	db DBTX,
-	dbFilters []SQLFilter,
-	runFilters []Filter[Transaction],
-) ([]Transaction, error) {
-	return listTransactions(db, dbFilters, runFilters, false)
-}
-
 func ListDeletedTransactions(
 	db DBTX,
 	dbFilters []SQLFilter,
 	runFilters []Filter[Transaction],
 ) ([]Transaction, error) {
-	return listTransactions(db, dbFilters, runFilters, true)
+	return ListTransactions(db, dbFilters, runFilters, true)
 }
 
-func listTransactions(
+func ListTransactions(
 	db DBTX,
 	dbFilters []SQLFilter,
 	runFilters []Filter[Transaction],
@@ -309,6 +301,7 @@ WHERE transactions.deleted = ?
 	defer rows.Close()
 
 	transactions := make([]Transaction, 0)
+	var addItem bool
 	for rows.Next() {
 		var transaction Transaction
 		var accountID sql.NullInt64
@@ -358,7 +351,17 @@ WHERE transactions.deleted = ?
 			transaction.GroupID = &v
 		}
 
-		transactions = append(transactions, transaction)
+		addItem = true
+		for _, filter := range runFilters {
+			if filter.Reject(transaction) {
+				addItem = false
+				break
+			}
+		}
+
+		if addItem {
+			transactions = append(transactions, transaction)
+		}
 	}
 
 	if err = rows.Err(); err != nil {
@@ -526,7 +529,7 @@ func (t Transaction) GetPlace(db DBTX) (*Place, error) {
 		return nil, nil
 	}
 
-	place, err := GetPlaceByID(db, *t.PlaceID)
+	place, err := GetStoreByID(db, *t.PlaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -539,7 +542,7 @@ func (t Transaction) GetGroup(db DBTX) (*TransactionGroup, error) {
 		return nil, nil
 	}
 
-	group, err := GetTransactionGroupByID(db, *t.GroupID)
+	group, err := GetGroupByID(db, *t.GroupID)
 	if err != nil {
 		return nil, err
 	}

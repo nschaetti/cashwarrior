@@ -87,7 +87,12 @@ var modifyCommandSpec = CommandSpec{
 		SubcommandSpec{
 			Name:  "transactions",
 			Left:  transactionFilterSideSpec(),
-			Right: modifyRightSideSpec(),
+			Right: modifyTransactionRightSideSpec(),
+		},
+		SubcommandSpec{
+			Name:  "accounts",
+			Left:  accountFilterSingleAccountSideSpec(),
+			Right: modifyAccountRightSideSpec(),
 		},
 	),
 }

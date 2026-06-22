@@ -485,7 +485,7 @@ func resolveOrCreateOptionalGroupID(query db.DBTX, name string, line int) (*int6
 	if name == "" {
 		return nil, nil
 	}
-	group, err := db.GetTransactionGroupByName(query, name)
+	group, err := db.GetGroupByName(query, name)
 	if errors.Is(err, sql.ErrNoRows) {
 		id, insertErr := db.InsertTransactionGroup(query, db.CreateTransactionGroupInput{Name: name})
 		if insertErr != nil {

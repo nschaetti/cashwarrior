@@ -16,6 +16,7 @@ const (
 	FilterTypeTransactionID
 	FilterTypeAccountName
 	FilterTypeCurrency
+	FilterTypeInitialBalance
 	FilterTypeStore
 	FilterTypeDescription
 	FilterTypeDatetime
@@ -34,9 +35,11 @@ func classifyFilter(argFilter parser.Arg) int {
 			return FilterTypeAccountName
 		} else if a.Key == "currency" {
 			return FilterTypeCurrency
+		} else if a.Key == "initial-balance" {
+			return FilterTypeInitialBalance
 		} else if a.Key == "store" {
 			return FilterTypeStore
-		} else if a.Key == "desc" {
+		} else if a.Key == "description" {
 			return FilterTypeDescription
 		} else if a.Key == "date" {
 			return FilterTypeDatetime
@@ -55,20 +58,7 @@ func classifyFilter(argFilter parser.Arg) int {
 	return FilterUnknown
 }
 
-func createTransactionIDFilter(arg parser.Arg) (db.SQLFilter, error) {
-	transactionID := arg.RawString()
-	text, ok := arg.(parser.ArgText)
-	if ok && len(text.Text) > 0 && text.Text[0] == 'T' {
-		transactionID = text.Text[1:]
-	}
-	_, err := domain.ParseTransactionID(transactionID)
-	if err != nil {
-		return nil, err
-	}
-	return db.TransactionIDFilter{ID: transactionID}, nil
-}
-
-func createAccountNameFilter(arg parser.Arg) (db.SQLFilter, error) {
+func createTransactionAccountNameFilter(arg parser.Arg) (db.SQLFilter, error) {
 	attr, isAttr := arg.(parser.ArgAttribute)
 	text, isText := arg.(parser.ArgText)
 	if !isAttr && !isText {
@@ -80,12 +70,25 @@ func createAccountNameFilter(arg parser.Arg) (db.SQLFilter, error) {
 	return db.TransactionAccountNameFilter{Name: text.Text}, nil
 }
 
-func createCurrencyFilter(arg parser.Arg) (db.SQLFilter, error) {
+func createTransactionCurrencyFilter(arg parser.Arg) (db.SQLFilter, error) {
 	attr, isAttr := arg.(parser.ArgAttribute)
 	if !isAttr {
 		return nil, fmt.Errorf("currency filter requires a currency")
 	}
 	return db.TransactionCurrencyFilter{Currency: attr.Value.Raw}, nil
+}
+
+func createTransactionIDFilter(arg parser.Arg) (db.SQLFilter, error) {
+	transactionID := arg.RawString()
+	text, ok := arg.(parser.ArgText)
+	if ok && len(text.Text) > 0 && text.Text[0] == 'T' {
+		transactionID = text.Text[1:]
+	}
+	_, err := domain.ParseTransactionID(transactionID)
+	if err != nil {
+		return nil, err
+	}
+	return db.TransactionIDFilter{ID: transactionID}, nil
 }
 
 func createStoreFilter(arg parser.Arg) (db.SQLFilter, error) {
@@ -239,13 +242,13 @@ func createTransactionFilters(
 			}
 			dbFilters = append(dbFilters, newFilter)
 		} else if filterType == FilterTypeAccountName {
-			newFilter, err := createAccountNameFilter(filter)
+			newFilter, err := createTransactionAccountNameFilter(filter)
 			if err != nil {
 				return nil, nil, err
 			}
 			dbFilters = append(dbFilters, newFilter)
 		} else if filterType == FilterTypeCurrency {
-			newFilter, err := createCurrencyFilter(filter)
+			newFilter, err := createTransactionCurrencyFilter(filter)
 			if err != nil {
 				return nil, nil, err
 			}

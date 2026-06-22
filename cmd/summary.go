@@ -30,7 +30,7 @@ func summaryDays(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX)
 	if err != nil {
 		return err
 	}
-	transactions, err := db.ListTransactions(cashDb, dbFilters, runFilters)
+	transactions, err := db.ListTransactions(cashDb, dbFilters, runFilters, false)
 	if err != nil {
 		return err
 	}

@@ -268,7 +268,7 @@ func getTransactionGroup(addInput *db.CreateTransactionInput, cashDb db.DBTX, at
 			panic(fmt.Errorf("expected 'group' attribute value to be single or list valued, got %q", attrGroup.ValueShape))
 		}
 		groupValue, _ := attrGroup.Value.(parser.StringItem)
-		group, err := db.GetTransactionGroupByName(cashDb, groupValue.Value)
+		group, err := db.GetGroupByName(cashDb, groupValue.Value)
 		if errors.Is(err, sql.ErrNoRows) {
 			newGroupID, cErr := db.InsertTransactionGroup(cashDb, db.CreateTransactionGroupInput{Name: groupValue.Value})
 			if cErr != nil {

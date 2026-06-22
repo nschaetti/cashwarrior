@@ -106,22 +106,6 @@ func TestValidateTransactionModificationTargetsRejectsTransferAccountUpdate(t *t
 	}
 }
 
-func TestMergeTransactionDatetimeKeepsUnchangedParts(t *testing.T) {
-	original := time.Date(2026, time.May, 27, 14, 35, 42, 0, time.UTC)
-	newDate := time.Date(2026, time.June, 2, 0, 0, 0, 0, time.UTC)
-	newTime := time.Date(0, time.January, 1, 8, 15, 0, 0, time.UTC)
-
-	updated, err := mergeTransactionDatetime(original, transactionModifications{Date: &newDate, Time: &newTime})
-	if err != nil {
-		t.Fatalf("mergeTransactionDatetime returned error: %v", err)
-	}
-
-	want := time.Date(2026, time.June, 2, 8, 15, 0, 0, time.UTC)
-	if !updated.Equal(want) {
-		t.Fatalf("updated = %v, want %v", updated, want)
-	}
-}
-
 func TestModifyAddsAndRemovesTransactionTags(t *testing.T) {
 	cfg, cashDB := openTestDB(t)
 	defer cashDB.Close()

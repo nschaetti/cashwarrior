@@ -31,11 +31,11 @@ func setupGroupsTestData(t *testing.T) (config.Config, *sql.DB, parser.ParsedCmd
 	if err != nil {
 		t.Fatalf("InsertPlace returned error: %v", err)
 	}
-	alpha, err := db.GetTransactionGroupByName(cashDB, "alpha")
+	alpha, err := db.GetGroupByName(cashDB, "alpha")
 	if err != nil {
 		t.Fatalf("GetTransactionGroupByName(alpha) returned error: %v", err)
 	}
-	zeta, err := db.GetTransactionGroupByName(cashDB, "zeta")
+	zeta, err := db.GetGroupByName(cashDB, "zeta")
 	if err != nil {
 		t.Fatalf("GetTransactionGroupByName(zeta) returned error: %v", err)
 	}

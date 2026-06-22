@@ -21,7 +21,7 @@ type CreatePlaceInput struct {
 	Kind string
 }
 
-func GetPlaceByID(db DBTX, id int64) (Place, error) {
+func GetStoreByID(db DBTX, id int64) (Place, error) {
 	var place Place
 	err := db.QueryRow(`
 SELECT id, name, created_at, updated_at

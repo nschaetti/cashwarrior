@@ -295,7 +295,7 @@ expense,-12.50,Lunch,31.05.2026,main, groceries , Coop Pronto Nyon Gare , weekly
 	if _, err := db.GetCategoryByName(cashDB, "groceries"); err != nil {
 		t.Fatalf("GetCategoryByName returned error: %v", err)
 	}
-	if _, err := db.GetTransactionGroupByName(cashDB, "weekly groceries"); err != nil {
+	if _, err := db.GetGroupByName(cashDB, "weekly groceries"); err != nil {
 		t.Fatalf("GetTransactionGroupByName returned error: %v", err)
 	}
 }

@@ -314,12 +314,12 @@ func deleteAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBT
 }
 
 func listAccounts(config config.Config, cashDb db.DBTX) error {
-	accounts, err := db.ListAccounts(cashDb, db.AccountListFilter{})
+	accounts, err := db.ListAccounts(cashDb, []db.SQLFilter{}, []db.Filter[db.Account]{}, []string{})
 	if err != nil {
 		return err
 	}
 
-	transactions, err := db.ListTransactions(cashDb, []db.SQLFilter{}, []db.Filter[db.Transaction]{})
+	transactions, err := db.ListTransactions(cashDb, []db.SQLFilter{}, []db.Filter[db.Transaction]{}, false)
 	if err != nil {
 		return err
 	}

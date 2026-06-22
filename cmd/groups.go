@@ -40,7 +40,7 @@ func listGroups(cashDb db.DBTX, sortOptions groupsSortOptions) error {
 		return err
 	}
 
-	transactions, err := db.ListTransactions(cashDb, nil, nil)
+	transactions, err := db.ListTransactions(cashDb, []db.SQLFilter{}, []db.Filter[db.Transaction]{}, false)
 	if err != nil {
 		return err
 	}

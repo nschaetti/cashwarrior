@@ -20,9 +20,8 @@ type CreateTransactionGroupInput struct {
 	Description string
 }
 
-func GetTransactionGroupByID(db DBTX, id int64) (TransactionGroup, error) {
+func GetGroupByID(db DBTX, id int64) (TransactionGroup, error) {
 	var transactionGroup TransactionGroup
-
 	err := db.QueryRow(`
 SELECT id, name, created_at, updated_at
 FROM transaction_groups
@@ -36,11 +35,10 @@ WHERE id = ?
 	if err != nil {
 		return transactionGroup, err
 	}
-
 	return transactionGroup, nil
 }
 
-func GetTransactionGroupByName(db DBTX, name string) (TransactionGroup, error) {
+func GetGroupByName(db DBTX, name string) (TransactionGroup, error) {
 	var transactionGroup TransactionGroup
 
 	err := db.QueryRow(`

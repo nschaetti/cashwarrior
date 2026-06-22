@@ -53,7 +53,7 @@ func isTransactionReference(raw string) bool {
 }
 
 func ensureTransactionGroup(cashDb db.DBTX, groupName string) (int64, error) {
-	group, err := db.GetTransactionGroupByName(cashDb, groupName)
+	group, err := db.GetGroupByName(cashDb, groupName)
 	if errors.Is(err, sql.ErrNoRows) {
 		return db.InsertTransactionGroup(cashDb, db.CreateTransactionGroupInput{Name: groupName})
 	}
