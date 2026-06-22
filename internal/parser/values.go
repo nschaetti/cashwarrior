@@ -91,12 +91,17 @@ type AttributeRange struct {
 	End   AttributeItem
 }
 
+type AttributeShortcut struct {
+	Name string
+}
+
 type AttributeValue struct {
 	Raw        string
 	ValueShape AttributeValueShape
 	Value      AttributeItem
 	Items      []AttributeItem
 	Range      AttributeRange
+	Shortcut   AttributeShortcut
 }
 
 func (v AttributeValue) IsEmpty() bool {
@@ -138,6 +143,8 @@ func (v AttributeValue) String() string {
 		return fmt.Sprintf("list(%s)", strings.Join(items, ","))
 	case AttributeValueShapeRange:
 		return fmt.Sprintf("range(%s,%s)", v.Range.Start, v.Range.End)
+	case AttributeValueShapeShortcut:
+		return fmt.Sprintf("shortcut(%s)", v.Shortcut.Name)
 	default:
 		return fmt.Sprintf("single(%s)", v.Value)
 	}

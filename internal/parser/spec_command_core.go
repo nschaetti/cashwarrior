@@ -82,9 +82,13 @@ var importCommandSpec = CommandSpec{
 
 var modifyCommandSpec = CommandSpec{
 	Name:              "modify",
-	DefaultSubcommand: "default",
+	DefaultSubcommand: "transactions",
 	Subcommands: subcommands(
-		SubcommandSpec{Name: "default", Left: transactionFilterSideSpec(), Right: modifyRightSideSpec()},
+		SubcommandSpec{
+			Name:  "transactions",
+			Left:  transactionFilterSideSpec(),
+			Right: modifyRightSideSpec(),
+		},
 	),
 }
 
@@ -100,7 +104,7 @@ var restoreCommandSpec = CommandSpec{
 	Name:              "restore",
 	DefaultSubcommand: "default",
 	Subcommands: subcommands(
-		SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: sideSpec([]ArgKind{}).WithArgs(1, 1).WithAttributeRule("id", exactlyOne())},
+		SubcommandSpec{Name: "default", Left: emptySideSpec(), Right: sideSpec([]ArgKind{}).WithArgs(1, 1)},
 		SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: emptySideSpec().WithArgs(0, 0)},
 	),
 }

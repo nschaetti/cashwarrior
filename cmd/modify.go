@@ -10,7 +10,6 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/parser"
-	"github.com/nschaetti/cashwarrior/internal/utils"
 	"github.com/pterm/pterm"
 )
 
@@ -50,38 +49,64 @@ func getExistingTagID(cashDb db.DBTX, name string) (*int64, error) {
 	return &tag.ID, nil
 }
 
-func Modify(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
+func confirmModify(title string, desc string) bool {
+	pterm.FgWhite.Println(title)
+	pterm.FgWhite.Println("========================")
+	pterm.FgWhite.Println(desc)
+	ok, err := pterm.DefaultInteractiveConfirm.
+		WithDefaultText("Confirm transaction (N/y) ?").
+		Show()
+
+	if err != nil {
+		panic(err)
+	}
+	return ok
+}
+
+func ModifyTransactions(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
+	if parsed.Subcommand != "transactions" {
+		panic("ModifyTransactions received an invalid command")
+	}
+
+	// Create the transaction filters from arguments
 	dbFilters, runFilters, err := createTransactionFilters(parsed, cfg)
 	if err != nil {
 		return err
 	}
 
+	// Parse the modifications from arguments
 	modifications, err := parseTransactionModifications(parsed, cfg, cashDb)
 	if err != nil {
 		return err
 	}
 
+	// Get transactions to modify
 	transactions, err := db.ListTransactions(cashDb, dbFilters, runFilters)
 	if err != nil {
 		return err
 	}
+
+	// There are no transactions to modify
 	if len(transactions) == 0 {
 		return fmt.Errorf("no transactions match the given filters")
 	}
 
-	if err := validateTransactionModificationTargets(transactions, modifications); err != nil {
+	// ???
+	if err = validateTransactionModificationTargets(transactions, modifications); err != nil {
 		return err
 	}
 
-	fmt.Printf("This will modify %d transactions.\n", len(transactions))
-	if !utils.AskYesNo("Continue?") {
-		pterm.Warning.Println("Modification cancelled")
+	// Check with the user (confirmation)
+	confirmed := confirmModify("Modify transactions", fmt.Sprintf("Modifying %d transactions", len(transactions)))
+	if !confirmed {
+		pterm.Warning.Println("Modification(s) cancelled by user, no transaction added.")
 		return nil
 	}
 
+	// Modify each transactions
 	updatedCount := 0
 	for _, transaction := range transactions {
-		if err := applyTransactionModifications(cashDb, transaction, modifications); err != nil {
+		if err = applyTransactionModifications(cashDb, transaction, modifications); err != nil {
 			return err
 		}
 		updatedCount++
@@ -89,6 +114,18 @@ func Modify(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) erro
 
 	pterm.Success.Printf("Updated %d transactions\n", updatedCount)
 	return nil
+}
+
+func Modify(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
+	if parsed.Command != "modify" {
+		panic("Modify received an invalid command")
+	}
+
+	if parsed.Subcommand == "transactions" {
+		return ModifyTransactions(parsed, cfg, cashDb)
+	}
+
+	return fmt.Errorf("unknown modify subcommand %s", parsed.Subcommand)
 }
 
 func parseTransactionModifications(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) (transactionModifications, error) {

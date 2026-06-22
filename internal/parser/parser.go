@@ -368,7 +368,7 @@ func validateTokenAgainstSideSpec(arg Arg, side SideSpec, sideName string) *Pars
 		return &ParseError{
 			Code:    ParseErrorInvalidInput,
 			Arg:     attr.RawString(),
-			Message: fmt.Sprintf("attribute %s does not accept %s values", attr.Key, attr.Value.ValueShape),
+			Message: fmt.Sprintf("attribute %s does not accept '%s' values", attr.Key, attr.Value.ValueShape),
 		}
 	}
 

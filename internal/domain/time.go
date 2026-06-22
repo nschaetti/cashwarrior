@@ -344,6 +344,18 @@ func GetTimeShortcut(shortcut string) (time.Time, time.Time, error) {
 	return time.Time{}, time.Time{}, fmt.Errorf("unknown time shortcut: %s", shortcut)
 }
 
+func GetTimeShortcutAsSingle(shortcut string) (time.Time, error) {
+	start, _, err := GetTimeShortcut(shortcut)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return start, nil
+}
+
+func GetTimeShortcutAsRange(shortcut string) (time.Time, time.Time, error) {
+	return GetTimeShortcut(shortcut)
+}
+
 func IsTimeShortcut(shortcut string) bool {
 	if _, ok := timeShortcutFunc[shortcut]; ok {
 		return true

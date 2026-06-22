@@ -59,7 +59,7 @@ func transactionFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 	base := []AttributeSpec{
 		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
 		settableOnlyAttribute("category").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
-		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle | AttributeValueShapeRange | AttributeValueShapeList),
+		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle | AttributeValueShapeRange | AttributeValueShapeList | AttributeValueShapeShortcut),
 		settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("store").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
 		settableOnlyAttribute("identifier").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange),
@@ -128,7 +128,7 @@ func placesFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 func addCommandRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]ArgKind{ArgKindTag, ArgKindAttribute, ArgKindText},
-		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle|AttributeValueShapeShortcut),
 		settableOnlyAttribute("store").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("amount").SetShapes(AttributeValueShapeSingle),

@@ -20,6 +20,29 @@ var CommandValidations = []func(parser.ParsedCmdLine, config.Config, db.DBTX, ma
 	validateAmount,
 }
 
+var acceptedShortcuts = []string{
+	// Main
+	"today",
+	"yesterday",
+	// Day of week
+	"monday",
+	"tuesday",
+	"wednesday",
+	"thursday",
+	"friday",
+	"saturday",
+	"sunday",
+}
+
+func validateShortcut(shortcut string) bool {
+	for _, value := range acceptedShortcuts {
+		if shortcut == value {
+			return true
+		}
+	}
+	return false
+}
+
 func validateAmount(
 	parsed parser.ParsedCmdLine,
 	config config.Config,
@@ -106,15 +129,30 @@ func getTransactionDatetime(
 
 	// Date given (time is ignored on purpose)
 	if dateExists {
-		// Check single
-		if dateAttrValue.ValueShape != parser.AttributeValueShapeSingle {
+		// We accept only single and sshortcut
+		if dateAttrValue.ValueShape != parser.AttributeValueShapeSingle && dateAttrValue.ValueShape != parser.AttributeValueShapeShortcut {
 			panic(
 				fmt.Sprintf("expected 'date' attribute value to be single valued, got %q", dateAttrValue.ValueShape),
 			)
 		}
-		dateValue, _ := dateAttrValue.Value.(parser.TimeItem)
-		addInput.Date = toDateOnly(dateValue.Value)
-		return addInput.Date, nil
+		if dateAttrValue.ValueShape == parser.AttributeValueShapeSingle {
+			dateValue, _ := dateAttrValue.Value.(parser.TimeItem)
+			addInput.Date = toDateOnly(dateValue.Value)
+			return addInput.Date, nil
+		} else if dateAttrValue.ValueShape == parser.AttributeValueShapeShortcut {
+			if !validateShortcut(dateAttrValue.Shortcut.Name) {
+				return time.Time{}, fmt.Errorf("invalid shortcut %q, accepted: %v", dateAttrValue.Shortcut.Name, acceptedShortcuts)
+			}
+			dateValue, err := domain.GetTimeShortcutAsSingle(dateAttrValue.Shortcut.Name)
+			if err != nil {
+				return time.Time{}, err
+			}
+			addInput.Date = toDateOnly(dateValue)
+			return addInput.Date, nil
+		}
+		panic(
+			fmt.Sprintf("expected 'date' attribute value to be single valued or a shortcut, got %q", dateAttrValue.ValueShape),
+		)
 	}
 
 	// If nothing specified, take now, just the date

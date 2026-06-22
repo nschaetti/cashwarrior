@@ -7,7 +7,7 @@ var showCommandSpec = CommandSpec{
 		SubcommandSpec{
 			Name:  "transaction",
 			Left:  emptySideSpec(),
-			Right: sideSpec([]ArgKind{}).WithArgs(1, 1).WithAttributeRule("id", atMostOne()).WithAttributeRule("T", atMostOne()).WithAttributeRule("identifier", atMostOne()).WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"id", "T", "identifier"}, Message: "show requires an id"}),
+			Right: sideSpec([]ArgKind{}).WithArgs(1, 1).WithAttributeRule("identifier", atMostOne()).WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"identifier"}, Message: "show requires an id"}),
 		},
 		categoriesListSubcommandSpec("categories"),
 		accountsListSubcommandSpec("accounts"),
@@ -44,7 +44,7 @@ var transferCommandSpec = CommandSpec{
 	DefaultSubcommand: "add",
 	Subcommands: subcommands(
 		SubcommandSpec{Name: "add", Left: emptySideSpec(), Right: transferRightSideSpec()},
-		SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: sideSpec([]ArgKind{ArgKindAttribute}).WithArgs(1, 1).WithKindRule(ArgKindAttribute, exactlyOne()).WithAttributeRule("id", atMostOne()).WithAttributeRule("identifier", atMostOne()).WithAttributeRule("T", atMostOne()).WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"id"}, Message: "transfer delete requires an id"})},
+		SubcommandSpec{Name: "delete", Left: emptySideSpec(), Right: sideSpec([]ArgKind{ArgKindAttribute}).WithArgs(1, 1).WithKindRule(ArgKindAttribute, exactlyOne()).WithAttributeRule("identifier", atMostOne()).WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"identifier"}, Message: "transfer delete requires an id"})},
 		SubcommandSpec{Name: "list", Left: emptySideSpec(), Right: emptySideSpec().WithArgs(0, 0)},
 	),
 }

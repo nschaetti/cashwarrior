@@ -3,6 +3,7 @@ package parser
 import (
 	"testing"
 
+	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/domain"
 )
 
@@ -74,6 +75,26 @@ func TestParseCmdLine_ExtractsShortHelpFlag(t *testing.T) {
 	}
 	if len(parsed.Flags) != 1 || parsed.Flags[0].Key != "help" {
 		t.Fatalf("parsed.Flags = %#v, want one help flag", parsed.Flags)
+	}
+}
+
+func TestParseArgAttribute_CanonicalizesIdentifierAliases(t *testing.T) {
+	for _, raw := range []string{"identifier:2026.05.1", "id:2026.05.1", "T:2026.05.1"} {
+		arg, err := ParseArgAttribute(raw, config.Config{})
+		if err != nil {
+			t.Fatalf("ParseArgAttribute(%q) returned error: %v", raw, err)
+		}
+
+		attr, ok := arg.(ArgAttribute)
+		if !ok {
+			t.Fatalf("ParseArgAttribute(%q) returned %T, want ArgAttribute", raw, arg)
+		}
+		if attr.Key != "identifier" {
+			t.Fatalf("ParseArgAttribute(%q) key = %q, want identifier", raw, attr.Key)
+		}
+		if attr.Raw != raw {
+			t.Fatalf("ParseArgAttribute(%q) raw = %q, want %q", raw, attr.Raw, raw)
+		}
 	}
 }
 

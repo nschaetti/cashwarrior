@@ -56,9 +56,10 @@ func (s FlagSpec) IsFloat() bool {
 type AttributeValueShape uint8
 
 const (
-	AttributeValueShapeSingle AttributeValueShape = 1 << iota // ArgAttribute value can be a single value
-	AttributeValueShapeList                                   // ArgAttribute value can be a list of values
-	AttributeValueShapeRange                                  // ArgAttribute value can be a range of values
+	AttributeValueShapeSingle   AttributeValueShape = 1 << iota // ArgAttribute value can be a single value
+	AttributeValueShapeList                                     // ArgAttribute value can be a list of values
+	AttributeValueShapeRange                                    // ArgAttribute value can be a range of values
+	AttributeValueShapeShortcut                                 // ArgAttribute value can be a shortcut
 )
 
 // IsSingle returns true if the attribute value is a single value
@@ -86,6 +87,9 @@ func (s AttributeValueShape) String() string {
 	}
 	if s&AttributeValueShapeRange != 0 {
 		retText += "range "
+	}
+	if s&AttributeValueShapeShortcut != 0 {
+		retText += "shortcut"
 	}
 	retText += ">"
 	return retText

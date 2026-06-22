@@ -66,7 +66,7 @@ var AttributeSpecs = map[string]AttributeSpec{
 	"balance":         {Name: "balance", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange, Type: AttributeValueTypeFloat, AllowSettable: true},
 	"category":        {Name: "category", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList, Type: AttributeValueTypeString, AllowSettable: true, AllowClear: true},
 	"currency":        {Name: "currency", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList, Type: AttributeValueTypeString, AllowSettable: true},
-	"date":            {Name: "date", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange, Type: AttributeValueTypeDate, AllowSettable: true},
+	"date":            {Name: "date", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList | AttributeValueShapeRange | AttributeValueShapeShortcut, Type: AttributeValueTypeDate, AllowSettable: true},
 	"desc":            {Name: "desc", AllowedShapes: AttributeValueShapeSingle, Type: AttributeValueTypeBool, AllowSettable: true},
 	"from":            {Name: "from", AllowedShapes: AttributeValueShapeSingle, Type: AttributeValueTypeString, AllowSettable: true},
 	"group":           {Name: "group", AllowedShapes: AttributeValueShapeSingle | AttributeValueShapeList, Type: AttributeValueTypeString, AllowSettable: true, AllowClear: true},

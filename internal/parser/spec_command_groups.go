@@ -21,7 +21,7 @@ var groupsCommandSpec = createSubcommandAlias(
 					WithKindRule(ArgKindText, atMostOne()).
 					WithAttributeRule("group", atMostOne()).
 					WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindText}, Attributes: []string{"group"}, Message: "groups add requires a group name"}).
-					WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"id", "identifier", "T"}, Message: "groups add requires at least one transaction id"}),
+					WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"identifier"}, Message: "groups add requires at least one transaction id"}),
 			},
 			SubcommandSpec{
 				Name: "modify",
@@ -35,11 +35,9 @@ var groupsCommandSpec = createSubcommandAlias(
 				Name: "remove",
 				Left: emptySideSpec(),
 				Right: sideSpec([]ArgKind{ArgKindAttribute}).WithArgs(2, 2).
-					WithAttributeRule("id", atMostOne()).
 					WithAttributeRule("identifier", atMostOne()).
-					WithAttributeRule("T", atMostOne()).
 					WithAttributeRule("group", exactlyOne()).
-					WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"id", "identifier", "T", "group"}, Message: "groups remove requires at least one transaction id"}),
+					WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"identifier", "group"}, Message: "groups remove requires at least one transaction id"}),
 			},
 		),
 	},
@@ -56,13 +54,11 @@ var groupCommandSpec = CommandSpec{
 			Right: sideSpec(
 				[]ArgKind{ArgKindAttribute},
 				settableOnlyAttribute("group").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("id").SetShapes(AttributeValueShapeSingle),
 				settableOnlyAttribute("identifier").SetShapes(AttributeValueShapeSingle),
-				settableOnlyAttribute("T").SetShapes(AttributeValueShapeSingle),
 			).
 				WithArgs(2, 0).
 				WithAttributeRule("group", exactlyOne()).
-				WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"id", "identifier", "T"}, Message: "groups add requires at least one transaction id"}),
+				WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"identifier"}, Message: "groups add requires at least one transaction id"}),
 		},
 	),
 }

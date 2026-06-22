@@ -56,6 +56,15 @@ func IsValidPath(path string) bool {
 	return path != "" && !strings.ContainsRune(path, '\x00')
 }
 
+func canonicalAttributeKey(key string) string {
+	switch key {
+	case "id", "T":
+		return "identifier"
+	default:
+		return key
+	}
+}
+
 // ParseArgFlag parses a flag argument.
 func ParseArgFlag(raw string, config config.Config) (Arg, *ParseError) {
 	var flagKey string
@@ -342,19 +351,24 @@ func parseTokenAttributeFileValue(raw string, config config.Config) (AttributeVa
 // parseTokenAttributeDateValue parses a date attribute value.
 func parseTokenAttributeDateValue(raw string, config config.Config) (AttributeValue, *ParseError) {
 	if domain.IsTimeShortcut(raw) {
-		startDate, endDate, err := domain.GetTimeShortcut(raw)
-		if err != nil {
-			return AttributeValue{}, &ParseError{
-				Code:    ParseErrorInvalidAttributeValue,
-				Message: fmt.Sprintf("invalid date shortcut: %s", raw),
-			}
-		}
+		//startDate, endDate, err := domain.GetTimeShortcut(raw)
+		//if err != nil {
+		//	return AttributeValue{}, &ParseError{
+		//		Code:    ParseErrorInvalidAttributeValue,
+		//		Message: fmt.Sprintf("invalid date shortcut: %s", raw),
+		//	}
+		//}
+		//return AttributeValue{
+		//	ValueShape: AttributeValueShapeRange,
+		//	Range: AttributeRange{
+		//		Start: TimeItem{Raw: raw, Value: startDate},
+		//		End:   TimeItem{Raw: raw, Value: endDate},
+		//	},
+		//}, nil
 		return AttributeValue{
-			ValueShape: AttributeValueShapeRange,
-			Range: AttributeRange{
-				Start: TimeItem{Raw: raw, Value: startDate},
-				End:   TimeItem{Raw: raw, Value: endDate},
-			},
+			Raw:        raw,
+			ValueShape: AttributeValueShapeShortcut,
+			Shortcut:   AttributeShortcut{Name: raw},
 		}, nil
 	}
 
@@ -383,6 +397,7 @@ func parseTokenAttributeDateValue(raw string, config config.Config) (AttributeVa
 			}
 		}
 		return AttributeValue{
+			Raw:        raw,
 			ValueShape: AttributeValueShapeRange,
 			Range: AttributeRange{
 				Start: TimeItem{Raw: parts[0], Value: startDate},
@@ -405,6 +420,7 @@ func parseTokenAttributeDateValue(raw string, config config.Config) (AttributeVa
 			dateItems = append(dateItems, TimeItem{Raw: item, Value: dateItem})
 		}
 		return AttributeValue{
+			Raw:        raw,
 			ValueShape: AttributeValueShapeList,
 			Items:      dateItems,
 		}, nil
@@ -452,7 +468,7 @@ func ParseArgAttribute(raw string, config config.Config) (Arg, *ParseError) {
 
 	// Clear attribute
 	if attributeValueRaw == "" {
-		return ArgAttribute{Raw: raw, Key: attributeKey, Clear: true}, nil
+		return ArgAttribute{Raw: raw, Key: canonicalAttributeKey(attributeKey), Clear: true}, nil
 	}
 
 	// Parse attribute value
@@ -461,5 +477,5 @@ func ParseArgAttribute(raw string, config config.Config) (Arg, *ParseError) {
 		return ArgAttribute{}, err
 	}
 
-	return ArgAttribute{Raw: raw, Key: attributeKey, Value: attributeValue}, nil
+	return ArgAttribute{Raw: raw, Key: canonicalAttributeKey(attributeKey), Value: attributeValue}, nil
 }
