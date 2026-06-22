@@ -441,9 +441,17 @@ func parseTokenAttributeDateValue(raw string, config config.Config) (AttributeVa
 
 // parseTokenAttributeBoolValue parses a boolean attribute value.
 func parseTokenAttributeBoolValue(raw string, config config.Config) (AttributeValue, *ParseError) {
+	if strings.ToLower(raw) == "true" {
+		return AttributeValue{
+			ValueShape: AttributeValueShapeSingle,
+			Raw:        raw,
+			Value:      BoolItem{Raw: raw, Value: true},
+		}, nil
+	}
 	return AttributeValue{
 		ValueShape: AttributeValueShapeSingle,
 		Raw:        raw,
+		Value:      BoolItem{Raw: raw, Value: false},
 	}, nil
 }
 

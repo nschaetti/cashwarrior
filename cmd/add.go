@@ -203,7 +203,12 @@ func getTransactionStore(addInput *db.CreateTransactionInput, cashDb db.DBTX, at
 	return "", fmt.Errorf("no store specified")
 }
 
-func getTransactionAccount(addInput *db.CreateTransactionInput, cashDb db.DBTX, attributes map[string]parser.AttributeValue, config config.Config) (string, int64, error) {
+func getTransactionAccount(
+	addInput *db.CreateTransactionInput,
+	cashDb db.DBTX,
+	attributes map[string]parser.AttributeValue,
+	config config.Config,
+) (string, int64, error) {
 	var accountName string
 	if accountAttrValue, ok := attributes["account"]; ok {
 		if accountAttrValue.ValueShape != parser.AttributeValueShapeSingle {

@@ -149,7 +149,7 @@ func modifyRightSideSpec() SideSpec {
 		[]ArgKind{ArgKindAttribute, ArgKindTag, ArgKindTagNegative},
 		settableOnlyAttribute("identifier").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("amount").SetShapes(AttributeValueShapeSingle),
-		settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
+		settableOnlyAttribute("description").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
 		setOrClearAttribute("category").SetShapes(AttributeValueShapeSingle),

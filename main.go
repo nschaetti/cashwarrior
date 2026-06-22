@@ -100,7 +100,8 @@ func run() error {
 			return fmt.Errorf("error parsing command line: %w", parseErr)
 		}
 	}
-
+	fmt.Printf("parsedCmd: %v\n", parsedCmd)
+	os.Exit(0)
 	// Open the database
 	if cfg.Display.ShowInfo {
 		pterm.Info.Println("Using SQLite database ", cfg.Database)
