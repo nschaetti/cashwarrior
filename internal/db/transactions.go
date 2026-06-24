@@ -185,6 +185,18 @@ func (f TransactionGroupNameFilter) String() string {
 	return fmt.Sprintf("<TransactionGroupNameFilter: %s>", f.Name)
 }
 
+type TransactionTagFilter struct {
+	Tag string
+}
+
+func (f TransactionTagFilter) GenerateSQL() (string, []any) {
+	return "transaction_tags.tag = ?", []any{f.Tag}
+}
+
+func (f TransactionTagFilter) String() string {
+	return fmt.Sprintf("<TransactionTagFilter: %s>", f.Tag)
+}
+
 type CreateTransactionInput struct {
 	Identifier  string
 	Type        string

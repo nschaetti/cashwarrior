@@ -66,7 +66,7 @@ func transactionFilterSideSpec(extraAttrs ...AttributeSpec) SideSpec {
 		settableOnlyAttribute("group").SetShapes(AttributeValueShapeSingle | AttributeValueShapeList),
 	}
 	base = append(base, extraAttrs...)
-	return sideSpec([]ArgKind{ArgKindTag, ArgKindTagNegative, ArgKindAttribute}, base...)
+	return sideSpec([]ArgKind{ArgKindText, ArgKindTag, ArgKindTagNegative, ArgKindAttribute}, base...)
 }
 
 // transactionFilterSideSpecWithoutAccount specifies the left side as a filter for transactions.

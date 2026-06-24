@@ -22,6 +22,8 @@ const (
 	FilterTypeDatetime
 	FilterTypeGroup
 	FilterTypeIdentifier
+	FilterTypeTag
+	FilterTypeNegativeFlag
 )
 
 func classifyFilter(argFilter parser.Arg) int {
@@ -30,6 +32,11 @@ func classifyFilter(argFilter parser.Arg) int {
 		if a.Text[0] == 'T' {
 			return FilterTypeTransactionID
 		}
+	case parser.ArgTag:
+		if a.Negative {
+			return FilterTypeNegativeFlag
+		}
+		return FilterTypeTag
 	case parser.ArgAttribute:
 		if a.Key == "account" {
 			return FilterTypeAccountName
@@ -258,6 +265,18 @@ func createIdentifierFilter(arg parser.Arg) (db.SQLFilter, error) {
 	}
 }
 
+func createTagFilter(arg parser.Arg) ([]db.SQLFilter, error) {
+	attr, isAttr := arg.(parser.ArgTag)
+	if !isAttr {
+		panic("createTagFilter requires a tag argument")
+	}
+	if attr.Negative {
+
+	} else {
+
+	}
+}
+
 func createTransactionFilters(
 	parsed parser.ParsedCmdLine,
 	config config.Config,
@@ -312,6 +331,12 @@ func createTransactionFilters(
 			dbFilters = append(dbFilters, newFilter)
 		} else if filterType == FilterTypeIdentifier {
 			newFilter, err := createIdentifierFilter(filter)
+			if err != nil {
+				return nil, nil, err
+			}
+			dbFilters = append(dbFilters, newFilter)
+		} else if filterType == FilterTypeTag {
+			newFilter, err := createTagFilter(filter)
 			if err != nil {
 				return nil, nil, err
 			}
