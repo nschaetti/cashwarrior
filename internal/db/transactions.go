@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -40,6 +41,62 @@ func (f TransactionIDFilter) GenerateSQL() (string, []any) {
 
 func (f TransactionIDFilter) String() string {
 	return fmt.Sprintf("<TransactionIDFilter: %s>", f.ID)
+}
+
+type TransactionIDListFilter struct {
+	IDs []string
+}
+
+func (f TransactionIDListFilter) GenerateSQL() (string, []any) {
+	placeholders := strings.Repeat("?, ", len(f.IDs))
+	placeholders = strings.TrimRight(placeholders, ", ")
+	args := make([]any, 0, len(f.IDs))
+	for _, id := range f.IDs {
+		args = append(args, id)
+	}
+	return fmt.Sprintf("transactions.identifier IN (%s)", placeholders), args
+}
+func (f TransactionIDListFilter) String() string {
+	return fmt.Sprintf("<TransactionIDListFilter: %v>", f.IDs)
+}
+
+type TransactionIDRangeFilter struct {
+	From string
+	To   string
+}
+
+func (f TransactionIDRangeFilter) GenerateSQL() (string, []any) {
+	return `(
+		(
+			CAST(substr(transactions.identifier, 1, 4) AS INTEGER) > CAST(substr(?, 1, 4) AS INTEGER)
+			OR (
+				CAST(substr(transactions.identifier, 1, 4) AS INTEGER) = CAST(substr(?, 1, 4) AS INTEGER)
+				AND CAST(substr(transactions.identifier, 6, 2) AS INTEGER) > CAST(substr(?, 6, 2) AS INTEGER)
+			)
+			OR (
+				CAST(substr(transactions.identifier, 1, 4) AS INTEGER) = CAST(substr(?, 1, 4) AS INTEGER)
+				AND CAST(substr(transactions.identifier, 6, 2) AS INTEGER) = CAST(substr(?, 6, 2) AS INTEGER)
+				AND CAST(substr(transactions.identifier, 9) AS INTEGER) >= CAST(substr(?, 9) AS INTEGER)
+			)
+		)
+		AND
+		(
+			CAST(substr(transactions.identifier, 1, 4) AS INTEGER) < CAST(substr(?, 1, 4) AS INTEGER)
+			OR (
+				CAST(substr(transactions.identifier, 1, 4) AS INTEGER) = CAST(substr(?, 1, 4) AS INTEGER)
+				AND CAST(substr(transactions.identifier, 6, 2) AS INTEGER) < CAST(substr(?, 6, 2) AS INTEGER)
+			)
+			OR (
+				CAST(substr(transactions.identifier, 1, 4) AS INTEGER) = CAST(substr(?, 1, 4) AS INTEGER)
+				AND CAST(substr(transactions.identifier, 6, 2) AS INTEGER) = CAST(substr(?, 6, 2) AS INTEGER)
+				AND CAST(substr(transactions.identifier, 9) AS INTEGER) <= CAST(substr(?, 9) AS INTEGER)
+			)
+		)
+	)`, []any{f.From, f.From, f.From, f.From, f.From, f.From, f.To, f.To, f.To, f.To, f.To, f.To}
+}
+
+func (f TransactionIDRangeFilter) String() string {
+	return fmt.Sprintf("<TransactionIDRangeFilter: %s..%s>", f.From, f.To)
 }
 
 type TransactionAccountNameFilter struct {

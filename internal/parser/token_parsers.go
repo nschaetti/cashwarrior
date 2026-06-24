@@ -148,7 +148,7 @@ func ParseArgText(raw string, config config.Config) (Arg, *ParseError) {
  */
 
 func ParseArgTag(raw string, config config.Config) (Arg, *ParseError) {
-	return ArgTag{Raw: raw, Tag: raw, Negative: false}, nil
+	return ArgTag{Raw: raw, Tag: raw[1:], Negative: false}, nil
 }
 
 /*
@@ -156,7 +156,7 @@ func ParseArgTag(raw string, config config.Config) (Arg, *ParseError) {
  */
 
 func ParseArgTagNegative(raw string, config config.Config) (Arg, *ParseError) {
-	return ArgTag{Raw: raw, Tag: raw, Negative: true}, nil
+	return ArgTag{Raw: raw, Tag: raw[2:], Negative: true}, nil
 }
 
 /*

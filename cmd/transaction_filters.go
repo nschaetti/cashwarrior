@@ -218,11 +218,44 @@ func createIdentifierFilter(arg parser.Arg) (db.SQLFilter, error) {
 	if !isAttr {
 		return nil, fmt.Errorf("identifier filter requires an identifier")
 	}
-	_, err := domain.ParseTransactionID(attr.Value.Raw)
-	if err != nil {
-		return nil, err
+	switch attr.Value.ValueShape {
+	case parser.AttributeValueShapeSingle:
+		_, err := domain.ParseTransactionID(attr.Value.Raw)
+		if err != nil {
+			return nil, err
+		}
+		return db.TransactionIDFilter{ID: attr.Value.Raw}, nil
+	case parser.AttributeValueShapeList:
+		fmt.Println("list")
+		var ids []string
+		for _, id := range attr.Value.Items {
+			transID := id.(parser.StringItem)
+			fmt.Println(transID.Value)
+			_, err := domain.ParseTransactionID(transID.Value)
+			fmt.Println(err)
+			if err != nil {
+				return nil, err
+			}
+			ids = append(ids, transID.Value)
+		}
+		return db.TransactionIDListFilter{IDs: ids}, nil
+	case parser.AttributeValueShapeRange:
+		id1, err := domain.ParseTransactionID(attr.Value.Range.Start.(parser.StringItem).Value)
+		if err != nil {
+			return nil, err
+		}
+		id2, err := domain.ParseTransactionID(attr.Value.Range.End.(parser.StringItem).Value)
+		// Check that range is valid
+		err = domain.CheckTransactionIDRange(id1, id2)
+		return db.TransactionIDRangeFilter{
+			From: attr.Value.Range.Start.(parser.StringItem).Value,
+			To:   attr.Value.Range.End.(parser.StringItem).Value,
+		}, nil
+	case parser.AttributeValueShapeShortcut:
+		panic("identifier filter requires a string value")
+	default:
+		panic("unknown attribute value shape")
 	}
-	return db.TransactionIDFilter{ID: attr.Value.Raw}, nil
 }
 
 func createTransactionFilters(

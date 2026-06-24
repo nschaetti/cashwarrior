@@ -48,7 +48,7 @@ func getOrCreateTagID(cashDb db.DBTX, name string) (int64, error) {
 func getExistingTagID(cashDb db.DBTX, name string) (*int64, error) {
 	tag, err := db.GetTagByName(cashDb, name)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil, err
 	}
 	if err != nil {
 		return nil, err
@@ -103,10 +103,22 @@ func confirmModifyTransaction(cashDb db.DBTX, modification transactionModificati
 		pterm.FgWhite.Println(fmt.Sprintf("Group: %s", group.Name))
 	}
 	if len(modification.AddTagIDs) > 0 {
-		pterm.FgWhite.Println(fmt.Sprintf("Add tags: %v", modification.AddTagIDs))
+		for _, tagID := range modification.AddTagIDs {
+			tag, err := db.GetTagByID(cashDb, tagID)
+			if err != nil {
+				panic(err)
+			}
+			pterm.FgWhite.Println(fmt.Sprintf("Add tag: %s", tag.Name))
+		}
 	}
 	if len(modification.DropTagIDs) > 0 {
-		pterm.FgWhite.Println(fmt.Sprintf("Drop tags: %v", modification.DropTagIDs))
+		for _, tagID := range modification.DropTagIDs {
+			tag, err := db.GetTagByID(cashDb, tagID)
+			if err != nil {
+				panic(err)
+			}
+			pterm.FgWhite.Println(fmt.Sprintf("Drop tag: %s", tag.Name))
+		}
 	}
 	pterm.FgWhite.Println(desc)
 	ok, err := pterm.DefaultInteractiveConfirm.
