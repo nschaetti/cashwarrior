@@ -271,10 +271,9 @@ func createTagFilter(arg parser.Arg) ([]db.SQLFilter, error) {
 		panic("createTagFilter requires a tag argument")
 	}
 	if attr.Negative {
-
-	} else {
-
+		return db.TransactionNotHasTagFilter{TagName: attr.Tag}
 	}
+	return db.TransactionHasTagFilter{TagName: attr.Tag}, nil
 }
 
 func createTransactionFilters(
