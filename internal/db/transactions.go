@@ -197,6 +197,42 @@ func (f TransactionTagFilter) String() string {
 	return fmt.Sprintf("<TransactionTagFilter: %s>", f.Tag)
 }
 
+type TransactionNotHasTagFilter struct {
+	Tag string
+}
+
+func (f TransactionHasTagFilter) GenerateSQL() (string, []any) {
+	return "EXISTS (" +
+		"SELECT 1 " +
+		"FROM transaction_tags tt " +
+		"JOIN tags t ON t.id = tt.tag_id " +
+		"WHERE tt.transaction_id = transactions.id " +
+		"AND t.name = ? " +
+		")", []any{f.Tag}
+}
+
+func (f TransactionHasTagFilter) String() string {
+	return fmt.Sprintf("<TransactionHasTagFilter: %s>", f.Tag)
+}
+
+type TransactionHasTagFilter struct {
+	Tag string
+}
+
+func (f TransactionNotHasTagFilter) GenerateSQL() (string, []any) {
+	return "NOT EXISTS ( " +
+		"SELECT 1 " +
+		"FROM transaction_tags tt " +
+		"JOIN tags t ON t.id = tt.tag_id " +
+		"WHERE tt.transaction_id = transactions.id " +
+		"AND t.name = ? " +
+		")", []any{f.Tag}
+}
+
+func (f TransactionNotHasTagFilter) String() string {
+	return fmt.Sprintf("<TransactionNotHasTagFilter: %s>", f.Tag)
+}
+
 type CreateTransactionInput struct {
 	Identifier  string
 	Type        string

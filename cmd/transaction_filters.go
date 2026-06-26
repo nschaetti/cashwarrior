@@ -233,13 +233,10 @@ func createIdentifierFilter(arg parser.Arg) (db.SQLFilter, error) {
 		}
 		return db.TransactionIDFilter{ID: attr.Value.Raw}, nil
 	case parser.AttributeValueShapeList:
-		fmt.Println("list")
 		var ids []string
 		for _, id := range attr.Value.Items {
 			transID := id.(parser.StringItem)
-			fmt.Println(transID.Value)
 			_, err := domain.ParseTransactionID(transID.Value)
-			fmt.Println(err)
 			if err != nil {
 				return nil, err
 			}
@@ -265,15 +262,15 @@ func createIdentifierFilter(arg parser.Arg) (db.SQLFilter, error) {
 	}
 }
 
-func createTagFilter(arg parser.Arg) ([]db.SQLFilter, error) {
+func createTagFilter(arg parser.Arg) (db.SQLFilter, error) {
 	attr, isAttr := arg.(parser.ArgTag)
 	if !isAttr {
 		panic("createTagFilter requires a tag argument")
 	}
 	if attr.Negative {
-		return db.TransactionNotHasTagFilter{TagName: attr.Tag}
+		return db.TransactionNotHasTagFilter{Tag: attr.Tag}, nil
 	}
-	return db.TransactionHasTagFilter{TagName: attr.Tag}, nil
+	return db.TransactionHasTagFilter{Tag: attr.Tag}, nil
 }
 
 func createTransactionFilters(
@@ -334,7 +331,7 @@ func createTransactionFilters(
 				return nil, nil, err
 			}
 			dbFilters = append(dbFilters, newFilter)
-		} else if filterType == FilterTypeTag {
+		} else if filterType == FilterTypeTag || filterType == FilterTypeNegativeFlag {
 			newFilter, err := createTagFilter(filter)
 			if err != nil {
 				return nil, nil, err

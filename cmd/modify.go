@@ -136,7 +136,6 @@ func confirmModifyAccount(
 	title string,
 	desc string,
 ) bool {
-	fmt.Printf("modifications: %+v\n", modification)
 	pterm.FgWhite.Println(title)
 	pterm.FgWhite.Println("========================")
 	if modification.Name != nil {
