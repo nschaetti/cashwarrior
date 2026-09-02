@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
@@ -34,45 +34,66 @@ func summaryDays(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX)
 	if err != nil {
 		return err
 	}
-
-	counts := make(map[string]int)
-	type dayCurrencyTotals struct {
-		Income   float64
-		Expenses float64
+	data := buildSummaryDaysData(transactions)
+	format, err := commandOutputFormat(parsed)
+	if err != nil {
+		return err
 	}
-	totalsByDayCurrency := make(map[string]map[string]*dayCurrencyTotals)
-	currenciesSet := make(map[string]bool)
-	for _, transaction := range transactions {
-		day := time.Date(transaction.Datetime.Year(), transaction.Datetime.Month(), transaction.Datetime.Day(), 0, 0, 0, 0, transaction.Datetime.Location())
-		key := day.Format("2006-01-02")
-		counts[key]++
+	if format == output.FormatJSON {
+		return renderJSON("summary_days", data, len(data.Days))
+	}
 
+	return printSummaryDaysTable(data)
+}
+
+func buildSummaryDaysData(transactions []db.Transaction) output.SummaryDaysData {
+	byDay := make(map[string]*output.SummaryDay)
+	for _, transaction := range transactions {
+		day := transaction.Datetime.Format("2006-01-02")
+		item, ok := byDay[day]
+		if !ok {
+			item = &output.SummaryDay{Date: day, Currencies: make([]output.SummaryDayCurrency, 0)}
+			byDay[day] = item
+		}
+		item.Transactions++
 		currency := transaction.Currency
 		if currency == "" {
 			currency = "N/A"
 		}
-		currenciesSet[currency] = true
-
-		if _, ok := totalsByDayCurrency[key]; !ok {
-			totalsByDayCurrency[key] = make(map[string]*dayCurrencyTotals)
+		var totals *output.SummaryDayCurrency
+		for index := range item.Currencies {
+			if item.Currencies[index].Currency == currency {
+				totals = &item.Currencies[index]
+				break
+			}
 		}
-		if _, ok := totalsByDayCurrency[key][currency]; !ok {
-			totalsByDayCurrency[key][currency] = &dayCurrencyTotals{}
+		if totals == nil {
+			item.Currencies = append(item.Currencies, output.SummaryDayCurrency{Currency: currency})
+			totals = &item.Currencies[len(item.Currencies)-1]
 		}
-
 		if transaction.Amount >= 0 {
-			totalsByDayCurrency[key][currency].Income += transaction.Amount
+			totals.Income += transaction.Amount
 		} else {
-			totalsByDayCurrency[key][currency].Expenses += transaction.Amount
+			totals.Expenses += transaction.Amount
+		}
+		totals.Net = totals.Income + totals.Expenses
+	}
+	days := make([]output.SummaryDay, 0, len(byDay))
+	for _, day := range byDay {
+		sort.Slice(day.Currencies, func(i, j int) bool { return day.Currencies[i].Currency < day.Currencies[j].Currency })
+		days = append(days, *day)
+	}
+	sort.Slice(days, func(i, j int) bool { return days[i].Date < days[j].Date })
+	return output.SummaryDaysData{Days: days}
+}
+
+func printSummaryDaysTable(data output.SummaryDaysData) error {
+	currenciesSet := make(map[string]bool)
+	for _, day := range data.Days {
+		for _, currency := range day.Currencies {
+			currenciesSet[currency.Currency] = true
 		}
 	}
-
-	days := make([]string, 0, len(counts))
-	for day := range counts {
-		days = append(days, day)
-	}
-	sort.Strings(days)
-
 	currencies := make([]string, 0, len(currenciesSet))
 	for currency := range currenciesSet {
 		currencies = append(currencies, currency)
@@ -88,20 +109,25 @@ func summaryDays(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX)
 		)
 	}
 
-	rows := make([][]string, 0, len(days))
-	for _, day := range days {
-		row := []string{day, strconv.Itoa(counts[day])}
+	rows := make([][]string, 0, len(data.Days))
+	for _, day := range data.Days {
+		row := []string{day.Date, strconv.Itoa(day.Transactions)}
 		for _, currency := range currencies {
-			totals := totalsByDayCurrency[day][currency]
+			var totals *output.SummaryDayCurrency
+			for index := range day.Currencies {
+				if day.Currencies[index].Currency == currency {
+					totals = &day.Currencies[index]
+					break
+				}
+			}
 			if totals == nil {
 				row = append(row, "0.00", "0.00", "0.00")
 				continue
 			}
-			net := totals.Income + totals.Expenses
 			row = append(row,
 				fmt.Sprintf("%.2f", totals.Expenses),
 				fmt.Sprintf("%.2f", totals.Income),
-				fmt.Sprintf("%+.2f", net),
+				fmt.Sprintf("%+.2f", totals.Net),
 			)
 		}
 		rows = append(rows, row)

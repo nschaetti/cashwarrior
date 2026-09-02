@@ -11,6 +11,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 	"github.com/nschaetti/cashwarrior/internal/utils"
 )
@@ -18,6 +19,17 @@ import (
 func Categories(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
 	switch parsed.Subcommand {
 	case "list":
+		format, err := commandOutputFormat(parsed)
+		if err != nil {
+			return err
+		}
+		if format == output.FormatJSON {
+			data, err := getCategoriesData(cashDb)
+			if err != nil {
+				return err
+			}
+			return renderJSON("categories", data, len(data.Categories))
+		}
 		return listCategories(config, cashDb)
 	case "add":
 		return addCategory(parsed, cashDb)
@@ -253,6 +265,9 @@ func addCategory(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
 	if err != nil {
 		return err
 	}
+	if isJSONOutput(parsed) {
+		return renderJSON("category", map[string]any{"action": "created", "name": name}, 1)
+	}
 	fmt.Printf("Category %s created\n", name)
 	return nil
 }
@@ -310,11 +325,17 @@ func modifyCategory(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
 			return err
 		}
 	}
+	if isJSONOutput(parsed) {
+		return renderJSON("category", map[string]any{"action": "updated", "name": name}, 1)
+	}
 	fmt.Printf("Category %s updated\n", name)
 	return nil
 }
 
 func deleteCategory(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
+	if err := requireYesForJSON(parsed); err != nil {
+		return err
+	}
 	name, err := getCategoryNameArg(parsed.Args[0])
 	if err != nil {
 		return err
@@ -343,11 +364,14 @@ func deleteCategory(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
 	if txCount > 0 {
 		return fmt.Errorf("category %s has linked transactions", name)
 	}
-	if !utils.AskYesNo(fmt.Sprintf("Delete category %s?", name)) {
+	if !parsed.HasFlag("yes") && !utils.AskYesNo(fmt.Sprintf("Delete category %s?", name)) {
 		return nil
 	}
 	if err := db.DeleteCategoryByID(cashDb, category.ID); err != nil {
 		return err
+	}
+	if isJSONOutput(parsed) {
+		return renderJSON("category", map[string]any{"action": "deleted", "name": name}, 1)
 	}
 	fmt.Printf("Category %s deleted\n", name)
 	return nil

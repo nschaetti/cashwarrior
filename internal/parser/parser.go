@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/nschaetti/cashwarrior/internal/config"
 )
@@ -225,9 +226,23 @@ func ParseCmdLine(args []string, config config.Config) (ParsedCmdLine, *ParseErr
 func splitFlags(args []string) ([]string, []Arg, *ParseError) {
 	nonFlags := make([]string, 0, len(args))
 	flags := make([]Arg, 0)
-	for _, arg := range args {
+	for index := 0; index < len(args); index++ {
+		arg := args[index]
 		ok := classifyFlag(arg)
 		if ok {
+			flagKey := trimFlagPrefix(strings.SplitN(arg, "=", 2)[0])
+			flagSpec, hasSpec := FlagSpecs[flagKey]
+			if hasSpec && !strings.Contains(arg, "=") && !flagSpec.IsBool() {
+				if index+1 >= len(args) || classifyFlag(args[index+1]) {
+					return nil, nil, &ParseError{
+						Code:    ParseErrorInvalidFlagValue,
+						Arg:     arg,
+						Message: fmt.Sprintf("missing value for %s flag", flagKey),
+					}
+				}
+				arg = arg + "=" + args[index+1]
+				index++
+			}
 			flagParser := argParsers[ArgKindFlag]
 			token, err := flagParser(arg, config.Config{})
 			if err != nil {

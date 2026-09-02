@@ -9,6 +9,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 	"github.com/nschaetti/cashwarrior/internal/utils"
 )
@@ -16,6 +17,17 @@ import (
 func Tags(parsed parser.ParsedCmdLine, _ config.Config, query db.DBTX) error {
 	switch parsed.Subcommand {
 	case "list":
+		format, err := commandOutputFormat(parsed)
+		if err != nil {
+			return err
+		}
+		if format == output.FormatJSON {
+			data, err := getTagsData(query)
+			if err != nil {
+				return err
+			}
+			return renderJSON("tags", data, len(data.Tags))
+		}
 		return listTags(query)
 	case "add":
 		return addTag(parsed, query)
@@ -87,6 +99,9 @@ func addTag(parsed parser.ParsedCmdLine, query db.DBTX) error {
 	if _, err := db.InsertTag(query, db.CreateTagInput{Name: name}); err != nil {
 		return err
 	}
+	if isJSONOutput(parsed) {
+		return renderJSON("tag", map[string]any{"action": "created", "name": name}, 1)
+	}
 	fmt.Printf("Tag %s created\n", name)
 	return nil
 }
@@ -125,11 +140,17 @@ func modifyTag(parsed parser.ParsedCmdLine, query db.DBTX) error {
 			return err
 		}
 	}
+	if isJSONOutput(parsed) {
+		return renderJSON("tag", map[string]any{"action": "updated", "name": name}, 1)
+	}
 	fmt.Printf("Tag %s updated\n", name)
 	return nil
 }
 
 func deleteTag(parsed parser.ParsedCmdLine, query db.DBTX) error {
+	if err := requireYesForJSON(parsed); err != nil {
+		return err
+	}
 	name, err := getTagNameArg(parsed.Args[0])
 	if err != nil {
 		return err
@@ -148,11 +169,14 @@ func deleteTag(parsed parser.ParsedCmdLine, query db.DBTX) error {
 	if count > 0 {
 		return fmt.Errorf("tag %s has linked transactions", name)
 	}
-	if !utils.AskYesNo(fmt.Sprintf("Delete tag %s?", name)) {
+	if !parsed.HasFlag("yes") && !utils.AskYesNo(fmt.Sprintf("Delete tag %s?", name)) {
 		return nil
 	}
 	if err := db.DeleteTagByID(query, tag.ID); err != nil {
 		return err
+	}
+	if isJSONOutput(parsed) {
+		return renderJSON("tag", map[string]any{"action": "deleted", "name": name}, 1)
 	}
 	fmt.Printf("Tag %s deleted\n", name)
 	return nil

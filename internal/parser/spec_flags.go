@@ -13,4 +13,16 @@ var FlagSpecs = map[string]FlagSpec{
 		Name: "debug",
 		Type: FlagValueTypeBool,
 	},
+	"format": {
+		Name: "format",
+		Type: FlagValueTypeString,
+	},
+	"json": {
+		Name: "json",
+		Type: FlagValueTypeBool,
+	},
+	"yes": {
+		Name: "yes",
+		Type: FlagValueTypeBool,
+	},
 }

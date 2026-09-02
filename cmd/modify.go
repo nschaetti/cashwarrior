@@ -10,6 +10,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/domain"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 	"github.com/pterm/pterm"
 )
@@ -56,7 +57,10 @@ func getExistingTagID(cashDb db.DBTX, name string) (*int64, error) {
 	return &tag.ID, nil
 }
 
-func confirmModifyTransaction(cashDb db.DBTX, modification transactionModifications, title string, desc string, config config.Config) bool {
+func confirmModifyTransaction(cashDb db.DBTX, modification transactionModifications, title string, desc string, config config.Config, skip bool) bool {
+	if skip {
+		return true
+	}
 	pterm.FgWhite.Println(title)
 	pterm.FgWhite.Println("========================")
 	if modification.Amount != nil {
@@ -135,7 +139,11 @@ func confirmModifyAccount(
 	modification accountModifications,
 	title string,
 	desc string,
+	skip bool,
 ) bool {
+	if skip {
+		return true
+	}
 	pterm.FgWhite.Println(title)
 	pterm.FgWhite.Println("========================")
 	if modification.Name != nil {
@@ -325,14 +333,20 @@ func ModifyAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBT
 
 	// If there are no accounts to modify, return
 	if len(accounts) == 0 {
+		if isJSONOutput(parsed) {
+			return renderJSONResult(output.FailureResult("accounts", output.Error{Code: "NOT_FOUND", Message: "no accounts match the given filters"}))
+		}
 		pterm.Warning.Println("No accounts match the given filters")
 		return nil
 	}
 
 	// Check with the user (confirmation)
 	confirmDesc := fmt.Sprintf("Modifying %d accounts", len(accounts))
-	confirmed := confirmModifyAccount(modifications, "Modify accounts", confirmDesc)
+	confirmed := confirmModifyAccount(modifications, "Modify accounts", confirmDesc, parsed.HasFlag("yes"))
 	if !confirmed {
+		if isJSONOutput(parsed) {
+			return renderJSONResult(output.FailureResult("accounts", output.Error{Code: "CANCELLED", Message: "account modification cancelled"}))
+		}
 		pterm.Warning.Println("Modification(s) cancelled by user, no account added.")
 		return nil
 	}
@@ -346,6 +360,9 @@ func ModifyAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBT
 		updatedCount++
 	}
 
+	if isJSONOutput(parsed) {
+		return renderJSON("accounts", map[string]any{"action": "updated"}, updatedCount)
+	}
 	pterm.Success.Printf("Updated %d accounts\n", updatedCount)
 	return nil
 }
@@ -375,6 +392,9 @@ func ModifyTransactions(parsed parser.ParsedCmdLine, cfg config.Config, cashDb d
 
 	// There are no transactions to modify
 	if len(transactions) == 0 {
+		if isJSONOutput(parsed) {
+			return renderJSONResult(output.FailureResult("transactions", output.Error{Code: "NOT_FOUND", Message: "no transactions match the given filters"}))
+		}
 		return fmt.Errorf("no transactions match the given filters")
 	}
 
@@ -385,8 +405,11 @@ func ModifyTransactions(parsed parser.ParsedCmdLine, cfg config.Config, cashDb d
 
 	// Check with the user (confirmation)
 	confirmDesc := fmt.Sprintf("Modifying %d transactions", len(transactions))
-	confirmed := confirmModifyTransaction(cashDb, modifications, "Modify transactions", confirmDesc, cfg)
+	confirmed := confirmModifyTransaction(cashDb, modifications, "Modify transactions", confirmDesc, cfg, parsed.HasFlag("yes"))
 	if !confirmed {
+		if isJSONOutput(parsed) {
+			return renderJSONResult(output.FailureResult("transactions", output.Error{Code: "CANCELLED", Message: "transaction modification cancelled"}))
+		}
 		pterm.Warning.Println("Modification(s) cancelled by user, no transaction added.")
 		return nil
 	}
@@ -400,11 +423,17 @@ func ModifyTransactions(parsed parser.ParsedCmdLine, cfg config.Config, cashDb d
 		updatedCount++
 	}
 
+	if isJSONOutput(parsed) {
+		return renderJSON("transactions", map[string]any{"action": "updated"}, updatedCount)
+	}
 	pterm.Success.Printf("Updated %d transactions\n", updatedCount)
 	return nil
 }
 
 func Modify(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
+	if err := requireYesForJSON(parsed); err != nil {
+		return err
+	}
 	if parsed.Command != "modify" {
 		panic("Modify received an invalid command")
 	}

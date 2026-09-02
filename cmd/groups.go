@@ -9,6 +9,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
@@ -27,6 +28,17 @@ func Groups(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 		sortOptions, err := parseGroupsSortOptions(parsed)
 		if err != nil {
 			return err
+		}
+		format, err := commandOutputFormat(parsed)
+		if err != nil {
+			return err
+		}
+		if format == output.FormatJSON {
+			data, err := getGroupsData(cashDb, sortOptions)
+			if err != nil {
+				return err
+			}
+			return renderJSON("groups", data, len(data.Groups))
 		}
 		return listGroups(cashDb, sortOptions)
 	default:

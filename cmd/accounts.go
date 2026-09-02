@@ -19,7 +19,7 @@ import (
 func Accounts(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
 	switch parsed.Subcommand {
 	case "list":
-		return listAccounts(config, cashDb)
+		return accountListJSON(parsed, config, cashDb)
 	case "balance":
 		return accountBalance(parsed, config, cashDb)
 	case "add":
@@ -112,6 +112,9 @@ func setAccountInitialBalance(parsed parser.ParsedCmdLine, cashDb db.DBTX) error
 	if err := db.UpdateAccountInitialBalance(cashDb, account.ID, amount); err != nil {
 		return err
 	}
+	if isJSONOutput(parsed) {
+		return renderJSON("account", map[string]any{"action": "initial_balance_updated", "account": accountName, "amount": amount}, 1)
+	}
 	fmt.Printf("Account %s initial balance set to %.2f\n", accountName, amount)
 	return nil
 }
@@ -176,6 +179,9 @@ func addAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) 
 	if err != nil {
 		return err
 	}
+	if isJSONOutput(parsed) {
+		return renderJSON("account", map[string]any{"action": "created", "name": name}, 1)
+	}
 	fmt.Printf("Account %s created\n", name)
 	return nil
 }
@@ -229,11 +235,17 @@ func modifyAccount(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX)
 			return err
 		}
 	}
+	if isJSONOutput(parsed) {
+		return renderJSON("account", map[string]any{"action": "updated", "name": name}, 1)
+	}
 	fmt.Printf("Account %s updated\n", name)
 	return nil
 }
 
 func renameAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
+	if err := requireYesForJSON(parsed); err != nil {
+		return err
+	}
 	name, err := getAccountNameArg(parsed.Args[0])
 	if err != nil {
 		return err
@@ -250,8 +262,10 @@ func renameAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBT
 		return nil
 	}
 	if name == cfg.Default.Account {
-		fmt.Printf("Account %s is your default account.\n", name)
-		if !utils.AskYesNo("Rename it and update default.account in config?") {
+		if !parsed.HasFlag("yes") && !isJSONOutput(parsed) {
+			fmt.Printf("Account %s is your default account.\n", name)
+		}
+		if !parsed.HasFlag("yes") && !utils.AskYesNo("Rename it and update default.account in config?") {
 			return nil
 		}
 		cfg.Default.Account = newName
@@ -277,11 +291,17 @@ func renameAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBT
 	if err := db.UpdateAccountName(cashDb, account.ID, newName); err != nil {
 		return err
 	}
+	if isJSONOutput(parsed) {
+		return renderJSON("account", map[string]any{"action": "renamed", "name": newName}, 1)
+	}
 	fmt.Printf("Account %s renamed to %s\n", name, newName)
 	return nil
 }
 
 func deleteAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBTX) error {
+	if err := requireYesForJSON(parsed); err != nil {
+		return err
+	}
 	name, err := getAccountNameArg(parsed.Args[0])
 	if err != nil {
 		return err
@@ -303,11 +323,14 @@ func deleteAccount(parsed parser.ParsedCmdLine, cfg config.Config, cashDb db.DBT
 	if count > 0 {
 		return fmt.Errorf("account %s has linked transactions", name)
 	}
-	if !utils.AskYesNo(fmt.Sprintf("Delete account %s?", name)) {
+	if !parsed.HasFlag("yes") && !utils.AskYesNo(fmt.Sprintf("Delete account %s?", name)) {
 		return nil
 	}
 	if err := db.DeleteAccountByID(cashDb, account.ID); err != nil {
 		return err
+	}
+	if isJSONOutput(parsed) {
+		return renderJSON("account", map[string]any{"action": "deleted", "name": name}, 1)
 	}
 	fmt.Printf("Account %s deleted\n", name)
 	return nil

@@ -10,6 +10,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
@@ -22,47 +23,152 @@ func defaultListSortOptions() listSortOptions {
 	return listSortOptions{Desc: true}
 }
 
-func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config config.Config) error {
-	rows := make([][]string, 0, len(transactions))
-	types := make([]string, 0, len(transactions))
+func buildListData(cashDb db.DBTX, transactions []db.Transaction) (output.ListData, error) {
+	data := output.ListData{
+		Transactions: make([]output.ListTransaction, 0, len(transactions)),
+		Summary: output.ListSummary{
+			ByCurrency: make([]output.ListCurrencySummary, 0),
+			ByAccount:  make([]output.ListAccountSummary, 0),
+		},
+	}
 
 	for _, transaction := range transactions {
-		var categoryName string
+		categoryName := "none"
 		if transaction.CategoryID != nil {
 			category, err := transaction.GetCategory(cashDb)
 			if err != nil {
-				return err
+				return output.ListData{}, err
 			}
 			categoryName = category.Name
-		} else {
-			categoryName = "none"
 		}
+
 		groupName := ""
 		if transaction.GroupID != nil {
 			group, err := transaction.GetGroup(cashDb)
 			if err != nil {
-				return err
+				return output.ListData{}, err
 			}
 			if group != nil {
 				groupName = group.Name
 			}
 		}
-		var vendorName string
+
+		vendorName := ""
 		vendor, err := transaction.GetPlace(cashDb)
 		if err != nil {
-			return err
+			return output.ListData{}, err
 		}
-		vendorName = vendor.Name
+		if vendor != nil {
+			vendorName = vendor.Name
+		}
+
+		data.Transactions = append(data.Transactions, output.ListTransaction{
+			ID:          transaction.ID,
+			Identifier:  transaction.Identifier,
+			Type:        transaction.Type,
+			Amount:      transaction.Amount,
+			Currency:    transaction.Currency,
+			Description: transaction.Description,
+			Date:        transaction.Datetime,
+			Account:     transaction.AccountName,
+			Vendor:      vendorName,
+			Category:    categoryName,
+			Group:       groupName,
+		})
+	}
+
+	accounts, err := db.ListAccounts(cashDb, []db.SQLFilter{}, []db.Filter[db.Account]{}, []string{})
+	if err != nil {
+		return output.ListData{}, err
+	}
+
+	type totals struct {
+		Name     string
+		Currency string
+		Income   float64
+		Expenses float64
+	}
+	accountTotals := make(map[int64]*totals, len(accounts))
+	accountByID := make(map[int64]db.Account, len(accounts))
+	for _, account := range accounts {
+		accountByID[account.ID] = account
+		accountTotals[account.ID] = &totals{Name: account.Name, Currency: account.Currency}
+	}
+
+	currencyTotals := make(map[string]*totals)
+	for _, transaction := range transactions {
+		if transaction.Type != "income" && transaction.Type != "expense" || transaction.AccountID == nil {
+			continue
+		}
+		account, ok := accountByID[*transaction.AccountID]
+		if !ok {
+			continue
+		}
+		currencyTotal, ok := currencyTotals[account.Currency]
+		if !ok {
+			currencyTotal = &totals{Currency: account.Currency}
+			currencyTotals[account.Currency] = currencyTotal
+		}
+		accountTotal := accountTotals[account.ID]
+		if transaction.Amount >= 0 {
+			currencyTotal.Income += transaction.Amount
+			accountTotal.Income += transaction.Amount
+		} else {
+			currencyTotal.Expenses += transaction.Amount
+			accountTotal.Expenses += transaction.Amount
+		}
+	}
+
+	currencies := make([]string, 0, len(currencyTotals))
+	for currency := range currencyTotals {
+		currencies = append(currencies, currency)
+	}
+	sort.Strings(currencies)
+	for _, currency := range currencies {
+		total := currencyTotals[currency]
+		data.Summary.ByCurrency = append(data.Summary.ByCurrency, output.ListCurrencySummary{
+			Currency: currency,
+			Income:   total.Income,
+			Expenses: total.Expenses,
+			Net:      total.Income + total.Expenses,
+		})
+	}
+
+	accountIDs := make([]int64, 0, len(accountTotals))
+	for accountID := range accountTotals {
+		accountIDs = append(accountIDs, accountID)
+	}
+	sort.Slice(accountIDs, func(i, j int) bool {
+		return accountTotals[accountIDs[i]].Name < accountTotals[accountIDs[j]].Name
+	})
+	for _, accountID := range accountIDs {
+		total := accountTotals[accountID]
+		data.Summary.ByAccount = append(data.Summary.ByAccount, output.ListAccountSummary{
+			Account:  total.Name,
+			Income:   total.Income,
+			Expenses: total.Expenses,
+			Net:      total.Income + total.Expenses,
+		})
+	}
+
+	return data, nil
+}
+
+func printTransactionTable(data output.ListData) {
+	rows := make([][]string, 0, len(data.Transactions))
+	types := make([]string, 0, len(data.Transactions))
+
+	for _, transaction := range data.Transactions {
 		rows = append(rows, []string{
 			transaction.Identifier,
-			transaction.AccountName,
+			transaction.Account,
 			strconv.FormatFloat(transaction.Amount, 'f', 2, 64),
 			transaction.Currency,
-			vendorName,
+			transaction.Vendor,
 			transaction.Description,
-			transaction.Datetime.Format("2006-01-02"),
-			categoryName,
-			groupName,
+			transaction.Date.Format("2006-01-02"),
+			transaction.Category,
+			transaction.Group,
 		})
 		types = append(types, transaction.Type)
 	}
@@ -80,76 +186,10 @@ func printTransactionTable(cashDb db.DBTX, transactions []db.Transaction, config
 	}
 
 	fmt.Println(t.Render())
-	fmt.Printf(" Returned %d transactions\n\n\n", len(transactions))
-
-	return nil
+	fmt.Printf(" Returned %d transactions\n\n\n", len(data.Transactions))
 }
 
-func PrintExpensesIncomeByCurrency(cashDb db.DBTX, transactions []db.Transaction) error {
-	type currencySummary struct {
-		Income   float64
-		Expenses float64
-	}
-
-	type accountSummary struct {
-		Name     string
-		Currency string
-		Income   float64
-		Expenses float64
-	}
-
-	accounts, err := db.ListAccounts(cashDb, []db.SQLFilter{}, []db.Filter[db.Account]{}, []string{})
-	if err != nil {
-		return err
-	}
-
-	accountByID := make(map[int64]db.Account, len(accounts))
-	accountTotals := make(map[int64]*accountSummary, len(accounts))
-	for _, account := range accounts {
-		accountByID[account.ID] = account
-		accountTotals[account.ID] = &accountSummary{
-			Name:     account.Name,
-			Currency: account.Currency,
-		}
-	}
-
-	currencyTotals := make(map[string]*currencySummary)
-	for _, transaction := range transactions {
-		if transaction.Type != "income" && transaction.Type != "expense" {
-			continue
-		}
-
-		if transaction.AccountID == nil {
-			continue
-		}
-
-		account, ok := accountByID[*transaction.AccountID]
-		if !ok {
-			continue
-		}
-
-		currencyTotal, ok := currencyTotals[account.Currency]
-		if !ok {
-			currencyTotal = &currencySummary{}
-			currencyTotals[account.Currency] = currencyTotal
-		}
-
-		accountTotal := accountTotals[account.ID]
-		if transaction.Amount >= 0 {
-			currencyTotal.Income += transaction.Amount
-			accountTotal.Income += transaction.Amount
-		} else {
-			currencyTotal.Expenses += transaction.Amount
-			accountTotal.Expenses += transaction.Amount
-		}
-	}
-
-	currencies := make([]string, 0, len(currencyTotals))
-	for currency := range currencyTotals {
-		currencies = append(currencies, currency)
-	}
-	sort.Strings(currencies)
-
+func printExpensesIncomeByCurrency(data output.ListData) {
 	formatAmount := func(amount float64, forceSign bool) string {
 		if forceSign {
 			return fmt.Sprintf("%+.2f", amount)
@@ -164,12 +204,11 @@ func PrintExpensesIncomeByCurrency(cashDb db.DBTX, transactions []db.Transaction
 	incomeRow := []string{"Income"}
 	expensesRow := []string{"Expenses"}
 	netRow := []string{"Net"}
-	for _, currency := range currencies {
-		totals := currencyTotals[currency]
-		headers = append(headers, currency)
-		incomeRow = append(incomeRow, fmt.Sprintf("%s %s", formatAmount(totals.Income, true), currency))
-		expensesRow = append(expensesRow, fmt.Sprintf("%s %s", formatAmount(totals.Expenses, false), currency))
-		netRow = append(netRow, fmt.Sprintf("%s %s", formatAmount(totals.Income+totals.Expenses, true), currency))
+	for _, totals := range data.Summary.ByCurrency {
+		headers = append(headers, totals.Currency)
+		incomeRow = append(incomeRow, fmt.Sprintf("%s %s", formatAmount(totals.Income, true), totals.Currency))
+		expensesRow = append(expensesRow, fmt.Sprintf("%s %s", formatAmount(totals.Expenses, false), totals.Currency))
+		netRow = append(netRow, fmt.Sprintf("%s %s", formatAmount(totals.Net, true), totals.Currency))
 	}
 
 	theme := gui.CurrentTheme()
@@ -185,22 +224,13 @@ func PrintExpensesIncomeByCurrency(cashDb db.DBTX, transactions []db.Transaction
 	fmt.Println(summaryTable.Render())
 	fmt.Println()
 
-	accountRows := make([][]string, 0, len(accountTotals))
-	accountKeys := make([]int64, 0, len(accountTotals))
-	for accountID := range accountTotals {
-		accountKeys = append(accountKeys, accountID)
-	}
-	sort.Slice(accountKeys, func(i, j int) bool {
-		return accountTotals[accountKeys[i]].Name < accountTotals[accountKeys[j]].Name
-	})
-
-	for _, accountID := range accountKeys {
-		totals := accountTotals[accountID]
+	accountRows := make([][]string, 0, len(data.Summary.ByAccount))
+	for _, totals := range data.Summary.ByAccount {
 		accountRows = append(accountRows, []string{
-			totals.Name,
+			totals.Account,
 			formatAmount(totals.Income, true),
 			formatAmount(totals.Expenses, false),
-			formatAmount(totals.Income+totals.Expenses, true),
+			formatAmount(totals.Net, true),
 		})
 	}
 
@@ -214,7 +244,19 @@ func PrintExpensesIncomeByCurrency(cashDb db.DBTX, transactions []db.Transaction
 	fmt.Println(accountTable.Render())
 	fmt.Println()
 	fmt.Println()
+}
 
+func renderListData(parsed parser.ParsedCmdLine, data output.ListData) error {
+	format, err := commandOutputFormat(parsed)
+	if err != nil {
+		return err
+	}
+	if format == output.FormatJSON {
+		return renderJSON("transactions", data, len(data.Transactions))
+	}
+
+	printTransactionTable(data)
+	printExpensesIncomeByCurrency(data)
 	return nil
 }
 
@@ -406,19 +448,12 @@ func List(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) err
 		return err
 	}
 
-	// Print transaction table
-	err = printTransactionTable(cashDb, transactions, config)
+	data, err := buildListData(cashDb, transactions)
 	if err != nil {
 		return err
 	}
 
-	//  Print expenses and income summary
-	err = PrintExpensesIncomeByCurrency(cashDb, transactions)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return renderListData(parsed, data)
 }
 
 func listDeletedTransactions(config config.Config, cashDb db.DBTX) error {
@@ -427,9 +462,9 @@ func listDeletedTransactions(config config.Config, cashDb db.DBTX) error {
 		return err
 	}
 
-	if err := printTransactionTable(cashDb, transactions, config); err != nil {
+	data, err := buildListData(cashDb, transactions)
+	if err != nil {
 		return err
 	}
-
-	return nil
+	return renderListData(parser.ParsedCmdLine{}, data)
 }

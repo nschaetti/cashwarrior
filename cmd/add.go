@@ -11,6 +11,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/domain"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 	"github.com/pterm/pterm"
 )
@@ -297,7 +298,10 @@ type AddTransactionInput struct {
 	GroupName    string
 }
 
-func confirmTransaction(addInput AddTransactionInput) bool {
+func confirmTransaction(addInput AddTransactionInput, skip bool) bool {
+	if skip {
+		return true
+	}
 	pterm.FgWhite.Println("Transaction to be added:")
 	pterm.FgWhite.Println("========================")
 	pterm.FgWhite.Println("Identifier:\t" + addInput.Identifier.String())
@@ -325,6 +329,9 @@ func confirmTransaction(addInput AddTransactionInput) bool {
 }
 
 func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
+	if err := requireYesForJSON(parsed); err != nil {
+		return err
+	}
 	// Get count by token kind for validation
 	tokenKindsCount := parsed.GetTokenKindCount(false)
 
@@ -405,6 +412,7 @@ func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) erro
 			CategoryName: transactionCategory,
 			GroupName:    transactionGroup,
 		},
+		parsed.HasFlag("yes"),
 	)
 
 	if confirmed {
@@ -415,8 +423,14 @@ func Add(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) erro
 			return err
 		}
 		// Show success message
+		if isJSONOutput(parsed) {
+			return renderJSON("transaction", map[string]any{"id": transactionSqlID, "identifier": addInput.Identifier}, 1)
+		}
 		pterm.Success.Println("Transaction added with id: " + strconv.FormatInt(transactionSqlID, 10) + "")
 	} else {
+		if isJSONOutput(parsed) {
+			return renderJSONResult(output.FailureResult("transaction", output.Error{Code: "CANCELLED", Message: "transaction creation cancelled"}))
+		}
 		pterm.Warning.Println("Transaction cancelled by user, no transaction added.")
 	}
 

@@ -8,6 +8,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/domain"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 	"github.com/pterm/pterm"
 )
@@ -75,22 +76,30 @@ func getTransactionByReference(cashDb db.DBTX, transactionRef string) (db.Transa
 }
 
 func Group(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
+	if err := requireYesForJSON(parsed); err != nil {
+		return err
+	}
 	transactionRefs, groupName, err := parseGroupArgs(parsed)
 	if err != nil {
 		return err
 	}
 
-	pterm.FgWhite.Println("Transaction to be added:")
-	pterm.FgWhite.Println("========================")
-	pterm.FgWhite.Println("Group: ", groupName, "")
-	for _, transactionRef := range transactionRefs {
-		pterm.FgWhite.Println("Transaction: ", transactionRef, "")
+	if !isJSONOutput(parsed) {
+		pterm.FgWhite.Println("Transaction to be added:")
+		pterm.FgWhite.Println("========================")
+		pterm.FgWhite.Println("Group: ", groupName, "")
+		for _, transactionRef := range transactionRefs {
+			pterm.FgWhite.Println("Transaction: ", transactionRef, "")
+		}
 	}
 
 	// Confirm grouping
-	ok, err := pterm.DefaultInteractiveConfirm.
-		WithDefaultText("Confirm grouping (N/y) ?").
-		Show()
+	ok := parsed.HasFlag("yes")
+	if !ok {
+		ok, err = pterm.DefaultInteractiveConfirm.
+			WithDefaultText("Confirm grouping (N/y) ?").
+			Show()
+	}
 	if err != nil {
 		panic(fmt.Errorf("error confirming grouping: %w", err))
 	}
@@ -117,7 +126,13 @@ func Group(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
 		}
 
 		pterm.Success.Printf("Linked %d transactions to group %s\n", linkedCount, groupName)
+		if isJSONOutput(parsed) {
+			return renderJSON("group", map[string]any{"group": groupName, "linked": linkedCount}, linkedCount)
+		}
 	} else {
+		if isJSONOutput(parsed) {
+			return renderJSONResult(output.FailureResult("group", output.Error{Code: "CANCELLED", Message: "grouping cancelled"}))
+		}
 		pterm.Warning.Println("Aborted grouping")
 	}
 	return nil

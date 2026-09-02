@@ -36,12 +36,18 @@ func Delete(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) error
 					return err
 				}
 			}
+			if isJSONOutput(parsed) {
+				return renderJSON("transaction", map[string]any{"action": "deleted", "identifier": transaction.Identifier}, 1)
+			}
 			fmt.Printf("Transaction %s deleted\n", transaction.Identifier)
 			return nil
 		}
 
 		if err := db.UpdateTransactionDeleted(query, transaction.ID, true); err != nil {
 			return err
+		}
+		if isJSONOutput(parsed) {
+			return renderJSON("transaction", map[string]any{"action": "deleted", "identifier": transaction.Identifier}, 1)
 		}
 		fmt.Printf("Transaction %s deleted\n", transaction.Identifier)
 		return nil

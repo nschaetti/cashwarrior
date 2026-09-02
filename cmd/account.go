@@ -11,6 +11,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
@@ -47,6 +48,17 @@ func accountBalance(parsed parser.ParsedCmdLine, config config.Config, cashDb db
 		return err
 	}
 	sortTransactionsForRunningBalance(transactions)
+	format, err := commandOutputFormat(parsed)
+	if err != nil {
+		return err
+	}
+	if format == output.FormatJSON {
+		data, err := getAccountBalanceData(cashDb, account, transactions, balanceByTransactionID)
+		if err != nil {
+			return err
+		}
+		return renderJSON("account_balance", data, len(data.Transactions))
+	}
 
 	return printAccountTransactionTable(cashDb, account, transactions, balanceByTransactionID, config)
 }

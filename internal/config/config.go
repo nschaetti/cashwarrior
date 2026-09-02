@@ -222,7 +222,6 @@ func SaveConfig(path string, config Config) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
-	fmt.Println("Saving config file to", path)
 	err = os.WriteFile(path, data, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write config file: %v", err)

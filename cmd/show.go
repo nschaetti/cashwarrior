@@ -11,6 +11,7 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
@@ -26,7 +27,83 @@ func showValue(value string) string {
 	return value
 }
 
+func getShowData(query db.DBTX, identifier string) (output.ShowTransaction, error) {
+	transaction, err := db.GetTransactionByIdentifier(query, identifier)
+	if err != nil {
+		return output.ShowTransaction{}, err
+	}
+	place, err := transaction.GetPlace(query)
+	if err != nil {
+		return output.ShowTransaction{}, err
+	}
+	category, err := transaction.GetCategory(query)
+	if err != nil {
+		return output.ShowTransaction{}, err
+	}
+	group, err := transaction.GetGroup(query)
+	if err != nil {
+		return output.ShowTransaction{}, err
+	}
+	tags, err := db.ListTagsByTransactionID(query, transaction.ID)
+	if err != nil {
+		return output.ShowTransaction{}, err
+	}
+
+	data := output.ShowTransaction{ID: transaction.Identifier, Type: transaction.Type, Amount: transaction.Amount,
+		Currency: transaction.Currency, Account: transaction.AccountName, Description: transaction.Description,
+		Date: transaction.Datetime, Deleted: transaction.Deleted, CreatedAt: transaction.CreatedAt, UpdatedAt: transaction.UpdatedAt,
+		Tags: make([]string, 0, len(tags))}
+	if place != nil {
+		data.Place = place.Name
+	}
+	if category != nil {
+		data.Category = category.Name
+	}
+	if group != nil {
+		data.Group = group.Name
+	}
+	for _, tag := range tags {
+		data.Tags = append(data.Tags, tag.Name)
+	}
+
+	transfer, err := db.GetTransferByTransactionID(query, transaction.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return output.ShowTransaction{}, err
+	}
+	if err == nil {
+		from, err := transfer.GetFromAccount(query)
+		if err != nil {
+			return output.ShowTransaction{}, err
+		}
+		to, err := transfer.GetToAccount(query)
+		if err != nil {
+			return output.ShowTransaction{}, err
+		}
+		pairID := transfer.FromTransactionID
+		if pairID == transaction.ID {
+			pairID = transfer.ToTransactionID
+		}
+		pair, err := db.GetTransactionByID(query, pairID)
+		if err != nil {
+			return output.ShowTransaction{}, err
+		}
+		data.Transfer = &output.ShowTransfer{Amount: transfer.Amount, FromAccount: from.Name, ToAccount: to.Name, PairID: pair.Identifier}
+	}
+	return data, nil
+}
+
 func Show(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) error {
+	format, err := commandOutputFormat(parsed)
+	if err != nil {
+		return err
+	}
+	if format == output.FormatJSON {
+		data, err := getShowData(query, parsed.Args[0].RawString())
+		if err != nil {
+			return err
+		}
+		return renderJSON("transaction", data, 1)
+	}
 	transaction, err := db.GetTransactionByIdentifier(query, parsed.Args[0].RawString())
 	if err != nil {
 		return err

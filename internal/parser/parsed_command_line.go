@@ -52,6 +52,22 @@ func (p *ParsedCmdLine) HasFlag(name string) bool {
 	return false
 }
 
+// GetFlagString returns the value of a string flag.
+func (p *ParsedCmdLine) GetFlagString(name string) (string, bool) {
+	for _, arg := range p.Flags {
+		flag, ok := arg.(ArgFlag)
+		if !ok || flag.Key != name {
+			continue
+		}
+		value, ok := flag.Value.(StringItem)
+		if !ok {
+			return "", false
+		}
+		return value.Value, true
+	}
+	return "", false
+}
+
 func (p *ParsedCmdLine) GetArgAttributeValue(name string) (AttributeValue, error) {
 	for _, arg := range p.Args {
 		attr, ok := arg.(ArgAttribute)

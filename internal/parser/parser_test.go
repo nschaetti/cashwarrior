@@ -78,6 +78,42 @@ func TestParseCmdLine_ExtractsShortHelpFlag(t *testing.T) {
 	}
 }
 
+func TestParseCmdLine_ExtractsOutputFormatFlag(t *testing.T) {
+	for _, args := range [][]string{
+		{"list", "--format", "json"},
+		{"list", "--format=json"},
+	} {
+		parsed, err := ParseCmdLine(args, config.GetDefaultConfig())
+		if err != nil {
+			t.Fatalf("ParseCmdLine(%v) returned error: %v", args, err)
+		}
+		value, ok := parsed.GetFlagString("format")
+		if !ok || value != "json" {
+			t.Fatalf("format flag from %v = (%q, %t), want (json, true)", args, value, ok)
+		}
+		if len(parsed.Args) != 0 {
+			t.Fatalf("parsed.Args from %v = %#v, want no format value argument", args, parsed.Args)
+		}
+	}
+}
+
+func TestParseCmdLine_ExtractsJSONAndYesFlags(t *testing.T) {
+	parsed, err := ParseCmdLine([]string{"--json", "list", "--yes"}, config.GetDefaultConfig())
+	if err != nil {
+		t.Fatalf("ParseCmdLine returned error: %v", err)
+	}
+	if !parsed.HasFlag("json") || !parsed.HasFlag("yes") {
+		t.Fatalf("parsed flags = %#v, want json and yes", parsed.Flags)
+	}
+}
+
+func TestParseCmdLine_RejectsMissingFormatValue(t *testing.T) {
+	_, err := ParseCmdLine([]string{"list", "--format"}, config.GetDefaultConfig())
+	if err == nil || err.Code != ParseErrorInvalidFlagValue {
+		t.Fatalf("ParseCmdLine returned error = %v, want invalid flag value", err)
+	}
+}
+
 func TestParseArgAttribute_CanonicalizesIdentifierAliases(t *testing.T) {
 	for _, raw := range []string{"identifier:2026.05.1", "id:2026.05.1", "T:2026.05.1"} {
 		arg, err := ParseArgAttribute(raw, config.Config{})

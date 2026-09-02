@@ -36,12 +36,18 @@ func Restore(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) erro
 				return err
 			}
 		}
+		if isJSONOutput(parsed) {
+			return renderJSON("transaction", map[string]any{"action": "restored", "identifier": transaction.Identifier}, 1)
+		}
 		fmt.Printf("Transaction %s restored\n", transaction.Identifier)
 		return nil
 	}
 
 	if err := db.UpdateTransactionDeleted(query, transaction.ID, false); err != nil {
 		return err
+	}
+	if isJSONOutput(parsed) {
+		return renderJSON("transaction", map[string]any{"action": "restored", "identifier": transaction.Identifier}, 1)
 	}
 	fmt.Printf("Transaction %s restored\n", transaction.Identifier)
 	return nil

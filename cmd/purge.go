@@ -13,6 +13,9 @@ func Purge(parsed parser.ParsedCmdLine, _ config.Config, query db.DBTX) error {
 	if err := db.PurgeTransactionByIdentifier(query, identifier); err != nil {
 		return err
 	}
+	if isJSONOutput(parsed) {
+		return renderJSON("transaction", map[string]any{"action": "purged", "identifier": identifier}, 1)
+	}
 	fmt.Printf("Transaction %s purged\n", identifier)
 	return nil
 }

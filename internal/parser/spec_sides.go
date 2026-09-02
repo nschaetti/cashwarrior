@@ -193,6 +193,7 @@ func modifyAccountRightSideSpec() SideSpec {
 func transferRightSideSpec() SideSpec {
 	side := sideSpec(
 		[]ArgKind{ArgKindAttribute, ArgKindText},
+		settableOnlyAttribute("amount").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("from").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("to").SetShapes(AttributeValueShapeSingle),
 		settableOnlyAttribute("date").SetShapes(AttributeValueShapeSingle),

@@ -10,12 +10,24 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
 	"github.com/nschaetti/cashwarrior/internal/gui"
+	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
 func Places(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
 	switch parsed.Subcommand {
 	case "list":
+		format, err := commandOutputFormat(parsed)
+		if err != nil {
+			return err
+		}
+		if format == output.FormatJSON {
+			data, err := getPlacesData(cashDb)
+			if err != nil {
+				return err
+			}
+			return renderJSON("places", data, len(data.Places))
+		}
 		return listPlaces(cashDb)
 	case "rename":
 		return renamePlace(parsed, cashDb)
@@ -80,6 +92,9 @@ func renamePlace(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
 		return err
 	}
 
+	if isJSONOutput(parsed) {
+		return renderJSON("place", map[string]any{"action": "renamed", "name": newName}, 1)
+	}
 	fmt.Printf("Place %s renamed to %s\n", oldName, newName)
 	return nil
 }
