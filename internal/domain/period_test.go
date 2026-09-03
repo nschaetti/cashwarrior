@@ -12,10 +12,10 @@ func TestParsePeriod_Valid(t *testing.T) {
 		{"week", PeriodWeek},
 		{"month", PeriodMonth},
 		{"year", PeriodYear},
-		{"lastmonday", PeriodLastMonday},
-		{"lastsunday", PeriodLastSunday},
-		{"january", PeriodNamedMonth},
-		{"week3", PeriodWeekNumber},
+		{"monday", PeriodMonday},
+		{"sunday", PeriodSunday},
+		{"january", PeriodJanuary},
+		{"week3", PeriodNumberedWeek},
 	}
 
 	for _, tt := range tests {
@@ -55,7 +55,7 @@ func TestPeriodKindString(t *testing.T) {
 	if PeriodToday.String() != "today" {
 		t.Fatalf("PeriodToday.String() = %q, want %q", PeriodToday.String(), "today")
 	}
-	if PeriodLastFriday.String() != "lastfriday" {
-		t.Fatalf("PeriodLastFriday.String() = %q, want %q", PeriodLastFriday.String(), "lastfriday")
+	if PeriodFriday.String() != "friday" {
+		t.Fatalf("PeriodFriday.String() = %q, want %q", PeriodFriday.String(), "friday")
 	}
 }

@@ -9,10 +9,10 @@ import (
 func TestParseGroupArgs(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command: "group",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "T2026.05.10"},
-			{Kind: parser.TokenText, Raw: "T2026.05.11"},
-			{Kind: parser.TokenText, Raw: "ticket_12"},
+		Args: []parser.Arg{
+			testArg(t, "identifier:T2026.05.10"),
+			testArg(t, "identifier:T2026.05.11"),
+			testArg(t, "group:ticket_12"),
 		},
 	}
 
@@ -31,7 +31,7 @@ func TestParseGroupArgs(t *testing.T) {
 func TestParseGroupArgsRequiresTransactions(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command: "group",
-		Args:    []parser.Token{{Kind: parser.TokenText, Raw: "ticket_12"}},
+		Args:    []parser.Arg{testArg(t, "group:ticket_12")},
 	}
 
 	_, _, err := parseGroupArgs(parsed)
@@ -43,9 +43,9 @@ func TestParseGroupArgsRequiresTransactions(t *testing.T) {
 func TestParseGroupArgsRequiresGroup(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command: "group",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "T2026.05.10"},
-			{Kind: parser.TokenText, Raw: "T2026.05.11"},
+		Args: []parser.Arg{
+			testArg(t, "identifier:T2026.05.10"),
+			testArg(t, "identifier:T2026.05.11"),
 		},
 	}
 
@@ -58,10 +58,10 @@ func TestParseGroupArgsRequiresGroup(t *testing.T) {
 func TestParseGroupArgsRejectsMultipleGroups(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command: "group",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "T2026.05.10"},
-			{Kind: parser.TokenText, Raw: "ticket_1"},
-			{Kind: parser.TokenText, Raw: "ticket_2"},
+		Args: []parser.Arg{
+			testArg(t, "identifier:T2026.05.10"),
+			testArg(t, "group:ticket_1"),
+			testArg(t, "group:ticket_2"),
 		},
 	}
 

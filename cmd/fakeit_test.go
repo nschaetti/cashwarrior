@@ -10,10 +10,10 @@ import (
 func TestParseFakeitOptionsMonthAndCount(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command: "fakeit",
-		Args: []parser.Token{
-			{Kind: parser.TokenAttribute, Key: "year", Value: "2026"},
-			{Kind: parser.TokenAttribute, Key: "month", Value: "may"},
-			{Kind: parser.TokenText, Raw: "50"},
+		Args: []parser.Arg{
+			testArg(t, "year" + ":" + "2026"),
+			testArg(t, "month" + ":" + "may"),
+			testArg(t, "50"),
 		},
 	}
 

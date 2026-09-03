@@ -17,9 +17,9 @@ func TestAddAccount(t *testing.T) {
 	err := addAccount(parser.ParsedCmdLine{
 		Command:    "accounts",
 		Subcommand: "add",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "savings"},
-			{Kind: parser.TokenAttribute, Key: "currency", Value: "EUR", Raw: "currency:EUR"},
+		Args: []parser.Arg{
+			testArg(t, "savings"),
+			testArg(t, "currency:EUR"),
 		},
 	}, cfg, cashDB)
 	if err != nil {
@@ -42,9 +42,9 @@ func TestAddAccountWithInitialBalance(t *testing.T) {
 	err := addAccount(parser.ParsedCmdLine{
 		Command:    "accounts",
 		Subcommand: "add",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "wallet"},
-			{Kind: parser.TokenAttribute, Key: "initial_balance", Value: "125.75", Raw: "initial_balance:125.75"},
+		Args: []parser.Arg{
+			testArg(t, "wallet"),
+			testStringAttribute("initial_balance:125.75", "initial_balance", "125.75"),
 		},
 	}, cfg, cashDB)
 	if err != nil {
@@ -72,10 +72,10 @@ func TestModifyAccount(t *testing.T) {
 	err = modifyAccount(parser.ParsedCmdLine{
 		Command:    "accounts",
 		Subcommand: "modify",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "savings"},
-			{Kind: parser.TokenAttribute, Key: "account", Value: "brokerage", Raw: "account:brokerage"},
-			{Kind: parser.TokenAttribute, Key: "currency", Value: "USD", Raw: "currency:USD"},
+		Args: []parser.Arg{
+			testArg(t, "savings"),
+			testArg(t, "account:brokerage"),
+			testArg(t, "currency:USD"),
 		},
 	}, cfg, cashDB)
 	if err != nil {
@@ -103,9 +103,9 @@ func TestModifyAccountInitialBalance(t *testing.T) {
 	err = modifyAccount(parser.ParsedCmdLine{
 		Command:    "accounts",
 		Subcommand: "modify",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "savings"},
-			{Kind: parser.TokenAttribute, Key: "initial_balance", Value: "50.25", Raw: "initial_balance:50.25"},
+		Args: []parser.Arg{
+			testArg(t, "savings"),
+			testStringAttribute("initial_balance:50.25", "initial_balance", "50.25"),
 		},
 	}, cfg, cashDB)
 	if err != nil {
@@ -128,9 +128,9 @@ func TestSetAccountInitialBalanceWithAccountThenAmount(t *testing.T) {
 	if err := setAccountInitialBalance(parser.ParsedCmdLine{
 		Command:    "accounts",
 		Subcommand: "initial-balance",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "main"},
-			{Kind: parser.TokenText, Raw: "200.5"},
+		Args: []parser.Arg{
+			testArg(t, "main"),
+			testArg(t, "200.5"),
 		},
 	}, cashDB); err != nil {
 		t.Fatalf("setAccountInitialBalance returned error: %v", err)
@@ -152,9 +152,9 @@ func TestSetAccountInitialBalanceWithAmountThenAccount(t *testing.T) {
 	err := setAccountInitialBalance(parser.ParsedCmdLine{
 		Command:    "accounts",
 		Subcommand: "initial-balance",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "300.75"},
-			{Kind: parser.TokenText, Raw: "main"},
+		Args: []parser.Arg{
+			testArg(t, "300.75"),
+			testArg(t, "main"),
 		},
 	}, cashDB)
 	if err != nil {
@@ -182,9 +182,9 @@ func TestRenameAccount(t *testing.T) {
 	err = renameAccount(parser.ParsedCmdLine{
 		Command:    "accounts",
 		Subcommand: "rename",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "savings"},
-			{Kind: parser.TokenText, Raw: "brokerage"},
+		Args: []parser.Arg{
+			testArg(t, "savings"),
+			testArg(t, "brokerage"),
 		},
 	}, cfg, cashDB)
 	if err != nil {
@@ -217,9 +217,9 @@ func TestRenameDefaultAccountUpdatesConfigAfterConfirmation(t *testing.T) {
 			err := renameAccount(parser.ParsedCmdLine{
 				Command:    "accounts",
 				Subcommand: "rename",
-				Args: []parser.Token{
-					{Kind: parser.TokenText, Raw: cfg.Default.Account},
-					{Kind: parser.TokenText, Raw: "primary"},
+				Args: []parser.Arg{
+					testArg(t, cfg.Default.Account),
+					testArg(t, "primary"),
 				},
 			}, cfg, cashDB)
 			if err != nil {
@@ -253,9 +253,9 @@ func TestRenameDefaultAccountCancelledKeepsName(t *testing.T) {
 			err := renameAccount(parser.ParsedCmdLine{
 				Command:    "accounts",
 				Subcommand: "rename",
-				Args: []parser.Token{
-					{Kind: parser.TokenText, Raw: cfg.Default.Account},
-					{Kind: parser.TokenText, Raw: "primary"},
+				Args: []parser.Arg{
+					testArg(t, cfg.Default.Account),
+					testArg(t, "primary"),
 				},
 			}, cfg, cashDB)
 			if err != nil {
@@ -301,7 +301,7 @@ func TestDeleteAccountRejectsLinkedTransactions(t *testing.T) {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}
 
-	err = deleteAccount(parser.ParsedCmdLine{Command: "accounts", Subcommand: "delete", Args: []parser.Token{{Kind: parser.TokenText, Raw: "savings"}}}, cfg, cashDB)
+	err = deleteAccount(parser.ParsedCmdLine{Command: "accounts", Subcommand: "delete", Args: []parser.Arg{testArg(t, "savings")}}, cfg, cashDB)
 	if err == nil {
 		t.Fatal("deleteAccount expected error, got nil")
 	}
@@ -317,7 +317,7 @@ func TestDeleteAccountDeletesEmptyAccountAfterConfirmation(t *testing.T) {
 	}
 
 	withInput(t, "y\n", func() {
-		err = deleteAccount(parser.ParsedCmdLine{Command: "accounts", Subcommand: "delete", Args: []parser.Token{{Kind: parser.TokenText, Raw: "savings"}}}, cfg, cashDB)
+		err = deleteAccount(parser.ParsedCmdLine{Command: "accounts", Subcommand: "delete", Args: []parser.Arg{testArg(t, "savings")}}, cfg, cashDB)
 	})
 	if err != nil {
 		t.Fatalf("deleteAccount returned error: %v", err)

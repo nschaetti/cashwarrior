@@ -90,7 +90,7 @@ func TestGroupsListSortedByStartDate(t *testing.T) {
 	cfg, cashDB, parsed := setupGroupsTestData(t)
 	defer cashDB.Close()
 
-	parsed.Filters = []parser.Token{{Raw: "order:start_date", Kind: parser.TokenAttribute, Key: "order", Value: "start_date"}}
+	parsed.Filters = []parser.Arg{testArg(t, "order:start_date")}
 	output := captureStdout(t, func() {
 		err := Groups(parsed, cfg, cashDB)
 		if err != nil {
@@ -112,9 +112,9 @@ func TestGroupsListSortedByEndDateDescending(t *testing.T) {
 	cfg, cashDB, parsed := setupGroupsTestData(t)
 	defer cashDB.Close()
 
-	parsed.Filters = []parser.Token{
-		{Raw: "order:end_date", Kind: parser.TokenAttribute, Key: "order", Value: "end_date"},
-		{Raw: "desc:true", Kind: parser.TokenAttribute, Key: "desc", Value: "true"},
+	parsed.Filters = []parser.Arg{
+		testArg(t, "order:end_date"),
+		testArg(t, "desc:true"),
 	}
 	output := captureStdout(t, func() {
 		err := Groups(parsed, cfg, cashDB)
@@ -137,7 +137,7 @@ func TestGroupsListRejectsUnsupportedOrder(t *testing.T) {
 	cfg, cashDB, parsed := setupGroupsTestData(t)
 	defer cashDB.Close()
 
-	parsed.Filters = []parser.Token{{Raw: "order:amount", Kind: parser.TokenAttribute, Key: "order", Value: "amount"}}
+	parsed.Filters = []parser.Arg{testArg(t, "order:amount")}
 	err := Groups(parsed, cfg, cashDB)
 	if err == nil || err.Error() != "unsupported groups order field amount" {
 		t.Fatalf("err = %v, want unsupported groups order field amount", err)

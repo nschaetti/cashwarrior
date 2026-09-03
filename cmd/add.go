@@ -113,7 +113,6 @@ func getTransactionAmount(addInput *db.CreateTransactionInput, attributes map[st
 		return amountValue.Value
 	}
 	panic(fmt.Sprintf("No amount attribute found for add %v", addInput.Identifier))
-	return 0.0
 }
 
 func getTransactionDatetime(

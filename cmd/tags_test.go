@@ -11,7 +11,7 @@ func TestAddTag(t *testing.T) {
 	_, cashDB := openTestDB(t)
 	defer cashDB.Close()
 
-	err := addTag(parser.ParsedCmdLine{Command: "tags", Subcommand: "add", Args: []parser.Token{{Kind: parser.TokenText, Raw: "travel"}}}, cashDB)
+	err := addTag(parser.ParsedCmdLine{Command: "tags", Subcommand: "add", Args: []parser.Arg{testArg(t, "travel")}}, cashDB)
 	if err != nil {
 		t.Fatalf("addTag returned error: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestModifyTag(t *testing.T) {
 		t.Fatalf("InsertTag returned error: %v", err)
 	}
 
-	err = modifyTag(parser.ParsedCmdLine{Command: "tags", Subcommand: "modify", Args: []parser.Token{{Kind: parser.TokenText, Raw: "travel"}, {Kind: parser.TokenAttribute, Key: "tag", Value: "vacation", Raw: "tag:vacation"}}}, cashDB)
+	err = modifyTag(parser.ParsedCmdLine{Command: "tags", Subcommand: "modify", Args: []parser.Arg{testArg(t, "travel"), testArg(t, "tag:vacation")}}, cashDB)
 	if err != nil {
 		t.Fatalf("modifyTag returned error: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestDeleteTagDeletesUnusedTagAfterConfirmation(t *testing.T) {
 	}
 
 	withInput(t, "y\n", func() {
-		err = deleteTag(parser.ParsedCmdLine{Command: "tags", Subcommand: "delete", Args: []parser.Token{{Kind: parser.TokenText, Raw: "travel"}}}, cashDB)
+		err = deleteTag(parser.ParsedCmdLine{Command: "tags", Subcommand: "delete", Args: []parser.Arg{testArg(t, "travel")}}, cashDB)
 	})
 	if err != nil {
 		t.Fatalf("deleteTag returned error: %v", err)

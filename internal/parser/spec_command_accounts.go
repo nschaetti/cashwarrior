@@ -22,17 +22,6 @@ var accountsCommandSpec = createSubcommandAlias(
 		Subcommands: subcommands(
 			accountsListSubcommandSpec("list"),
 			SubcommandSpec{
-				Name: "balance",
-				Left: transactionFilterSideSpecWithoutAccount(),
-				Right: sideSpec(
-					[]ArgKind{ArgKindText},
-					settableOnlyAttribute("account").SetShapes(AttributeValueShapeSingle),
-					settableOnlyAttribute("name").SetShapes(AttributeValueShapeSingle),
-				).
-					WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindText}, Attributes: []string{"account", "name"}, Message: "accounts balance requires an account name"}).
-					WithArgs(1, 1),
-			},
-			SubcommandSpec{
 				Name: "add",
 				Left: emptySideSpec(),
 				Right: sideSpec(

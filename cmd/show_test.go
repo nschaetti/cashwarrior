@@ -89,7 +89,7 @@ func TestShowDisplaysTransactionDetails(t *testing.T) {
 		if err := Show(parser.ParsedCmdLine{
 			Command:    "show",
 			Subcommand: "default",
-			Args:       []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}},
+			Args:       []parser.Arg{testArg(t, "2026.05.1")},
 		}, cfg, cashDB); err != nil {
 			t.Fatalf("Show returned error: %v", err)
 		}
@@ -173,7 +173,7 @@ func TestShowDisplaysTransferDetails(t *testing.T) {
 		if err := Show(parser.ParsedCmdLine{
 			Command:    "show",
 			Subcommand: "default",
-			Args:       []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}},
+			Args:       []parser.Arg{testArg(t, "2026.05.1")},
 		}, cfg, cashDB); err != nil {
 			t.Fatalf("Show returned error: %v", err)
 		}

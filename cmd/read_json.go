@@ -66,32 +66,6 @@ func getAccountListData(cashDb db.DBTX) (struct {
 	return result, nil
 }
 
-func getAccountBalanceData(cashDb db.DBTX, account db.Account, transactions []db.Transaction, balances map[int64]float64) (output.AccountBalanceData, error) {
-	data := output.AccountBalanceData{Account: account.Name, Currency: account.Currency, InitialBalance: account.InitialBalance, Transactions: make([]output.AccountBalanceItem, 0, len(transactions))}
-	for _, tx := range transactions {
-		vendor := ""
-		place, err := tx.GetPlace(cashDb)
-		if err != nil {
-			return output.AccountBalanceData{}, err
-		}
-		if place != nil {
-			vendor = place.Name
-		}
-		category := ""
-		if tx.CategoryID != nil {
-			value, err := tx.GetCategory(cashDb)
-			if err != nil {
-				return output.AccountBalanceData{}, err
-			}
-			if value != nil {
-				category = value.Name
-			}
-		}
-		data.Transactions = append(data.Transactions, output.AccountBalanceItem{ID: tx.ID, Identifier: tx.Identifier, Type: tx.Type, Amount: tx.Amount, Currency: account.Currency, Vendor: vendor, Description: tx.Description, Date: tx.Datetime, Category: category, Balance: balances[tx.ID]})
-	}
-	return data, nil
-}
-
 func getGroupsData(cashDb db.DBTX, options groupsSortOptions) (output.GroupsData, error) {
 	groups, err := db.ListTransactionGroups(cashDb, db.TransactionGroupListFilter{})
 	if err != nil {

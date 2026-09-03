@@ -7,7 +7,7 @@ var CommandSpecs = map[string]CommandSpec{
 	"accounts":    accountsCommandSpec,
 	"add":         addCommandSpec,
 	"backup":      backupCommandSpec,
-	"balance":     defaultCommandSpec("balance"),
+	"balance":     balanceCommandSpec,
 	"budget":      budgetCommandSpec,
 	"by":          defaultCommandSpec("by"),
 	"categories":  categoriesCommandSpec,

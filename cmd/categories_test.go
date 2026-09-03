@@ -15,8 +15,8 @@ func TestAddCategory(t *testing.T) {
 	err := addCategory(parser.ParsedCmdLine{
 		Command:    "categories",
 		Subcommand: "add",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "travel"},
+		Args: []parser.Arg{
+			testArg(t, "travel"),
 		},
 	}, cashDB)
 	if err != nil {
@@ -48,10 +48,10 @@ func TestModifyCategory(t *testing.T) {
 	err = modifyCategory(parser.ParsedCmdLine{
 		Command:    "categories",
 		Subcommand: "modify",
-		Args: []parser.Token{
-			{Kind: parser.TokenText, Raw: "travel"},
-			{Kind: parser.TokenAttribute, Key: "category", Value: "vacation", Raw: "category:vacation"},
-			{Kind: parser.TokenAttribute, Key: "parent", Value: "lifestyle", Raw: "parent:lifestyle"},
+		Args: []parser.Arg{
+			testArg(t, "travel"),
+			testArg(t, "category:vacation"),
+			testArg(t, "parent:lifestyle"),
 		},
 	}, cashDB)
 	if err != nil {
@@ -92,7 +92,7 @@ func TestDeleteCategoryRejectsLinkedTransactions(t *testing.T) {
 		t.Fatalf("InsertTransaction returned error: %v", err)
 	}
 
-	err = deleteCategory(parser.ParsedCmdLine{Command: "categories", Subcommand: "delete", Args: []parser.Token{{Kind: parser.TokenText, Raw: "travel"}}}, cashDB)
+	err = deleteCategory(parser.ParsedCmdLine{Command: "categories", Subcommand: "delete", Args: []parser.Arg{testArg(t, "travel")}}, cashDB)
 	if err == nil {
 		t.Fatal("deleteCategory expected error, got nil")
 	}
@@ -108,7 +108,7 @@ func TestDeleteCategoryDeletesEmptyCategoryAfterConfirmation(t *testing.T) {
 	}
 
 	withInput(t, "y\n", func() {
-		err = deleteCategory(parser.ParsedCmdLine{Command: "categories", Subcommand: "delete", Args: []parser.Token{{Kind: parser.TokenText, Raw: "travel"}}}, cashDB)
+		err = deleteCategory(parser.ParsedCmdLine{Command: "categories", Subcommand: "delete", Args: []parser.Arg{testArg(t, "travel")}}, cashDB)
 	})
 	if err != nil {
 		t.Fatalf("deleteCategory returned error: %v", err)

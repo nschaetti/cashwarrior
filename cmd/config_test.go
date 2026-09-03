@@ -52,12 +52,7 @@ func TestConfigDatabaseCreatesAndInitializesMissingDB(t *testing.T) {
 			err := Config(parser.ParsedCmdLine{
 				Command:    "config",
 				Subcommand: "default",
-				Args: []parser.Token{{
-					Kind:  parser.TokenAttribute,
-					Key:   "database",
-					Value: newDBPath,
-					Raw:   "database:" + newDBPath,
-				}},
+				Args: []parser.Arg{testStringAttribute("database:"+newDBPath, "database", newDBPath)},
 			}, cfg, cashDB)
 			if err != nil {
 				t.Fatalf("Config returned error: %v", err)
@@ -103,12 +98,7 @@ func TestConfigDatabaseKeepsConfigWhenCreationDeclined(t *testing.T) {
 			err := Config(parser.ParsedCmdLine{
 				Command:    "config",
 				Subcommand: "default",
-				Args: []parser.Token{{
-					Kind:  parser.TokenAttribute,
-					Key:   "database",
-					Value: newDBPath,
-					Raw:   "database:" + newDBPath,
-				}},
+				Args: []parser.Arg{testStringAttribute("database:"+newDBPath, "database", newDBPath)},
 			}, cfg, cashDB)
 			if err != nil {
 				t.Fatalf("Config returned error: %v", err)
@@ -140,12 +130,7 @@ func TestConfigBackupPeriodUpdatesConfig(t *testing.T) {
 		err := Config(parser.ParsedCmdLine{
 			Command:    "config",
 			Subcommand: "default",
-			Args: []parser.Token{{
-				Kind:  parser.TokenAttribute,
-				Key:   "backup.period",
-				Value: "2weeks",
-				Raw:   "backup.period:2weeks",
-			}},
+			Args: []parser.Arg{testStringAttribute("backup.period:2weeks", "backup.period", "2weeks")},
 		}, cfg, cashDB)
 		if err != nil {
 			t.Fatalf("Config returned error: %v", err)
@@ -172,12 +157,7 @@ func TestConfigBackupKeepRejectsNegative(t *testing.T) {
 		err := Config(parser.ParsedCmdLine{
 			Command:    "config",
 			Subcommand: "default",
-			Args: []parser.Token{{
-				Kind:  parser.TokenAttribute,
-				Key:   "backup.keep",
-				Value: "-1",
-				Raw:   "backup.keep:-1",
-			}},
+			Args: []parser.Arg{testStringAttribute("backup.keep:-1", "backup.keep", "-1")},
 		}, cfg, cashDB)
 		if err == nil || err.Error() != "backup.keep must be >= 0" {
 			t.Fatalf("err = %v, want backup.keep must be >= 0", err)

@@ -50,7 +50,7 @@ func TestImportTransactionsCSV(t *testing.T) {
 	path := writeCSVFile(t, `identifier,type,amount,description,datetime,account,category,place,group,deleted
 2026.05.1,expense,-12.50,Lunch,2026-05-27,main,groceries,Migros,weekly,false`)
 
-	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Arg{testArg(t, path)}}, cfg, cashDB); err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
 
@@ -76,12 +76,12 @@ func TestImportTransactionsRollbackOnMissingAccount(t *testing.T) {
 	path := writeCSVFile(t, `identifier,type,amount,description,datetime,account,place,deleted
 2026.05.1,expense,-12.50,Lunch,2026-05-27,missing,Migros,false`)
 
-	err = Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB)
+	err = Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Arg{testArg(t, path)}}, cfg, cashDB)
 	if err == nil {
 		t.Fatal("Import expected error, got nil")
 	}
 
-	transactions, err := db.ListTransactions(cashDB, nil, nil)
+	transactions, err := db.ListTransactions(cashDB, nil, nil, false)
 	if err != nil {
 		t.Fatalf("ListTransactions returned error: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestImportTransactionTagsAndTransfersCSV(t *testing.T) {
 
 	tagPath := writeCSVFile(t, `transaction,tag
 2026.05.1,food`)
-	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: tagPath}}}, cfg, cashDB); err != nil {
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Arg{testArg(t, tagPath)}}, cfg, cashDB); err != nil {
 		t.Fatalf("Import(transaction_tags) returned error: %v", err)
 	}
 
@@ -139,7 +139,7 @@ func TestImportTransactionTagsAndTransfersCSV(t *testing.T) {
 
 	transferPath := writeCSVFile(t, `from_transaction,to_transaction,from_account,to_account,amount
 2026.05.1,2026.05.2,main,savings,20`)
-	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: transferPath}}}, cfg, cashDB); err != nil {
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Arg{testArg(t, transferPath)}}, cfg, cashDB); err != nil {
 		t.Fatalf("Import(transfers) returned error: %v", err)
 	}
 
@@ -174,7 +174,7 @@ expense,-12.50,Lunch,2026-05-27,main,Migros,false
 expense,-7.20,Snack,2026-06-01,main,Migros,false
 expense,-4.00,Coffee,2026-05-28,main,Migros,false`)
 
-	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Arg{testArg(t, path)}}, cfg, cashDB); err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
 
@@ -211,7 +211,7 @@ func TestImportTransactionsCSVWithEmptyIdentifierCells(t *testing.T) {
 2026.05.10,expense,-7.20,Dinner,2026-05-28,main,Migros,false
 ,expense,-4.00,Coffee,2026-05-29,main,Migros,false`)
 
-	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Arg{testArg(t, path)}}, cfg, cashDB); err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
 
@@ -237,11 +237,11 @@ func TestImportTransactionsCSVWithoutDeletedColumn(t *testing.T) {
 	path := writeCSVFile(t, `type,amount,description,datetime,account,place
 expense,-12.50,Lunch,2026-05-27,main,Migros`)
 
-	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Arg{testArg(t, path)}}, cfg, cashDB); err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
 
-	transactions, err := db.ListTransactions(cashDB, nil, nil)
+	transactions, err := db.ListTransactions(cashDB, nil, nil, false)
 	if err != nil {
 		t.Fatalf("ListTransactions returned error: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestImportTransactionsCSVWithFlexibleDateFormatAndEmptyDeleted(t *testing.T
 expense,-12.50,Lunch,31.05.2026,main,Migros,
 expense,-7.20,Dinner,31.05.2026 21:10,main,Migros,`)
 
-	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Arg{testArg(t, path)}}, cfg, cashDB); err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
 
@@ -285,7 +285,7 @@ func TestImportTransactionsCSVCreatesMissingPlaceCategoryAndGroup(t *testing.T) 
 	path := writeCSVFile(t, `type,amount,description,datetime,account,category,place,group
 expense,-12.50,Lunch,31.05.2026,main, groceries , Coop Pronto Nyon Gare , weekly groceries `)
 
-	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Token{{Kind: parser.TokenText, Raw: path}}}, cfg, cashDB); err != nil {
+	if err := Import(parser.ParsedCmdLine{Command: "import", Subcommand: "default", Args: []parser.Arg{testArg(t, path)}}, cfg, cashDB); err != nil {
 		t.Fatalf("Import returned error: %v", err)
 	}
 

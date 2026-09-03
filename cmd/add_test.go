@@ -49,11 +49,12 @@ func TestAddUsesProvidedDateMonthForIdentifier(t *testing.T) {
 	err = Add(parser.ParsedCmdLine{
 		Command:    "add",
 		Subcommand: "default",
-		Args: []parser.Token{
-			{Kind: parser.TokenAmount, Raw: "-4", Amount: -4},
-			{Kind: parser.TokenText, Raw: "hehe"},
-			{Kind: parser.TokenAttribute, Key: "date", Value: "27.04.2026", Raw: "date:27.04.2026"},
-			{Kind: parser.TokenAttribute, Key: "store", Value: "coop", Raw: "store:coop"},
+		Flags:      yesFlag(),
+		Args: []parser.Arg{
+			testArg(t, "amount:-4"),
+			testArg(t, "hehe"),
+			testArg(t, "date:2026-04-27"),
+			testArg(t, "store:coop"),
 		},
 	}, cfg, cashDB)
 	if err != nil {
@@ -118,12 +119,13 @@ func TestTransferUsesProvidedDateMonthForIdentifiers(t *testing.T) {
 	err = Transfer(parser.ParsedCmdLine{
 		Command:    "transfer",
 		Subcommand: "default",
-		Args: []parser.Token{
-			{Kind: parser.TokenAmount, Raw: "+20", Amount: 20},
-			{Kind: parser.TokenText, Raw: "rent"},
-			{Kind: parser.TokenAttribute, Key: "from", Value: cfg.Default.Account, Raw: "from:" + cfg.Default.Account},
-			{Kind: parser.TokenAttribute, Key: "to", Value: "savings", Raw: "to:savings"},
-			{Kind: parser.TokenAttribute, Key: "date", Value: "27.04.2026", Raw: "date:27.04.2026"},
+		Flags:      yesFlag(),
+		Args: []parser.Arg{
+			testArg(t, "amount:+20"),
+			testArg(t, "rent"),
+			testArg(t, "from:" + cfg.Default.Account),
+			testArg(t, "to:savings"),
+			testArg(t, "date:2026-04-27"),
 		},
 	}, cfg, cashDB)
 	if err != nil {

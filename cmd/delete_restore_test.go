@@ -37,12 +37,12 @@ func TestDeleteAndRestoreTransaction(t *testing.T) {
 	if err := Delete(parser.ParsedCmdLine{
 		Command:    "delete",
 		Subcommand: "default",
-		Args:       []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}},
+		Args:       []parser.Arg{testArg(t, "2026.05.1")},
 	}, cfg, cashDB); err != nil {
 		t.Fatalf("Delete returned error: %v", err)
 	}
 
-	active, err := db.ListTransactions(cashDB, nil, nil)
+	active, err := db.ListTransactions(cashDB, nil, nil, false)
 	if err != nil {
 		t.Fatalf("ListTransactions returned error: %v", err)
 	}
@@ -61,12 +61,12 @@ func TestDeleteAndRestoreTransaction(t *testing.T) {
 	if err := Restore(parser.ParsedCmdLine{
 		Command:    "restore",
 		Subcommand: "default",
-		Args:       []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}},
+		Args:       []parser.Arg{testArg(t, "2026.05.1")},
 	}, cfg, cashDB); err != nil {
 		t.Fatalf("Restore returned error: %v", err)
 	}
 
-	active, err = db.ListTransactions(cashDB, nil, nil)
+	active, err = db.ListTransactions(cashDB, nil, nil, false)
 	if err != nil {
 		t.Fatalf("ListTransactions returned error: %v", err)
 	}
@@ -104,12 +104,12 @@ func TestPurgeTransactionDeletesRegularTransaction(t *testing.T) {
 	if err := Purge(parser.ParsedCmdLine{
 		Command:    "purge",
 		Subcommand: "default",
-		Args:       []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}},
+		Args:       []parser.Arg{testArg(t, "2026.05.1")},
 	}, cfg, cashDB); err != nil {
 		t.Fatalf("Purge returned error: %v", err)
 	}
 
-	active, err := db.ListTransactions(cashDB, nil, nil)
+	active, err := db.ListTransactions(cashDB, nil, nil, false)
 	if err != nil {
 		t.Fatalf("ListTransactions returned error: %v", err)
 	}
@@ -173,12 +173,12 @@ func TestPurgeTransactionDeletesEntireTransfer(t *testing.T) {
 	if err := Purge(parser.ParsedCmdLine{
 		Command:    "purge",
 		Subcommand: "default",
-		Args:       []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}},
+		Args:       []parser.Arg{testArg(t, "2026.05.1")},
 	}, cfg, cashDB); err != nil {
 		t.Fatalf("Purge returned error: %v", err)
 	}
 
-	active, err := db.ListTransactions(cashDB, nil, nil)
+	active, err := db.ListTransactions(cashDB, nil, nil, false)
 	if err != nil {
 		t.Fatalf("ListTransactions returned error: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestDeleteTransferMarksBothTransactionsAndTransferDeleted(t *testing.T) {
 		t.Fatalf("InsertTransfer returned error: %v", err)
 	}
 
-	if err := Delete(parser.ParsedCmdLine{Command: "delete", Subcommand: "default", Args: []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}}}, cfg, cashDB); err != nil {
+	if err := Delete(parser.ParsedCmdLine{Command: "delete", Subcommand: "default", Args: []parser.Arg{testArg(t, "2026.05.1")}}, cfg, cashDB); err != nil {
 		t.Fatalf("Delete returned error: %v", err)
 	}
 
@@ -283,10 +283,10 @@ func TestRestoreTransferRestoresBothTransactionsAndTransfer(t *testing.T) {
 		t.Fatalf("InsertTransfer returned error: %v", err)
 	}
 
-	if err := Delete(parser.ParsedCmdLine{Command: "delete", Subcommand: "default", Args: []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}}}, cfg, cashDB); err != nil {
+	if err := Delete(parser.ParsedCmdLine{Command: "delete", Subcommand: "default", Args: []parser.Arg{testArg(t, "2026.05.1")}}, cfg, cashDB); err != nil {
 		t.Fatalf("Delete returned error: %v", err)
 	}
-	if err := Restore(parser.ParsedCmdLine{Command: "restore", Subcommand: "default", Args: []parser.Token{{Raw: "2026.05.1", Kind: parser.TokenID}}}, cfg, cashDB); err != nil {
+	if err := Restore(parser.ParsedCmdLine{Command: "restore", Subcommand: "default", Args: []parser.Arg{testArg(t, "2026.05.1")}}, cfg, cashDB); err != nil {
 		t.Fatalf("Restore returned error: %v", err)
 	}
 

@@ -57,24 +57,38 @@ type AccountListItem struct {
 	MonthTransfers float64 `json:"month_transfers"`
 }
 
-type AccountBalanceItem struct {
-	ID          int64     `json:"id"`
-	Identifier  string    `json:"identifier"`
-	Type        string    `json:"type"`
-	Amount      float64   `json:"amount"`
-	Currency    string    `json:"currency"`
-	Vendor      string    `json:"vendor"`
-	Description string    `json:"description"`
-	Date        time.Time `json:"date"`
-	Category    string    `json:"category"`
-	Balance     float64   `json:"balance"`
+type BalancePeriod struct {
+	From *string `json:"from"`
+	To   string  `json:"to"`
 }
 
-type AccountBalanceData struct {
-	Account        string               `json:"account"`
-	Currency       string               `json:"currency"`
-	InitialBalance float64              `json:"initial_balance"`
-	Transactions   []AccountBalanceItem `json:"transactions"`
+type BalanceAccountItem struct {
+	Account    string  `json:"account"`
+	Currency   string  `json:"currency"`
+	Opening    float64 `json:"opening"`
+	Income     float64 `json:"income"`
+	Expenses   float64 `json:"expenses"`
+	Transfers  float64 `json:"transfers"`
+	Net        float64 `json:"net"`
+	Closing    float64 `json:"closing"`
+	Operations int     `json:"operations"`
+}
+
+type BalanceCurrencyItem struct {
+	Currency   string  `json:"currency"`
+	Opening    float64 `json:"opening"`
+	Income     float64 `json:"income"`
+	Expenses   float64 `json:"expenses"`
+	Transfers  float64 `json:"transfers"`
+	Net        float64 `json:"net"`
+	Closing    float64 `json:"closing"`
+	Operations int     `json:"operations"`
+}
+
+type BalanceData struct {
+	Period     BalancePeriod         `json:"period"`
+	Accounts   []BalanceAccountItem  `json:"accounts"`
+	Currencies []BalanceCurrencyItem `json:"currencies"`
 }
 
 type CategoriesData struct {

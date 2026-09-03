@@ -6,11 +6,10 @@ import (
 
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
-	"github.com/nschaetti/cashwarrior/internal/parser"
 )
 
-func TestCreateDatetimeFilterFromPeriodTokenWeekNumber(t *testing.T) {
-	filter, err := createDatetimeFilter(parser.Token{Kind: parser.TokenPeriod, Raw: "week1"}, config.GetDefaultConfig())
+func TestCreateDatetimeFilterFromDateArgWeekNumber(t *testing.T) {
+	filter, err := createDatetimeFilter(testArg(t, "date:week1"), config.GetDefaultConfig())
 	if err != nil {
 		t.Fatalf("createDatetimeFilter returned error: %v", err)
 	}

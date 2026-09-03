@@ -37,10 +37,7 @@ func writeBudgetTokens(builder *strings.Builder, args []parser.Arg) {
 		builder.WriteString(fmt.Sprintf("  - %s", arg.RawString()))
 		attr, ok := arg.(parser.ArgAttribute)
 		if ok {
-			value, err := parser.ParseAttributeValue(attr.Value.Raw)
-			if err == nil {
-				builder.WriteString(fmt.Sprintf(" => %s", value.String()))
-			}
+			builder.WriteString(fmt.Sprintf(" => %s", attr.Value.String()))
 		}
 		builder.WriteString("\n")
 	}

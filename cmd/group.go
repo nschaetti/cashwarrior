@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/nschaetti/cashwarrior/internal/config"
 	"github.com/nschaetti/cashwarrior/internal/db"
@@ -49,7 +50,7 @@ func parseGroupArgs(parsed parser.ParsedCmdLine) ([]string, string, error) {
 }
 
 func isTransactionReference(raw string) bool {
-	_, err := domain.ParseTransactionID(raw)
+	_, err := domain.ParseTransactionID(strings.TrimPrefix(raw, "T"))
 	return err == nil
 }
 

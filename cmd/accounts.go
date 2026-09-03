@@ -20,8 +20,6 @@ func Accounts(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX)
 	switch parsed.Subcommand {
 	case "list":
 		return accountListJSON(parsed, config, cashDb)
-	case "balance":
-		return accountBalance(parsed, config, cashDb)
 	case "add":
 		return addAccount(parsed, config, cashDb)
 	case "modify":

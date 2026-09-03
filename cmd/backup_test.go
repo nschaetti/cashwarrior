@@ -70,7 +70,7 @@ func TestBackupCommandCopiesToExplicitOutput(t *testing.T) {
 	defer tx.Rollback()
 
 	outputPath := filepath.Join(filepath.Dir(dbPath), "custom", "backup.db")
-	if err := Backup(parser.ParsedCmdLine{Command: "backup", Subcommand: "default", Args: []parser.Token{{Raw: "output:" + outputPath, Kind: parser.TokenAttribute, Key: "output", Value: outputPath}}}, cfg, tx); err != nil {
+	if err := Backup(parser.ParsedCmdLine{Command: "backup", Subcommand: "default", Args: []parser.Arg{testArg(t, "output:" + outputPath)}}, cfg, tx); err != nil {
 		t.Fatalf("Backup returned error: %v", err)
 	}
 

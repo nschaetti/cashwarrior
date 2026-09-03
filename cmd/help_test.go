@@ -27,16 +27,17 @@ func TestPrintGlobalHelpIncludesCommandsDescriptionsAndSubcommands(t *testing.T)
 	result := buffer.String()
 
 	for _, expected := range []string{
-		"accounts   ",
-		"List and manage accounts",
-		"accounts list",
-		"accounts add",
-		"accounts initial-balance",
-		"list transactions",
-		"stores rename",
-		"transfer add",
-		"--format table|json",
-		"--yes",
+		"Usage:",
+		"cash <command> [subcommand] [arguments] [--help|-h]",
+		"Commands:",
+		"accounts",
+		"balance",
+		"list",
+		"modify",
+		"set-balance",
+		"Tip:",
+		"cash <command> --help",
+		"cash <command> <subcommand> --help",
 	} {
 		if !strings.Contains(result, expected) {
 			t.Fatalf("global help missing %q:\n%s", expected, result)

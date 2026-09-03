@@ -182,9 +182,10 @@ var helpExamples = map[string][]string{
 		"cash accounts initial-balance bcv 1200",
 		"cash accounts initial-balance 1200 bcv",
 	},
-	"accounts balance": {
-		"cash accounts balance main",
-		"cash today accounts balance main",
+	"balance default": {
+		"cash balance",
+		"cash month account:main balance",
+		"cash date:2026-05-01..2026-05-31 balance",
 	},
 	"add default": {
 		"cash add -12.50 Coffee store:coop category:food",

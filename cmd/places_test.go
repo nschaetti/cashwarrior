@@ -19,7 +19,7 @@ func TestPlacesRename(t *testing.T) {
 	err := Places(parser.ParsedCmdLine{
 		Command:    "places",
 		Subcommand: "rename",
-		Args:       []parser.Token{{Kind: parser.TokenText, Raw: "Coop"}, {Kind: parser.TokenText, Raw: "Migros"}},
+		Args:       []parser.Arg{testArg(t, "Coop"), testArg(t, "Migros")},
 	}, config.GetDefaultConfig(), cashDB)
 	if err != nil {
 		t.Fatalf("Places(rename) returned error: %v", err)

@@ -9,10 +9,10 @@ import (
 func TestParseListSortOptions(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command: "list",
-		Filters: []parser.Token{
-			{Kind: parser.TokenAttribute, Key: "order", Value: "datetime"},
-			{Kind: parser.TokenAttribute, Key: "desc", Value: "false"},
-			{Kind: parser.TokenAttribute, Key: "date", Value: "month"},
+		Filters: []parser.Arg{
+			testArg(t, "order" + ":" + "datetime"),
+			testArg(t, "desc" + ":" + "false"),
+			testArg(t, "date" + ":" + "month"),
 		},
 	}
 
@@ -29,16 +29,16 @@ func TestParseListSortOptions(t *testing.T) {
 	if len(filtered.Filters) != 1 {
 		t.Fatalf("len(filtered.Filters) = %d, want 1", len(filtered.Filters))
 	}
-	if filtered.Filters[0].Key != "date" {
-		t.Fatalf("remaining filter key = %q, want %q", filtered.Filters[0].Key, "date")
+	if filtered.Filters[0].(parser.ArgAttribute).Key != "date" {
+		t.Fatalf("remaining filter key = %q, want %q", filtered.Filters[0].(parser.ArgAttribute).Key, "date")
 	}
 }
 
 func TestParseListSortOptionsDefaultsToDesc(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command: "list",
-		Filters: []parser.Token{
-			{Kind: parser.TokenAttribute, Key: "order", Value: "description"},
+		Filters: []parser.Arg{
+			testArg(t, "order" + ":" + "description"),
 		},
 	}
 
@@ -54,8 +54,8 @@ func TestParseListSortOptionsDefaultsToDesc(t *testing.T) {
 func TestParseListSortOptionsRejectsUnsupportedField(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command: "list",
-		Filters: []parser.Token{
-			{Kind: parser.TokenAttribute, Key: "order", Value: "unknown"},
+		Filters: []parser.Arg{
+			testArg(t, "order" + ":" + "unknown"),
 		},
 	}
 
@@ -68,7 +68,7 @@ func TestParseListSortOptionsRejectsUnsupportedField(t *testing.T) {
 func TestParseListSortOptionsAcceptsDateAlias(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command: "list",
-		Filters: []parser.Token{{Kind: parser.TokenAttribute, Key: "order", Value: "date"}},
+		Filters: []parser.Arg{testArg(t, "order" + ":" + "date")},
 	}
 
 	_, options, err := parseListSortOptions(parsed)
@@ -83,10 +83,10 @@ func TestParseListSortOptionsAcceptsDateAlias(t *testing.T) {
 func TestParseListSortOptionsConsumesArgsAttributes(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command: "list",
-		Args: []parser.Token{
-			{Kind: parser.TokenAttribute, Key: "order", Value: "date"},
-			{Kind: parser.TokenAttribute, Key: "desc", Value: "false"},
-			{Kind: parser.TokenAttribute, Key: "account", Value: "main"},
+		Args: []parser.Arg{
+			testArg(t, "order" + ":" + "date"),
+			testArg(t, "desc" + ":" + "false"),
+			testArg(t, "account" + ":" + "main"),
 		},
 	}
 
@@ -100,14 +100,14 @@ func TestParseListSortOptionsConsumesArgsAttributes(t *testing.T) {
 	if options.Desc {
 		t.Fatal("Desc = true, want false")
 	}
-	if len(filtered.Args) != 1 || filtered.Args[0].Key != "account" {
+	if len(filtered.Args) != 1 || filtered.Args[0].(parser.ArgAttribute).Key != "account" {
 		t.Fatalf("filtered.Args = %#v, want only account attr", filtered.Args)
 	}
 }
 
 func TestClassifyFilterGroup(t *testing.T) {
-	token := parser.Token{Kind: parser.TokenAttribute, Key: "group", Value: "ticket_0001"}
-	if got := classifyFilter(token); got != FilterTypeGroup {
+	arg := testArg(t, "group:ticket_0001")
+	if got := classifyFilter(arg); got != FilterTypeGroup {
 		t.Fatalf("classifyFilter(group) = %d, want %d", got, FilterTypeGroup)
 	}
 }

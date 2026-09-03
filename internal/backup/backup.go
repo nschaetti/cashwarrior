@@ -102,7 +102,11 @@ func listBackups(databasePath string) ([]fileInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		backups = append(backups, fileInfo{Path: filepath.Join(dir, entry.Name()), ModTime: info.ModTime()})
+		modTime := info.ModTime()
+		if ts, err := time.Parse("20060102-150405", strings.TrimPrefix(entry.Name(), prefix)); err == nil {
+			modTime = ts
+		}
+		backups = append(backups, fileInfo{Path: filepath.Join(dir, entry.Name()), ModTime: modTime})
 	}
 
 	sort.Slice(backups, func(i, j int) bool {

@@ -49,7 +49,7 @@ func getOrCreateTagID(cashDb db.DBTX, name string) (int64, error) {
 func getExistingTagID(cashDb db.DBTX, name string) (*int64, error) {
 	tag, err := db.GetTagByName(cashDb, name)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, err
+		return nil, nil
 	}
 	if err != nil {
 		return nil, err

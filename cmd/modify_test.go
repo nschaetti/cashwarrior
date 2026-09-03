@@ -55,9 +55,11 @@ func TestModifyUpdatesMatchingTransactionsAfterConfirmation(t *testing.T) {
 	}
 
 	parsed := parser.ParsedCmdLine{
-		Command: "modify",
-		Filters: []parser.Token{{Kind: parser.TokenAttribute, Key: "date", Value: "2026-05-27", Raw: "date:2026-05-27"}},
-		Args:    []parser.Token{{Kind: parser.TokenAttribute, Key: "store", Value: "Coop", Raw: "store:Coop"}},
+		Command:    "modify",
+		Subcommand: "transactions",
+		Flags:      yesFlag(),
+		Filters:    []parser.Arg{testArg(t, "date:2026-05-27")},
+		Args:       []parser.Arg{testArg(t, "store:Coop")},
 	}
 
 	withInput(t, "y\n", func() {
@@ -89,7 +91,7 @@ func TestParseTransactionModificationsRejectsIdentifier(t *testing.T) {
 
 	parsed := parser.ParsedCmdLine{
 		Command: "modify",
-		Args:    []parser.Token{{Kind: parser.TokenAttribute, Key: "identifier", Value: "2026.05.99", Raw: "identifier:2026.05.99"}},
+		Args:    []parser.Arg{testArg(t, "identifier:2026.05.99")},
 	}
 
 	_, err := parseTransactionModifications(parsed, cfg, cashDB)
@@ -145,11 +147,12 @@ func TestModifyAddsAndRemovesTransactionTags(t *testing.T) {
 
 	parsed := parser.ParsedCmdLine{
 		Command:    "modify",
-		Subcommand: "default",
-		Filters:    []parser.Token{{Kind: parser.TokenText, Raw: "T2026.05.1"}},
-		Args: []parser.Token{
-			{Kind: parser.TokenTag, Raw: "@food"},
-			{Kind: parser.TokenTagNegative, Raw: "-@travel"},
+		Subcommand: "transactions",
+		Flags:      yesFlag(),
+		Filters:    []parser.Arg{testArg(t, "T2026.05.1")},
+		Args: []parser.Arg{
+			testArg(t, "@food"),
+			testArg(t, "-@travel"),
 		},
 	}
 
@@ -187,7 +190,7 @@ func TestParseTransactionModificationsRejectsUnknownTag(t *testing.T) {
 
 	parsed := parser.ParsedCmdLine{
 		Command: "modify",
-		Args:    []parser.Token{{Kind: parser.TokenTagNegative, Raw: "-@missing"}},
+		Args:    []parser.Arg{testArg(t, "-@missing")},
 	}
 
 	modifications, err := parseTransactionModifications(parsed, cfg, cashDB)
@@ -205,7 +208,7 @@ func TestParseTransactionModificationsCreatesMissingAddedTag(t *testing.T) {
 
 	parsed := parser.ParsedCmdLine{
 		Command: "modify",
-		Args:    []parser.Token{{Kind: parser.TokenTag, Raw: "@missing"}},
+		Args:    []parser.Arg{testArg(t, "@missing")},
 	}
 
 	modifications, err := parseTransactionModifications(parsed, cfg, cashDB)
@@ -251,9 +254,11 @@ func TestModifyUpdatesAmountWithIDFilter(t *testing.T) {
 	}
 
 	parsed := parser.ParsedCmdLine{
-		Command: "modify",
-		Filters: []parser.Token{{Kind: parser.TokenID, Raw: "2026.05.1"}},
-		Args:    []parser.Token{{Kind: parser.TokenAttribute, Key: "amount", Value: "-3.60", Raw: "amount:-3.60"}},
+		Command:    "modify",
+		Subcommand: "transactions",
+		Flags:      yesFlag(),
+		Filters:    []parser.Arg{testArg(t, "identifier:" + "2026.05.1")},
+		Args:       []parser.Arg{testArg(t, "amount:-3.60")},
 	}
 
 	withInput(t, "y\n", func() {

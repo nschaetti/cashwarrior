@@ -11,12 +11,12 @@ func TestFormatBudgetDemo(t *testing.T) {
 	parsed := parser.ParsedCmdLine{
 		Command:    "budget",
 		Subcommand: "add",
-		Filters: []parser.Token{
-			{Raw: "account:cash,bank", Kind: parser.TokenAttribute, Key: "account", Value: "cash,bank"},
+		Filters: []parser.Arg{
+			testArg(t, "account:cash,bank"),
 		},
-		Args: []parser.Token{
-			{Raw: "date:2026/01/01-2026/01/31", Kind: parser.TokenAttribute, Key: "date", Value: "2026/01/01-2026/01/31"},
-			{Raw: "@planned", Kind: parser.TokenTag},
+		Args: []parser.Arg{
+			testArg(t, "date:2026-01-01..2026-01-31"),
+			testArg(t, "@planned"),
 		},
 	}
 
@@ -25,9 +25,9 @@ func TestFormatBudgetDemo(t *testing.T) {
 		"budget",
 		"command: budget",
 		"subcommand: add",
-		"<Token attribute: account:cash,bank> => list(cash,bank)",
-		"<Token attribute: date:2026/01/01-2026/01/31> => range(2026/01/01-2026/01/31)",
-		"<Token tag: @planned>",
+		"account:cash,bank => list(string(cash),string(bank))",
+		"date:2026-01-01..2026-01-31 => range(date(2026-01-01),date(2026-01-31))",
+		"@planned",
 	}
 
 	for _, check := range checks {
