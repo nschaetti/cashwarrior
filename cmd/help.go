@@ -206,6 +206,12 @@ var helpExamples = map[string][]string{
 		"cash transfer +250 from:main to:savings",
 		"cash transfer +75.5 from:cash to:joint date:2026-05-31",
 	},
+	"transfer list": {
+		"cash transfer list",
+	},
+	"transfer delete": {
+		"cash transfer delete identifier:2026.05.1",
+	},
 	"summary days": {
 		"cash summary days",
 		"cash month summary days account:main",
@@ -216,6 +222,24 @@ var helpExamples = map[string][]string{
 		"cash groups list",
 		"cash order:start_date groups",
 		"cash order:end_date desc:true groups",
+	},
+	"groups add": {
+		"cash groups add trip identifier:2026.05.1 identifier:2026.05.2",
+		"cash groups add group:trip identifier:2026.05.1",
+	},
+	"groups modify": {
+		"cash groups modify trip group:journey",
+		"cash groups rename trip journey",
+	},
+	"groups delete": {
+		"cash groups delete trip",
+		"cash groups rm trip",
+	},
+	"groups remove": {
+		"cash groups remove identifier:2026.05.1 group:trip",
+	},
+	"group add": {
+		"cash group add group:trip identifier:2026.05.1",
 	},
 	"places list": {
 		"cash places",

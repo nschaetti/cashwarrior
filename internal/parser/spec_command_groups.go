@@ -17,7 +17,11 @@ var groupsCommandSpec = createSubcommandAlias(
 			SubcommandSpec{
 				Name: "add",
 				Left: emptySideSpec(),
-				Right: sideSpec([]ArgKind{ArgKindText, ArgKindAttribute}).WithArgs(2, 0).
+				Right: sideSpec(
+					[]ArgKind{ArgKindText, ArgKindAttribute},
+					settableOnlyAttribute("group").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("identifier").SetShapes(AttributeValueShapeSingle),
+				).WithArgs(2, 0).
 					WithKindRule(ArgKindText, atMostOne()).
 					WithAttributeRule("group", atMostOne()).
 					WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindText}, Attributes: []string{"group"}, Message: "groups add requires a group name"}).
@@ -26,7 +30,7 @@ var groupsCommandSpec = createSubcommandAlias(
 			SubcommandSpec{
 				Name: "modify",
 				Left: emptySideSpec(),
-				Right: sideSpec([]ArgKind{ArgKindText, ArgKindAttribute}).WithArgs(2, 2).
+				Right: sideSpec([]ArgKind{ArgKindText, ArgKindAttribute}, settableOnlyAttribute("group").SetShapes(AttributeValueShapeSingle)).WithArgs(2, 2).
 					WithKindRule(ArgKindAttribute, atMostOne()).
 					WithKindRule(ArgKindText, atMostOne()),
 			},
@@ -34,7 +38,11 @@ var groupsCommandSpec = createSubcommandAlias(
 			SubcommandSpec{
 				Name: "remove",
 				Left: emptySideSpec(),
-				Right: sideSpec([]ArgKind{ArgKindAttribute}).WithArgs(2, 2).
+				Right: sideSpec(
+					[]ArgKind{ArgKindAttribute},
+					settableOnlyAttribute("identifier").SetShapes(AttributeValueShapeSingle),
+					settableOnlyAttribute("group").SetShapes(AttributeValueShapeSingle),
+				).WithArgs(2, 2).
 					WithAttributeRule("identifier", atMostOne()).
 					WithAttributeRule("group", exactlyOne()).
 					WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"identifier", "group"}, Message: "groups remove requires at least one transaction id"}),

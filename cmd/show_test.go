@@ -185,3 +185,92 @@ func TestShowDisplaysTransferDetails(t *testing.T) {
 		}
 	}
 }
+
+func TestShowDisplaysTransactionWithIdentifierAttribute(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	mainAccount, err := db.GetAccountByName(cashDB, cfg.Default.Account)
+	if err != nil {
+		t.Fatalf("GetAccountByName returned error: %v", err)
+	}
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "Migros"})
+	if err != nil {
+		t.Fatalf("InsertPlace returned error: %v", err)
+	}
+	if _, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{
+		Identifier:  "2026.05.1",
+		Amount:      -10.5,
+		Description: "Lunch",
+		Date:        time.Date(2026, time.May, 27, 12, 34, 56, 0, time.UTC),
+		AccountID:   mainAccount.ID,
+		PlaceID:     &placeID,
+	}); err != nil {
+		t.Fatalf("InsertTransaction returned error: %v", err)
+	}
+
+	output := captureStdout(t, func() {
+		if err := Show(parser.ParsedCmdLine{
+			Command:    "show",
+			Subcommand: "transaction",
+			Filters:    []parser.Arg{testArg(t, "identifier:2026.05.1")},
+		}, cfg, cashDB); err != nil {
+			t.Fatalf("Show returned error: %v", err)
+		}
+	})
+
+	for _, want := range []string{"2026.05.1", "expense", "-10.50", "Lunch"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestShowDisplaysTransactionJSONWithIdentifierAttribute(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	mainAccount, err := db.GetAccountByName(cashDB, cfg.Default.Account)
+	if err != nil {
+		t.Fatalf("GetAccountByName returned error: %v", err)
+	}
+	placeID, err := db.InsertStore(cashDB, db.CreatePlaceInput{Name: "JSON Show Test"})
+	if err != nil {
+		t.Fatalf("InsertPlace returned error: %v", err)
+	}
+	if _, err := db.InsertTransaction(cashDB, db.CreateTransactionInput{
+		Identifier:  "2026.05.1",
+		Amount:      -10.5,
+		Description: "Lunch",
+		Date:        time.Date(2026, time.May, 27, 12, 34, 56, 0, time.UTC),
+		AccountID:   mainAccount.ID,
+		PlaceID:     &placeID,
+	}); err != nil {
+		t.Fatalf("InsertTransaction returned error: %v", err)
+	}
+
+	parsed := parser.ParsedCmdLine{
+		Command:    "show",
+		Subcommand: "transaction",
+		Filters:    []parser.Arg{testArg(t, "identifier:2026.05.1")},
+		Flags:      []parser.Arg{testArg(t, "--json")},
+	}
+
+	got := captureListOutput(t, func() error {
+		return Show(parsed, cfg, cashDB)
+	})
+	for _, want := range []string{`"id":"2026.05.1"`, `"description":"Lunch"`, `"amount":-10.5`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("JSON output missing %s:\n%s", want, got)
+		}
+	}
+}
+
+func TestShowRejectsMissingIdentifier(t *testing.T) {
+	cfg, cashDB := openTestDB(t)
+	defer cashDB.Close()
+
+	if err := Show(parser.ParsedCmdLine{Command: "show", Subcommand: "transaction"}, cfg, cashDB); err == nil {
+		t.Fatal("Show with no args expected error, got nil")
+	}
+}

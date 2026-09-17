@@ -130,3 +130,20 @@ VALUES (?)
 	}
 	return result.LastInsertId()
 }
+
+func UpdateTransactionGroupName(db DBTX, groupID int64, name string) error {
+	_, err := db.Exec(`
+UPDATE transaction_groups
+SET name = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, name, groupID)
+	return err
+}
+
+func DeleteTransactionGroupByID(db DBTX, groupID int64) error {
+	_, err := db.Exec(`
+DELETE FROM transaction_groups
+WHERE id = ?
+`, groupID)
+	return err
+}

@@ -92,19 +92,54 @@ func getShowData(query db.DBTX, identifier string) (output.ShowTransaction, erro
 	return data, nil
 }
 
+func getShowIdentifierArg(arg parser.Arg) (string, error) {
+	switch token := arg.(type) {
+	case parser.ArgText:
+		if token.Text == "" {
+			return "", fmt.Errorf("show requires an id")
+		}
+		return token.Text, nil
+	case parser.ArgAttribute:
+		if token.Key != "identifier" || token.Value.IsEmpty() || token.IsAttributeClear() {
+			return "", fmt.Errorf("show requires an id")
+		}
+		return token.Value.Raw, nil
+	default:
+		return "", fmt.Errorf("show requires an id")
+	}
+}
+
+func getShowIdentifier(parsed parser.ParsedCmdLine) (string, error) {
+	for _, arg := range parsed.Filters {
+		attr, ok := arg.(parser.ArgAttribute)
+		if ok && attr.Key == "identifier" && !attr.IsAttributeClear() && !attr.Value.IsEmpty() {
+			return attr.Value.Raw, nil
+		}
+	}
+	if len(parsed.Args) > 0 {
+		return getShowIdentifierArg(parsed.Args[0])
+	}
+	return "", fmt.Errorf("show requires an id")
+}
+
 func Show(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) error {
+	identifier, err := getShowIdentifier(parsed)
+	if err != nil {
+		return err
+	}
+
 	format, err := commandOutputFormat(parsed)
 	if err != nil {
 		return err
 	}
 	if format == output.FormatJSON {
-		data, err := getShowData(query, parsed.Args[0].RawString())
+		data, err := getShowData(query, identifier)
 		if err != nil {
 			return err
 		}
 		return renderJSON("transaction", data, 1)
 	}
-	transaction, err := db.GetTransactionByIdentifier(query, parsed.Args[0].RawString())
+	transaction, err := db.GetTransactionByIdentifier(query, identifier)
 	if err != nil {
 		return err
 	}

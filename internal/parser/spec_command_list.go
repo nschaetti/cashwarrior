@@ -13,7 +13,7 @@ var listCommandSpec = createSubcommandAlias(
 					settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
 				),
-				Right: genericSideSpec(),
+				Right: emptySideSpec().WithArgs(0, 0),
 			},
 			SubcommandSpec{
 				Name:        "accounts",
@@ -22,6 +22,7 @@ var listCommandSpec = createSubcommandAlias(
 					settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
 				),
+				Right: emptySideSpec().WithArgs(0, 0),
 			},
 			SubcommandSpec{
 				Name:        "groups",
@@ -30,6 +31,7 @@ var listCommandSpec = createSubcommandAlias(
 					settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
 				),
+				Right: emptySideSpec().WithArgs(0, 0),
 			},
 			SubcommandSpec{
 				Name:        "tags",
@@ -38,6 +40,7 @@ var listCommandSpec = createSubcommandAlias(
 					settableOnlyAttribute("order").SetShapes(AttributeValueShapeSingle),
 					settableOnlyAttribute("desc").SetShapes(AttributeValueShapeSingle),
 				),
+				Right: emptySideSpec().WithArgs(0, 0),
 			},
 		),
 	},

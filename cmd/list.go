@@ -427,6 +427,30 @@ func compareTime(left time.Time, right time.Time) int {
 }
 
 func List(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
+	switch parsed.Subcommand {
+	case "transactions", "t", "":
+		return listTransactionsSubcommand(parsed, config, cashDb)
+	case "accounts", "a":
+		delegated := parsed
+		delegated.Command = "accounts"
+		delegated.Subcommand = "list"
+		return Accounts(delegated, config, cashDb)
+	case "groups", "g":
+		delegated := parsed
+		delegated.Command = "groups"
+		delegated.Subcommand = "list"
+		return Groups(delegated, config, cashDb)
+	case "tags", "ta":
+		delegated := parsed
+		delegated.Command = "tags"
+		delegated.Subcommand = "list"
+		return Tags(delegated, config, cashDb)
+	default:
+		return fmt.Errorf("unknown list subcommand: %s", parsed.Subcommand)
+	}
+}
+
+func listTransactionsSubcommand(parsed parser.ParsedCmdLine, config config.Config, cashDb db.DBTX) error {
 	parsed, sortOptions, err := parseListSortOptions(parsed)
 	if err != nil {
 		return err

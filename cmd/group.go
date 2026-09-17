@@ -84,7 +84,10 @@ func Group(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
 	if err != nil {
 		return err
 	}
+	return confirmAndLinkTransactions(parsed, cashDb, groupName, transactionRefs)
+}
 
+func confirmAndLinkTransactions(parsed parser.ParsedCmdLine, cashDb db.DBTX, groupName string, transactionRefs []string) error {
 	if !isJSONOutput(parsed) {
 		pterm.FgWhite.Println("Transaction to be added:")
 		pterm.FgWhite.Println("========================")
@@ -97,17 +100,21 @@ func Group(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
 	// Confirm grouping
 	ok := parsed.HasFlag("yes")
 	if !ok {
+		var err error
 		ok, err = pterm.DefaultInteractiveConfirm.
 			WithDefaultText("Confirm grouping (N/y) ?").
 			Show()
-	}
-	if err != nil {
-		panic(fmt.Errorf("error confirming grouping: %w", err))
+		if err != nil {
+			panic(fmt.Errorf("error confirming grouping: %w", err))
+		}
 	}
 
 	if ok {
 		// Get or create group
-		var groupID int64
+		var (
+			groupID int64
+			err     error
+		)
 		groupID, err = ensureTransactionGroup(cashDb, groupName)
 		if err != nil {
 			return err
@@ -126,7 +133,9 @@ func Group(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
 			linkedCount++
 		}
 
-		pterm.Success.Printf("Linked %d transactions to group %s\n", linkedCount, groupName)
+		if !isJSONOutput(parsed) {
+			fmt.Printf("Linked %d transactions to group %s\n", linkedCount, groupName)
+		}
 		if isJSONOutput(parsed) {
 			return renderJSON("group", map[string]any{"group": groupName, "linked": linkedCount}, linkedCount)
 		}

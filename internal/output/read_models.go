@@ -133,3 +133,17 @@ type TagListItem struct {
 	Name         string `json:"name"`
 	Transactions int    `json:"transactions"`
 }
+
+type TransfersData struct {
+	Transfers []TransferListItem `json:"transfers"`
+}
+type TransferListItem struct {
+	ID          int64     `json:"id"`
+	FromAccount string    `json:"from_account"`
+	ToAccount   string    `json:"to_account"`
+	FromID      string    `json:"from_id"`
+	ToID        string    `json:"to_id"`
+	Amount      float64   `json:"amount"`
+	Currency    string    `json:"currency"`
+	Date        time.Time `json:"date"`
+}
