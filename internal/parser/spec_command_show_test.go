@@ -42,10 +42,10 @@ func TestParseCmdLine_ShowUsesDefaultSubcommand(t *testing.T) {
 	}
 }
 
-func TestParseCmdLine_ShowTransactionRejectsMissingID(t *testing.T) {
+func TestParseCmdLine_ShowTransactionAllowsMissingID(t *testing.T) {
 	_, err := ParseAndValidateCmdLine([]string{"show", "transaction"}, config.GetDefaultConfig())
-	if err == nil || err.Message != "show requires an id" {
-		t.Fatalf("err = %v, want 'show requires an id'", err)
+	if err != nil {
+		t.Fatalf("err = %v, want nil (presence checked by handler)", err)
 	}
 }
 
@@ -59,10 +59,25 @@ func TestParseCmdLine_ShowTransactionRejectsIdentifierOnRight(t *testing.T) {
 	}
 }
 
-func TestParseCmdLine_ShowTransactionRejectsBareText(t *testing.T) {
-	_, err := ParseAndValidateCmdLine([]string{"show", "transaction", "2026.05.1"}, config.GetDefaultConfig())
-	if err == nil {
-		t.Fatal("ParseAndValidateCmdLine(show transaction 2026.05.1) expected error, got nil")
+func TestParseCmdLine_ShowTransactionAcceptsTextID(t *testing.T) {
+	for _, args := range [][]string{{"show", "transaction", "2026.05.1"}, {"show", "2026.05.1"}} {
+		parsed, err := ParseAndValidateCmdLine(args, config.GetDefaultConfig())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if parsed.Subcommand != "transaction" || len(parsed.Filters) != 0 || len(parsed.Args) != 1 {
+			t.Fatalf("parsed = %#v", parsed)
+		}
+		text, ok := parsed.Args[0].(ArgText)
+		if !ok || text.Text != "2026.05.1" {
+			t.Fatalf("arg = %#v", parsed.Args[0])
+		}
+	}
+}
+
+func TestParseCmdLine_ShowTransactionRejectsMultipleTextIDs(t *testing.T) {
+	if _, err := ParseAndValidateCmdLine([]string{"show", "transaction", "a", "b"}, config.GetDefaultConfig()); err == nil {
+		t.Fatal("expected error")
 	}
 }
 

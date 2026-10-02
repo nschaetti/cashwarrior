@@ -47,11 +47,12 @@ var budgetCommandSpec = createSubcommandAlias(
 
 var configCommandSpec = CommandSpec{
 	Name:              "config",
+	Description:       "Print, get or set configuration values",
 	DefaultSubcommand: "print",
 	Subcommands: subcommands(
-		SubcommandSpec{Name: "print", Left: emptySideSpec(), Right: emptySideSpec().WithArgs(0, 0)},
-		SubcommandSpec{Name: "get", Left: emptySideSpec(), Right: sideSpec([]ArgKind{ArgKindText}).WithArgs(1, 1).WithKindRule(ArgKindText, countRule(1, 1))},
-		SubcommandSpec{Name: "set", Left: emptySideSpec(), Right: sideSpec([]ArgKind{ArgKindText}).WithArgs(2, 2).WithKindRule(ArgKindText, CountRule{Min: 2, Max: 2})},
+		SubcommandSpec{Name: "print", Description: "Print the configuration values", Left: emptySideSpec(), Right: emptySideSpec().WithArgs(0, 0)},
+		SubcommandSpec{Name: "get", Description: "Get a configuration value", Left: emptySideSpec(), Right: sideSpec([]ArgKind{ArgKindText}).WithArgs(1, 1).WithKindRule(ArgKindText, countRule(1, 1))},
+		SubcommandSpec{Name: "set", Description: "Set a configuration value", Left: emptySideSpec(), Right: sideSpec([]ArgKind{ArgKindText}).WithArgs(2, 2).WithKindRule(ArgKindText, CountRule{Min: 2, Max: 2})},
 	),
 }
 
@@ -116,7 +117,8 @@ var restoreCommandSpec = CommandSpec{
 
 var summaryCommandSpec = CommandSpec{
 	Name:              "summary",
-	DefaultSubcommand: "",
+	Description:       "Summarize transactions by day",
+	DefaultSubcommand: "days",
 	Subcommands: subcommands(
 		SubcommandSpec{Name: "days", Left: transactionFilterSideSpec(), Right: transactionFilterSideSpec()},
 	),

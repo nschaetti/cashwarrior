@@ -2,6 +2,7 @@ package parser
 
 var showCommandSpec = CommandSpec{
 	Name:              "show",
+	Description:       "Show the details of a transaction",
 	DefaultSubcommand: "transaction",
 	Subcommands: subcommands(
 		SubcommandSpec{
@@ -10,9 +11,8 @@ var showCommandSpec = CommandSpec{
 				[]ArgKind{ArgKindAttribute},
 				settableOnlyAttribute("identifier").SetShapes(AttributeValueShapeSingle),
 			).
-				WithAttributeRule("identifier", atMostOne()).
-				WithAtLeastOneOf(PresenceRule{Kinds: []ArgKind{ArgKindAttribute}, Attributes: []string{"identifier"}, Message: "show requires an id"}),
-			Right: emptySideSpec().WithArgs(0, 0),
+				WithAttributeRule("identifier", atMostOne()),
+			Right: sideSpec([]ArgKind{ArgKindText}).WithArgs(0, 1).WithKindRule(ArgKindText, atMostOne()),
 		},
 		categoriesListSubcommandSpec("categories"),
 		accountsListSubcommandSpec("accounts"),

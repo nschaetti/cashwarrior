@@ -266,6 +266,23 @@ func TestShowDisplaysTransactionJSONWithIdentifierAttribute(t *testing.T) {
 	}
 }
 
+func TestShowDelegatesLists(t *testing.T) {
+	for _, tc := range []struct{ subcommand, title string }{{"accounts", "Accounts"}, {"categories", "Categories"}} {
+		t.Run(tc.subcommand, func(t *testing.T) {
+			cfg, cashDB := openTestDB(t)
+			defer cashDB.Close()
+			text := captureStdout(t, func() {
+				if err := Show(parser.ParsedCmdLine{Command: "show", Subcommand: tc.subcommand}, cfg, cashDB); err != nil {
+					t.Fatal(err)
+				}
+			})
+			if !strings.Contains(text, tc.title) {
+				t.Fatalf("output = %s", text)
+			}
+		})
+	}
+}
+
 func TestShowRejectsMissingIdentifier(t *testing.T) {
 	cfg, cashDB := openTestDB(t)
 	defer cashDB.Close()
