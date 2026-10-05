@@ -195,6 +195,14 @@ func ParseCmdLine(args []string, config config.Config) (ParsedCmdLine, *ParseErr
 	}
 
 	argsTokens, fErr := ExtractArgs(rawArgs, config)
+	// Keep the original config key:value form working alongside config set.
+	if command == "config" && subcommand == "print" && len(rawArgs) == 1 {
+		if key, value, found := strings.Cut(rawArgs[0], ":"); found && key != "" && value != "" {
+			subcommand = "set"
+			argsTokens = []Arg{ArgText{Raw: key, Text: key}, ArgText{Raw: value, Text: value}}
+			fErr = nil
+		}
+	}
 	if fErr != nil {
 		return ParsedCmdLine{}, &ParseError{
 			Code:    ParseErrorInvalidInput,

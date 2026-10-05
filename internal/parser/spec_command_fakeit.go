@@ -1,7 +1,7 @@
 package parser
 
 var fakeitCommandSpec = CommandSpec{
-	Name:              "fake-it",
+	Name:              "fakeit",
 	DefaultSubcommand: "transactions",
 	Subcommands: subcommands(
 		SubcommandSpec{Name: "transactions", Left: emptySideSpec(), Right: fakeitTransactionsRightSideSpec()},

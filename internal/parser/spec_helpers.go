@@ -74,11 +74,37 @@ func createSubcommandAlias(command CommandSpec, aliases []SubcommandAlias) Comma
 func defaultCommandSpec(name string) CommandSpec {
 	return CommandSpec{
 		Name:              name,
+		Description:       defaultCommandDescriptions[name],
 		DefaultSubcommand: "default",
 		Subcommands: subcommands(SubcommandSpec{
-			Name:  "default",
-			Left:  genericSideSpec(),
-			Right: genericSideSpec(),
+			Name:        "default",
+			Description: defaultSubcommandDescriptions[name],
+			Left:        genericSideSpec(),
+			Right:       genericSideSpec(),
 		}),
 	}
+}
+
+var defaultCommandDescriptions = map[string]string{
+	"balance":     "Show account balances",
+	"by":          "Group or analyze transactions",
+	"export":      "Export financial data",
+	"init":        "Initialize the Cashwarrior database",
+	"report":      "Generate a financial report",
+	"set-balance": "Set an account balance",
+	"stats":       "Show transaction statistics",
+	"sum":         "Calculate transaction totals",
+	"undo":        "Undo the last operation",
+}
+
+var defaultSubcommandDescriptions = map[string]string{
+	"balance":     "Show balances",
+	"by":          "Group transactions",
+	"export":      "Export data",
+	"init":        "Initialize the database",
+	"report":      "Generate a report",
+	"set-balance": "Set a balance",
+	"stats":       "Show statistics",
+	"sum":         "Calculate totals",
+	"undo":        "Undo the last operation",
 }

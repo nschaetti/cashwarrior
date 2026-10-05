@@ -51,8 +51,8 @@ func TestConfigDatabaseCreatesAndInitializesMissingDB(t *testing.T) {
 		withInput(t, "y\n", func() {
 			err := Config(parser.ParsedCmdLine{
 				Command:    "config",
-				Subcommand: "default",
-				Args: []parser.Arg{testStringAttribute("database:"+newDBPath, "database", newDBPath)},
+				Subcommand: "set",
+				Args:       []parser.Arg{testStringAttribute("database:"+newDBPath, "database", newDBPath)},
 			}, cfg, cashDB)
 			if err != nil {
 				t.Fatalf("Config returned error: %v", err)
@@ -97,8 +97,8 @@ func TestConfigDatabaseKeepsConfigWhenCreationDeclined(t *testing.T) {
 		withInput(t, "n\n", func() {
 			err := Config(parser.ParsedCmdLine{
 				Command:    "config",
-				Subcommand: "default",
-				Args: []parser.Arg{testStringAttribute("database:"+newDBPath, "database", newDBPath)},
+				Subcommand: "set",
+				Args:       []parser.Arg{testStringAttribute("database:"+newDBPath, "database", newDBPath)},
 			}, cfg, cashDB)
 			if err != nil {
 				t.Fatalf("Config returned error: %v", err)
@@ -129,8 +129,8 @@ func TestConfigBackupPeriodUpdatesConfig(t *testing.T) {
 
 		err := Config(parser.ParsedCmdLine{
 			Command:    "config",
-			Subcommand: "default",
-			Args: []parser.Arg{testStringAttribute("backup.period:2weeks", "backup.period", "2weeks")},
+			Subcommand: "set",
+			Args:       []parser.Arg{testStringAttribute("backup.period:2weeks", "backup.period", "2weeks")},
 		}, cfg, cashDB)
 		if err != nil {
 			t.Fatalf("Config returned error: %v", err)
@@ -146,6 +146,36 @@ func TestConfigBackupPeriodUpdatesConfig(t *testing.T) {
 	})
 }
 
+func TestConfigSetTextArgsAndGetValue(t *testing.T) {
+	tempHome := t.TempDir()
+	withHome(t, tempHome, func() {
+		cfg, cashDB := openTestDB(t)
+		defer cashDB.Close()
+		configPath := writeTestConfig(t, cfg)
+
+		err := Config(parser.ParsedCmdLine{
+			Command:    "config",
+			Subcommand: "set",
+			Args:       []parser.Arg{parser.ArgText{Raw: "gui.date_format", Text: "gui.date_format"}, parser.ArgText{Raw: "2006-01-02", Text: "2006-01-02"}},
+		}, cfg, cashDB)
+		if err != nil {
+			t.Fatalf("Config(set) returned error: %v", err)
+		}
+
+		savedCfg, err := config.LoadConfig(configPath)
+		if err != nil {
+			t.Fatalf("LoadConfig returned error: %v", err)
+		}
+		value, err := configValue(savedCfg, "gui.date_format")
+		if err != nil {
+			t.Fatalf("configValue returned error: %v", err)
+		}
+		if value != "2006-01-02" {
+			t.Fatalf("configValue = %q, want 2006-01-02", value)
+		}
+	})
+}
+
 func TestConfigBackupKeepRejectsNegative(t *testing.T) {
 	tempHome := t.TempDir()
 	withHome(t, tempHome, func() {
@@ -156,8 +186,8 @@ func TestConfigBackupKeepRejectsNegative(t *testing.T) {
 
 		err := Config(parser.ParsedCmdLine{
 			Command:    "config",
-			Subcommand: "default",
-			Args: []parser.Arg{testStringAttribute("backup.keep:-1", "backup.keep", "-1")},
+			Subcommand: "set",
+			Args:       []parser.Arg{testStringAttribute("backup.keep:-1", "backup.keep", "-1")},
 		}, cfg, cashDB)
 		if err == nil || err.Error() != "backup.keep must be >= 0" {
 			t.Fatalf("err = %v, want backup.keep must be >= 0", err)

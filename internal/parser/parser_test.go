@@ -278,7 +278,7 @@ func TestValidateParsedCmdLine(t *testing.T) {
 		Command:    "add",
 		Subcommand: "default",
 		Filters:    []Arg{},
-		Args:       []Arg{mustArg(t, "amount:" + "-12.50"), mustArg(t, "coffee"), mustArg(t, "store:coop")},
+		Args:       []Arg{mustArg(t, "amount:"+"-12.50"), mustArg(t, "coffee"), mustArg(t, "store:coop")},
 	}
 	if err := ValidateParsedCmdLine(valid); err != nil {
 		t.Fatalf("ValidateParsedCmdLine(valid) returned error: %v", err)
@@ -326,7 +326,7 @@ func TestValidateParsedCmdLine_AddCommandAllowsCurrentSyntax(t *testing.T) {
 		Command:    "add",
 		Subcommand: "default",
 		Args: []Arg{
-			mustArg(t, "amount:" + "-12.50"),
+			mustArg(t, "amount:"+"-12.50"),
 			mustArg(t, "coffee"),
 			mustArg(t, "@food"),
 			mustArg(t, "store:Coop"),
@@ -343,7 +343,7 @@ func TestValidateParsedCmdLine_AddCommandRequiresDescriptionText(t *testing.T) {
 		Command:    "add",
 		Subcommand: "default",
 		Args: []Arg{
-			mustArg(t, "amount:" + "-12.50"),
+			mustArg(t, "amount:"+"-12.50"),
 			mustArg(t, "account:cash"),
 		},
 	})
@@ -370,8 +370,8 @@ func TestValidateParsedCmdLine_AddCommandRejectsFilters(t *testing.T) {
 	parsed := ParsedCmdLine{
 		Command:    "add",
 		Subcommand: "default",
-		Filters:    []Arg{mustArg(t, "date:" + "today")},
-		Args:       []Arg{mustArg(t, "amount:" + "-12.50")},
+		Filters:    []Arg{mustArg(t, "date:"+"today")},
+		Args:       []Arg{mustArg(t, "amount:"+"-12.50")},
 	}
 	err := ValidateParsedCmdLine(parsed)
 	if err == nil {
@@ -387,7 +387,7 @@ func TestValidateParsedCmdLine_AddCommandRejectsUnsupportedAttribute(t *testing.
 		Command:    "add",
 		Subcommand: "default",
 		Args: []Arg{
-			mustArg(t, "amount:" + "-12.50"),
+			mustArg(t, "amount:"+"-12.50"),
 			mustArg(t, "from:cash"),
 		},
 	}
@@ -414,7 +414,7 @@ func TestValidateParsedCmdLine_TransferCommandAllowsCurrentSyntax(t *testing.T) 
 		Command:    "transfer",
 		Subcommand: "add",
 		Args: []Arg{
-			mustArg(t, "amount:" + "+100"),
+			mustArg(t, "amount:"+"+100"),
 			mustArg(t, "from:cash"),
 			mustArg(t, "to:bank"),
 			mustArg(t, "rent"),
@@ -444,7 +444,7 @@ func TestValidateParsedCmdLine_TransferRequiresFromAndTo(t *testing.T) {
 		Command:    "transfer",
 		Subcommand: "default",
 		Args: []Arg{
-			mustArg(t, "amount:" + "+100"),
+			mustArg(t, "amount:"+"+100"),
 			mustArg(t, "from:cash"),
 		},
 	})
@@ -592,7 +592,7 @@ func TestValidateParsedCmdLine_SummaryDaysAllowsTransactionFilters(t *testing.T)
 		Command:    "summary",
 		Subcommand: "days",
 		Filters: []Arg{
-			mustArg(t, "date:" + "month"),
+			mustArg(t, "date:"+"month"),
 			mustArg(t, "account:main"),
 			mustArg(t, "identifier:2026.05.1"),
 		},
@@ -606,7 +606,7 @@ func TestValidateParsedCmdLine_SummaryDaysAllowsRightSideFilters(t *testing.T) {
 	err := ValidateParsedCmdLine(ParsedCmdLine{
 		Command:    "summary",
 		Subcommand: "days",
-		Filters:    []Arg{mustArg(t, "date:" + "month")},
+		Filters:    []Arg{mustArg(t, "date:"+"month")},
 		Args:       []Arg{mustArg(t, "account:main")},
 	})
 	if err != nil {
@@ -732,7 +732,7 @@ func TestValidateParsedCmdLine_FakeitCommandRejectsFilters(t *testing.T) {
 	err := ValidateParsedCmdLine(ParsedCmdLine{
 		Command:    "fakeit",
 		Subcommand: "transactions",
-		Filters:    []Arg{mustArg(t, "date:" + "today")},
+		Filters:    []Arg{mustArg(t, "date:"+"today")},
 	})
 	if err == nil {
 		t.Fatal("ValidateParsedCmdLine(fakeit filters) expected error, got nil")
@@ -780,11 +780,35 @@ func TestValidateParsedCmdLine_ConfigRejectsFilters(t *testing.T) {
 	err := ValidateParsedCmdLine(ParsedCmdLine{
 		Command:    "config",
 		Subcommand: "set",
-		Filters:    []Arg{mustArg(t, "date:" + "today")},
+		Filters:    []Arg{mustArg(t, "date:"+"today")},
 		Args:       []Arg{mustArg(t, "gui.theme"), mustArg(t, "neon-noir")},
 	})
 	if err == nil {
 		t.Fatal("ValidateParsedCmdLine(config filters) expected error, got nil")
+	}
+}
+
+func TestParseAndValidateConfigSetGetAndLegacySyntax(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		wantSub   string
+		wantCount int
+	}{
+		{name: "set", args: []string{"config", "set", "gui.date_format", "2006-01-02"}, wantSub: "set", wantCount: 2},
+		{name: "get", args: []string{"config", "get", "gui.date_format"}, wantSub: "get", wantCount: 1},
+		{name: "legacy", args: []string{"config", "database:/data/cashwarrior/cash.db"}, wantSub: "set", wantCount: 2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parsed, err := ParseAndValidateCmdLine(test.args, config.GetDefaultConfig())
+			if err != nil {
+				t.Fatalf("ParseAndValidateCmdLine returned error: %v", err)
+			}
+			if parsed.Subcommand != test.wantSub || len(parsed.Args) != test.wantCount {
+				t.Fatalf("parsed = (%q, %d args), want (%q, %d args)", parsed.Subcommand, len(parsed.Args), test.wantSub, test.wantCount)
+			}
+		})
 	}
 }
 
@@ -861,7 +885,7 @@ func TestValidateParsedCmdLine_AddRejectsDuplicateSingletonAttribute(t *testing.
 		Command:    "add",
 		Subcommand: "default",
 		Args: []Arg{
-			mustArg(t, "amount:" + "-12.50"),
+			mustArg(t, "amount:"+"-12.50"),
 			mustArg(t, "coffee"),
 			mustArg(t, "account:cash"),
 			mustArg(t, "account:bank"),
@@ -876,7 +900,7 @@ func TestValidateParsedCmdLine_ThemeRejectsFilters(t *testing.T) {
 	err := ValidateParsedCmdLine(ParsedCmdLine{
 		Command:    "theme",
 		Subcommand: "default",
-		Filters:    []Arg{mustArg(t, "date:" + "today")},
+		Filters:    []Arg{mustArg(t, "date:"+"today")},
 		Args:       []Arg{mustArg(t, "neon-noir")},
 	})
 	if err == nil {
