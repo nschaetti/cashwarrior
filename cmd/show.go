@@ -123,6 +123,18 @@ func getShowIdentifier(parsed parser.ParsedCmdLine) (string, error) {
 }
 
 func Show(parsed parser.ParsedCmdLine, cfg config.Config, query db.DBTX) error {
+	switch parsed.Subcommand {
+	case "categories":
+		delegated := parsed
+		delegated.Command = "categories"
+		delegated.Subcommand = "list"
+		return Categories(delegated, cfg, query)
+	case "accounts":
+		delegated := parsed
+		delegated.Command = "accounts"
+		delegated.Subcommand = "list"
+		return Accounts(delegated, cfg, query)
+	}
 	identifier, err := getShowIdentifier(parsed)
 	if err != nil {
 		return err

@@ -16,6 +16,7 @@ import (
 	"github.com/pterm/pterm"
 )
 
+<<<<<<< HEAD
 func printConfigHelp() {
 	fmt.Println()
 	fmt.Println("Usage:")
@@ -36,6 +37,19 @@ func printConfigHelp() {
 	fmt.Println("  backup.period           day, 2days, week, 2weeks, month, 2months, ...")
 	fmt.Println("  backup.keep             Number of backup files to keep")
 	fmt.Println()
+=======
+func configValues(cfg config.Config) map[string]any {
+	return map[string]any{
+		"database":          cfg.Database,
+		"default.currency":  cfg.Default.Currency,
+		"default.account":   cfg.Default.Account,
+		"gui.date_format":   cfg.Display.DateFormat,
+		"gui.show_currency": cfg.Display.ShowCurrency,
+		"gui.theme":         cfg.Display.Theme,
+		"backup.period":     cfg.Backup.Period,
+		"backup.keep":       cfg.Backup.Keep,
+	}
+>>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 }
 
 func ensureDatabasePath(cfg config.Config, dbPath string) error {
@@ -71,14 +85,33 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 		return err
 	}
 
+<<<<<<< HEAD
 	if parsed.Subcommand == "print" {
 		fmt.Printf("database: %s\ndefault.currency: %s\ndefault.account: %s\ngui.date_format: %s\ngui.show_currency: %t\ngui.theme: %s\ngui.show_header: %t\ngui.show_info: %t\nbackup.period: %s\nbackup.keep: %d\n",
 			cfg.Database, cfg.Default.Currency, cfg.Default.Account, cfg.Display.DateFormat,
 			cfg.Display.ShowCurrency, cfg.Display.Theme, cfg.Display.ShowHeader, cfg.Display.ShowInfo,
 			cfg.Backup.Period, cfg.Backup.Keep)
 		return nil
+=======
+	switch parsed.Subcommand {
+	case "get":
+		return getConfigValue(parsed, cfg)
+	case "set":
+		return setConfigValue(parsed, &cfg, configPath, parsed.Args[0].RawString(), parsed.Args[1].RawString(), cashDb)
+	default:
+		if len(parsed.Args) == 0 {
+			return printConfig(parsed, cfg)
+		}
+		attr, ok := parsed.Args[0].(parser.ArgAttribute)
+		if !ok {
+			return fmt.Errorf("config key must be an attribute")
+		}
+		return setConfigValue(parsed, &cfg, configPath, attr.Key, attr.Value.Raw, cashDb)
+>>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 	}
+}
 
+<<<<<<< HEAD
 	if parsed.Subcommand == "get" {
 		if len(parsed.Args) != 1 {
 			return fmt.Errorf("usage: cash config get <key>")
@@ -118,8 +151,14 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 	switch key {
 	case "database":
 		dbPath := utils.ExpandPath(rawValue)
+=======
+func applyConfigValue(cfg *config.Config, key, value string, cashDb db.DBTX) error {
+	switch key {
+	case "database":
+		dbPath := utils.ExpandPath(value)
+>>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 		previousPath := cfg.Database
-		if err := ensureDatabasePath(cfg, dbPath); err != nil {
+		if err := ensureDatabasePath(*cfg, dbPath); err != nil {
 			return err
 		}
 		if _, statErr := os.Stat(dbPath); statErr == nil {
@@ -131,6 +170,7 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 		}
 
 	case "default.currency":
+<<<<<<< HEAD
 		if strings.TrimSpace(rawValue) == "" {
 			return fmt.Errorf("default.currency cannot be empty")
 		}
@@ -149,6 +189,26 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 	case "gui.date_format":
 		v := rawValue
 		required := []string{"2006", "01", "02"}
+=======
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("default.currency cannot be empty")
+		}
+		cfg.Default.Currency = value
+
+	case "default.account":
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("default.account cannot be empty")
+		}
+		_, err := db.GetAccountByName(cashDb, value)
+		if err != nil {
+			return fmt.Errorf("account does not exist: %s", value)
+		}
+		cfg.Default.Account = value
+
+	case "gui.date_format":
+		v := value
+		required := []string{"2006", "01", "02", "15", "04"}
+>>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 		for _, token := range required {
 			if !strings.Contains(v, token) {
 				return fmt.Errorf("invalid gui.date_format: must contain 2006, 01 and 02")
@@ -157,7 +217,11 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 		cfg.Display.DateFormat = v
 
 	case "gui.show_currency":
+<<<<<<< HEAD
 		v, parseErr := strconv.ParseBool(rawValue)
+=======
+		v, parseErr := strconv.ParseBool(value)
+>>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 		if parseErr != nil {
 			return fmt.Errorf("invalid gui.show_currency: expected boolean")
 		}
@@ -176,6 +240,7 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 		cfg.Display.ShowInfo = v
 
 	case "gui.theme":
+<<<<<<< HEAD
 		if !gui.ThemeExists(rawValue) {
 			themes := gui.ThemeNames()
 			sort.Strings(themes)
@@ -185,12 +250,27 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 
 	case "backup.period":
 		cfg.Backup.Period = rawValue
+=======
+		if !gui.ThemeExists(value) {
+			themes := gui.ThemeNames()
+			sort.Strings(themes)
+			return fmt.Errorf("unknown theme %q (available: %s)", value, strings.Join(themes, ", "))
+		}
+		cfg.Display.Theme = value
+
+	case "backup.period":
+		cfg.Backup.Period = value
+>>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 		if err := backup.ValidateConfig(cfg.Backup); err != nil {
 			return err
 		}
 
 	case "backup.keep":
+<<<<<<< HEAD
 		keep, parseErr := strconv.Atoi(rawValue)
+=======
+		keep, parseErr := strconv.Atoi(value)
+>>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 		if parseErr != nil {
 			return fmt.Errorf("invalid backup.keep: expected integer")
 		}
@@ -202,12 +282,73 @@ func Config(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 	default:
 		return fmt.Errorf("unknown config key: %s", key)
 	}
+<<<<<<< HEAD
 
 	if err = config.SaveConfig(configPath, cfg); err != nil {
 		return err
 	}
 
 	pterm.Success.Println("Config updated: " + key + "=" + rawValue)
+=======
+	return nil
+}
+
+func setConfigValue(parsed parser.ParsedCmdLine, cfg *config.Config, configPath, key, value string, cashDb db.DBTX) error {
+	if err := requireYesForJSON(parsed); err != nil {
+		return err
+	}
+	if key == "database" && isJSONOutput(parsed) {
+		info, err := os.Stat(utils.ExpandPath(value))
+		if err != nil || info.IsDir() {
+			return fmt.Errorf("database file does not exist: %s", value)
+		}
+	}
+	previousDatabase := cfg.Database
+	if err := applyConfigValue(cfg, key, value, cashDb); err != nil {
+		return err
+	}
+	if key == "database" && cfg.Database == previousDatabase {
+		if _, err := os.Stat(utils.ExpandPath(value)); os.IsNotExist(err) {
+			return nil
+		}
+	}
+	if err := config.SaveConfig(configPath, *cfg); err != nil {
+		return err
+	}
+	if isJSONOutput(parsed) {
+		return renderJSON("config", map[string]any{"action": "set", "key": key, "value": value}, 1)
+	}
+	pterm.Success.Println("Config updated: " + key + "=" + value)
+	return nil
+}
+
+func printConfig(parsed parser.ParsedCmdLine, cfg config.Config) error {
+	values := configValues(cfg)
+	if isJSONOutput(parsed) {
+		return renderJSON("config", values, len(values))
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		fmt.Printf("%s = %v\n", key, values[key])
+	}
+	return nil
+}
+
+func getConfigValue(parsed parser.ParsedCmdLine, cfg config.Config) error {
+	key := parsed.Args[0].RawString()
+	value, ok := configValues(cfg)[key]
+	if !ok {
+		return fmt.Errorf("unknown config key: %s", key)
+	}
+	if isJSONOutput(parsed) {
+		return renderJSON("config", map[string]any{key: value}, 1)
+	}
+	fmt.Printf("%s = %v\n", key, value)
+>>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 	return nil
 }
 

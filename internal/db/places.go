@@ -9,6 +9,20 @@ type Place struct {
 	UpdatedAt time.Time
 }
 
+// CountTransactionsByPlaceID returns the number of transactions referencing the given place.
+func CountTransactionsByPlaceID(db DBTX, placeID int64) (int, error) {
+	var count int
+	err := db.QueryRow(`SELECT COUNT(*) FROM transactions WHERE place_id = ?`, placeID).Scan(&count)
+	return count, err
+}
+
+// DeleteStoreByID permanently removes the place with the given id.
+// Callers must ensure that no transaction still references the place.
+func DeleteStoreByID(db DBTX, placeID int64) error {
+	_, err := db.Exec(`DELETE FROM places WHERE id = ?`, placeID)
+	return err
+}
+
 type PlaceListFilter struct {
 	ID       *int64
 	NameLike string

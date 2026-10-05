@@ -570,20 +570,20 @@ func TestParseCmdLine_StoresDefaultSubcommand(t *testing.T) {
 	}
 }
 
-func TestParseCmdLine_SummaryHasNoDefaultSubcommand(t *testing.T) {
+func TestParseCmdLine_SummaryUsesDefaultSubcommand(t *testing.T) {
 	parsed, err := ParseCmdLine([]string{"summary"}, config.GetDefaultConfig())
 	if err != nil {
 		t.Fatalf("ParseCmdLine returned error: %v", err)
 	}
-	if parsed.Subcommand != "" {
-		t.Fatalf("parsed.Subcommand = %q, want empty", parsed.Subcommand)
+	if parsed.Subcommand != "days" {
+		t.Fatalf("parsed.Subcommand = %q, want days", parsed.Subcommand)
 	}
 }
 
-func TestValidateParsedCmdLine_SummaryRequiresSubcommand(t *testing.T) {
-	err := ValidateParsedCmdLine(ParsedCmdLine{Command: "summary", Subcommand: ""})
+func TestValidateParsedCmdLine_SummaryRejectsUnknownSubcommand(t *testing.T) {
+	err := ValidateParsedCmdLine(ParsedCmdLine{Command: "summary", Subcommand: "weeks"})
 	if err == nil {
-		t.Fatal("ValidateParsedCmdLine(summary no subcommand) expected error, got nil")
+		t.Fatal("ValidateParsedCmdLine(summary weeks) expected error, got nil")
 	}
 }
 

@@ -12,11 +12,14 @@ import (
 	"github.com/nschaetti/cashwarrior/internal/gui"
 	"github.com/nschaetti/cashwarrior/internal/output"
 	"github.com/nschaetti/cashwarrior/internal/parser"
+	"github.com/nschaetti/cashwarrior/internal/utils"
 )
+
+const transferPlaceName = "transfer"
 
 func Places(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error {
 	switch parsed.Subcommand {
-	case "list":
+	case "list", "ls":
 		format, err := commandOutputFormat(parsed)
 		if err != nil {
 			return err
@@ -29,11 +32,75 @@ func Places(parsed parser.ParsedCmdLine, _ config.Config, cashDb db.DBTX) error 
 			return renderJSON("places", data, len(data.Places))
 		}
 		return listPlaces(cashDb)
-	case "rename":
+	case "add":
+		return addPlace(parsed, cashDb)
+	case "rename", "rn":
 		return renamePlace(parsed, cashDb)
+	case "delete", "rm":
+		return deletePlace(parsed, cashDb)
 	default:
 		return fmt.Errorf("unknown places subcommand %s", parsed.Subcommand)
 	}
+}
+
+func addPlace(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
+	if err := requireYesForJSON(parsed); err != nil {
+		return err
+	}
+	name := strings.TrimSpace(parsed.Args[0].RawString())
+	if name == "" {
+		return fmt.Errorf("place name cannot be empty")
+	}
+	exists, err := db.PlaceExists(cashDb, name)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("place %s already exists", name)
+	}
+	if _, err := db.InsertStore(cashDb, db.CreatePlaceInput{Name: name}); err != nil {
+		return err
+	}
+	if isJSONOutput(parsed) {
+		return renderJSON("place", map[string]any{"action": "created", "name": name}, 1)
+	}
+	fmt.Printf("Place %s created\n", name)
+	return nil
+}
+
+func deletePlace(parsed parser.ParsedCmdLine, cashDb db.DBTX) error {
+	if err := requireYesForJSON(parsed); err != nil {
+		return err
+	}
+	name := strings.TrimSpace(parsed.Args[0].RawString())
+	if name == transferPlaceName {
+		return fmt.Errorf("place transfer is required by transfers and cannot be deleted")
+	}
+	place, err := db.GetStoreByName(cashDb, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("place %s does not exist", name)
+	}
+	if err != nil {
+		return err
+	}
+	count, err := db.CountTransactionsByPlaceID(cashDb, place.ID)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("place %s has linked transactions", name)
+	}
+	if !parsed.HasFlag("yes") && !utils.AskYesNo(fmt.Sprintf("Delete place %s?", name)) {
+		return nil
+	}
+	if err := db.DeleteStoreByID(cashDb, place.ID); err != nil {
+		return err
+	}
+	if isJSONOutput(parsed) {
+		return renderJSON("place", map[string]any{"action": "deleted", "name": name}, 1)
+	}
+	fmt.Printf("Place %s deleted\n", name)
+	return nil
 }
 
 func listPlaces(cashDb db.DBTX) error {
