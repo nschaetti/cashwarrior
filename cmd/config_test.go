@@ -157,11 +157,7 @@ func TestConfigDatabaseCreatesAndInitializesMissingDB(t *testing.T) {
 		withInput(t, "y\n", func() {
 			err := Config(parser.ParsedCmdLine{
 				Command:    "config",
-<<<<<<< HEAD
 				Subcommand: "set",
-=======
-				Subcommand: "default",
->>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 				Args:       []parser.Arg{testStringAttribute("database:"+newDBPath, "database", newDBPath)},
 			}, cfg, cashDB)
 			if err != nil {
@@ -207,11 +203,7 @@ func TestConfigDatabaseKeepsConfigWhenCreationDeclined(t *testing.T) {
 		withInput(t, "n\n", func() {
 			err := Config(parser.ParsedCmdLine{
 				Command:    "config",
-<<<<<<< HEAD
 				Subcommand: "set",
-=======
-				Subcommand: "default",
->>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 				Args:       []parser.Arg{testStringAttribute("database:"+newDBPath, "database", newDBPath)},
 			}, cfg, cashDB)
 			if err != nil {
@@ -243,11 +235,7 @@ func TestConfigBackupPeriodUpdatesConfig(t *testing.T) {
 
 		err := Config(parser.ParsedCmdLine{
 			Command:    "config",
-<<<<<<< HEAD
 			Subcommand: "set",
-=======
-			Subcommand: "default",
->>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 			Args:       []parser.Arg{testStringAttribute("backup.period:2weeks", "backup.period", "2weeks")},
 		}, cfg, cashDB)
 		if err != nil {
@@ -284,12 +272,8 @@ func TestConfigSetTextArgsAndGetValue(t *testing.T) {
 		if err != nil {
 			t.Fatalf("LoadConfig returned error: %v", err)
 		}
-		value, err := configValue(savedCfg, "gui.date_format")
-		if err != nil {
-			t.Fatalf("configValue returned error: %v", err)
-		}
-		if value != "2006-01-02" {
-			t.Fatalf("configValue = %q, want 2006-01-02", value)
+		if savedCfg.Display.DateFormat != "2006-01-02" {
+			t.Fatalf("savedCfg.Display.DateFormat = %q, want 2006-01-02", savedCfg.Display.DateFormat)
 		}
 	})
 }
@@ -304,11 +288,7 @@ func TestConfigBackupKeepRejectsNegative(t *testing.T) {
 
 		err := Config(parser.ParsedCmdLine{
 			Command:    "config",
-<<<<<<< HEAD
 			Subcommand: "set",
-=======
-			Subcommand: "default",
->>>>>>> 0f5b2e4b00ad8bb38f235429b4bb9db6bd8b606d
 			Args:       []parser.Arg{testStringAttribute("backup.keep:-1", "backup.keep", "-1")},
 		}, cfg, cashDB)
 		if err == nil || err.Error() != "backup.keep must be >= 0" {
